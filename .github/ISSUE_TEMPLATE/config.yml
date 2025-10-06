@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💡 Suggest a new feature
+    url: https://github.com/aharris01/BiometricGaitDashboard/issues/new?template=story.md
+    about: Propose a new user story or feature
+  - name: 🧩 Start a new Epic
+    url: https://github.com/aharris01/BiometricGaitDashboard/issues/new?template=epic.md
+    about: Create a new Epic to group stories and spikes
+  - name: 🔬 Open a Spike
+    url: https://github.com/aharris01/BiometricGaitDashboard/issues/new?template=spike.md
+    about: Create a Spike to research or explore an unknown area
