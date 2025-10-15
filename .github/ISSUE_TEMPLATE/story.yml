@@ -1,0 +1,33 @@
+name: Story
+description: User-facing feature that delivers value within a sprint
+title: "[Story]: "
+labels: ["type:story"]
+projects: ["aharris01/2"]
+body:
+  - type: textarea
+    id: user_story
+    attributes:
+      label: User Story
+      description: As a <user>, I want <goal> so that <benefit>.
+      placeholder: "As a researcher, I want to view a summary of a single swipe event so that I can assess the quality of footstep extraction parameters."
+    validations:
+      required: true
+  - type: dropdown
+    id: epic
+    attributes:
+      label: Epic
+      description: Select the Epic this Story belongs to (will also be set on the Project field by automation).
+      options:
+        - Dataset Exploration
+        - Dataset Access
+        - Swipe Summary
+        - Data Quality and Labeling
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Concrete checks a reviewer can run.
+      placeholder: "- [ ] User can select a swipe\n- [ ] Summary loads <2s\n- [ ] ...\n"
