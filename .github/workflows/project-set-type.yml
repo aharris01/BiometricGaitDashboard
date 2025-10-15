@@ -28,7 +28,7 @@ jobs:
           project-url: https://github.com/users/aharris01/projects/2
           item-id: ${{ steps.add-project.outputs.itemId }}
           # Field to update:
-          field-keys: Type
+          field-keys: Type,Status
           # Option name to set (derive from labels present)
           field-values: >
             ${{
@@ -36,4 +36,8 @@ jobs:
               contains(toJson(github.event.issue.labels), 'type:story') && 'Story' ||
               contains(toJson(github.event.issue.labels), 'type:task') && 'Task' ||
               contains(toJson(github.event.issue.labels), 'type:spike') && 'Spike' || 'Story'
-            }}
+            }},${{
+              contains(toJson(github.event.issue.labels), 'type:epic') && 'Epics' ||
+              contains(toJson(github.event.issue.labels), 'type:story') && 'Backlog' ||
+              contains(toJson(github.event.issue.labels), 'type:task') && 'To Do' ||
+              contains(toJson(github.event.issue.labels), 'type:spike') && 'To Do' || 'Backlog'}}
