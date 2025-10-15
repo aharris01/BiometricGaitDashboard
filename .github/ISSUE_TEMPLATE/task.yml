@@ -1,0 +1,41 @@
+name: Task
+description: Technical work item that implements part of a Story
+title: "[Task]: "
+labels: ["type:task"]
+projects: ["aharris01/2"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What needs to be done?
+      placeholder: "Create `/api/swipe/:id/summary` endpoint returning normalized JSON..."
+    validations:
+      required: true
+  - type: input
+    id: parent_story
+    attributes:
+      label: Parent Story (issue number or link)
+      description: If this is a sub-issue of a Story/Epic, paste it here (e.g., \#123).
+      placeholder: "#123"
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component / Layer
+      options:
+        - Frontend
+        - Backend
+        - Database
+        - DevOps
+        - QA/Testing
+    validations:
+      required: true
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (optional)
+      placeholder: "3 pts or 1d"
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Done When
+      placeholder: "- [ ] Unit tests added\n- [ ] API documented\n- [ ] ..."
