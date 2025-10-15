@@ -1,8 +1,10 @@
 ---
-name: "Spike"
-about: "Use for research, investigation, or prototyping tasks"
-title: "Spike: <short description>"
-labels: ["Spike"]
+name: Spike
+about: Use for research, investigation, or prototyping tasks
+title: "[Spike] <short description>"
+labels: ''
+assignees: ''
+
 ---
 
 ## Goal
@@ -18,9 +20,3 @@ _Why is this spike needed? What context or decision is unclear?_
 
 ## Expected Output
 _What deliverables will this spike produce (document, prototype, recommendation, etc.)?_
-
-## Definition of Done
-_When this spike is considered complete (e.g., findings documented, decision made)._
-
-## Linked Epic
-_If applicable, reference the parent epic (e.g., #5)._

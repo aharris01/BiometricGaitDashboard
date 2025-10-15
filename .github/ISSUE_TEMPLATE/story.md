@@ -1,8 +1,10 @@
 ---
-name: "User Story"
-about: "A single, actionable user-facing feature"
-title: "Story: <short feature description>"
-labels: ["Story"]
+name: Story
+about: A single, actionable user-facing feature
+title: "[Story] <short feature description>"
+labels: ''
+assignees: ''
+
 ---
 
 ## User Story
@@ -26,9 +28,3 @@ _Break the story into smaller tasks if needed._
 
 - [ ] ...
 - [ ] ...
-
-## Definition of Done
-_When this story is considered complete (e.g., reviewed, tested, merged)._
-
-## Linked Epic
-_If applicable, reference the parent epic (e.g., #12)._
