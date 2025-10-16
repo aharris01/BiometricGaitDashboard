@@ -6,6 +6,8 @@ from flask_cors import CORS
 import dash
 from dash import html, dcc
 import pandas as pd
+from dotenv import load_dotenv
+load_dotenv()  # loads variables from backend/.env
 
 # --- Config ---
 UNB_HOST = os.environ.get("UNB_HOST", "lambda.int.unb.ca")
