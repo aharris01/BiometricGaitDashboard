@@ -1,0 +1,43 @@
+name: Set Project Type on new issues
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+  repository-projects: write
+
+jobs:
+  set-type:
+    if: github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/aharris01/projects/2
+          github-token: ${{ secrets.GH_PROJECT_ACCESS }}
+        id: add-project
+
+      - name: Map label → Project "Type" field
+        uses: titoportas/update-project-fields@v0.1.0
+        with:
+          github-token: ${{ secrets.GH_PROJECT_ACCESS }}
+          # Project (org or user) + number:
+          project-url: https://github.com/users/aharris01/projects/2
+          item-id: ${{ steps.add-project.outputs.itemId }}
+          # Field to update:
+          field-keys: Type,Status
+          # Option name to set (derive from labels present)
+          field-values: >
+            ${{
+              contains(toJson(github.event.issue.labels), 'type:epic') && 'Epic' ||
+              contains(toJson(github.event.issue.labels), 'type:story') && 'Story' ||
+              contains(toJson(github.event.issue.labels), 'type:task') && 'Task' ||
+              contains(toJson(github.event.issue.labels), 'type:spike') && 'Spike' || 'Story'
+            }},${{
+              contains(toJson(github.event.issue.labels), 'type:epic') && 'Epics' ||
+              contains(toJson(github.event.issue.labels), 'type:story') && 'Backlog' ||
+              contains(toJson(github.event.issue.labels), 'type:task') && 'To Do' ||
+              contains(toJson(github.event.issue.labels), 'type:spike') && 'To Do' || 'Backlog'}}
