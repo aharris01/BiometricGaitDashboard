@@ -1,31 +1,23 @@
-## Steps to Access the Cyber Center Dataset
-### 1. Connect to the Server (use UNB VPN)
-- Connect to UNB VPN first.
-- Open a terminal and run
-  ```bash
-  ssh <username>@lambda.int.unb.ca
-  ```
-- Enter the temporary password
-### 2. Change Password
-- run this command to change password.
-  ```bash
-  passwd
-  ```
-- Enter the old password once, then type new password twice.
-### 3. Dataset Access
-- see dataset contents:
-  ```bash
-  ls /home/cc-data/cc
-  ```
-- move into the data folder:
-  ```bash
-  cd /home/cc-data/cc
-  ```
-- inspect file details:
-  ```bash
-  ls -lh
-  ```
-- preview a text file:
-  ```bash
-  head filename.txt
-  ```
+#### Backend (Python: Flask + Dash)
+- Install Python
+- In a terminal, go to `backend/`
+- Install deps: `pip install -r requirements.txt` or `pip install flask flask-cors dash pandas paramiko PyJWT python-dotenv`
+- Create `backend/.env`:
+```bash
+JWT_SECRET=change-me-strong
+UNB_HOST=lambda.int.unb.ca
+UNB_PORT=22
+```
+- Run server: `python app.py` (backend runs at 127.0.0.1:8000)
+
+#### Frontend (React + Vite)
+- Install Node.js
+- In a terminal, go to `frontend/`
+- Install deps: `npm i`
+- Run server: `npm run dev` (frontend runs at http://localhost:5173)
+
+#### Demo/Testing
+- In a browser, open `http://localhost:5173/login`
+- Username: your name
+- Password: your password
+- On success, you will be redirected to `/dataset`
