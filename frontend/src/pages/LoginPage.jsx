@@ -21,9 +21,9 @@ export default function LoginPage(){
 
   return (
     <div style={{maxWidth:420, margin:"64px auto", padding:24, border:"1px solid #ddd", borderRadius:12}}>
-      <h1>UNB Login</h1>
+      <h1>UNB Lambda Server Login</h1>
       <form onSubmit={submit} style={{display:"grid", gap:12}}>
-        <input placeholder="UNB username" value={id} onChange={e=>setId(e.target.value)} required />
+        <input placeholder="username" value={id} onChange={e=>setId(e.target.value)} required />
         <input type="password" placeholder="Password" value={pw} onChange={e=>setPw(e.target.value)} required />
         <button type="submit">Sign in</button>
       </form>
