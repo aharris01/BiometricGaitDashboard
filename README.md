@@ -1,4 +1,3 @@
-
 #### Backend (Python: Flask + Dash)
 - Install Python
 - In a terminal, go to `backend/`

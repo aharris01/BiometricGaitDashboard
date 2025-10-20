@@ -7,6 +7,7 @@ import dash
 from dash import html, dcc
 import pandas as pd
 from dotenv import load_dotenv
+
 load_dotenv()  # loads variables from backend/.env
 
 # --- Config ---
@@ -17,12 +18,24 @@ JWT_ISS = "engg4000-auth"
 JWT_EXP_SECONDS = 3600
 
 server = Flask(__name__)
-CORS(server)
+CORS(
+    server,
+    resources={
+        r"/api/*": {"origins": ["http://localhost:5173"]},
+        r"/dash.*": {"origins": ["http://localhost:5173"]},
+    },
+)
 
 # --- Auth helpers ---
 def issue_token(sub: str):
     now = int(time.time())
-    payload = {"sub": sub, "iss": JWT_ISS, "iat": now, "exp": now + JWT_EXP_SECONDS, "scope": ["dataset:read"]}
+    payload = {
+        "sub": sub,
+        "iss": JWT_ISS,
+        "iat": now,
+        "exp": now + JWT_EXP_SECONDS,
+        "scope": ["dataset:read"],
+    }
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 def require_auth(f):
@@ -42,7 +55,7 @@ def require_auth(f):
 # --- Health (open) ---
 @server.get("/api/health")
 def health():
-    return jsonify({"status":"ok"})
+    return jsonify({"status": "ok"})
 
 # --- SSH login against UNB lambda host; returns JWT on success ---
 @server.post("/auth/unb-login")
@@ -51,21 +64,28 @@ def unb_login():
     username = (data.get("id") or "").strip()
     password = data.get("password") or ""
     if not username or not password:
-        return jsonify({"error":"Missing credentials"}), 400
-
+        return jsonify({"error": "Missing credentials"}), 400
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         client.connect(
-            hostname=UNB_HOST, port=UNB_PORT, username=username, password=password,
-            look_for_keys=False, allow_agent=False, timeout=6, auth_timeout=6, banner_timeout=6
+            hostname=UNB_HOST,
+            port=UNB_PORT,
+            username=username,
+            password=password,
+            look_for_keys=False,
+            allow_agent=False,
+            timeout=6,
+            auth_timeout=6,
+            banner_timeout=6,
         )
     except Exception:
-        return jsonify({"error":"Invalid username or password"}), 401
+        return jsonify({"error": "Invalid username or password"}), 401
     finally:
-        try: client.close()
-        except Exception: pass
-
+        try:
+            client.close()
+        except Exception:
+            pass
     token = issue_token(username)
     return jsonify({"token": token})
 
@@ -73,15 +93,17 @@ def unb_login():
 @server.get("/api/samples")
 @require_auth
 def samples():
-    df = pd.DataFrame({"id":[1,2,3], "name":["A","B","C"], "value":[10,20,30]})
+    df = pd.DataFrame({"id": [1, 2, 3], "name": ["A", "B", "C"], "value": [10, 20, 30]})
     return jsonify(df.to_dict(orient="records"))
 
 # --- Optional Dash page ---
 dash_app = dash.Dash(__name__, server=server, url_base_pathname="/dash/")
-dash_app.layout = html.Div([
-    html.H2("Dash diagnostics"),
-    dcc.Markdown("Backend is up; try GET /api/health and POST /auth/unb-login.")
-])
+dash_app.layout = html.Div(
+    [
+        html.H2("Dash diagnostics"),
+        dcc.Markdown("Backend is up; try GET /api/health and POST /auth/unb-login."),
+    ]
+)
 
 if __name__ == "__main__":
     # set envs before running in dev if you want:

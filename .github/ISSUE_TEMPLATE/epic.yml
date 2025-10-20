@@ -1,0 +1,20 @@
+name: Epic
+description: High-level objective grouping multiple user stories
+title: "[Epic]: "
+labels: ["type:epic"]
+projects: ["aharis01/2"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: description
+      description: What problem does this Epic solve? What does success look like?
+      placeholder: "Enable researchers to explore & analyze gait swipe data..."
+    validations:
+      required: true
+  - type: textarea
+    id: stories
+    attributes:
+      label: Linked User Stories
+      description: List story issue numbers or add later.
+      placeholder: "- [ ] #123 Story title\n- [ ] #124 Story title"
