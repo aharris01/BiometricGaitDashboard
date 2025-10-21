@@ -1,5 +1,6 @@
 export default function App() {
   const dashUrl = 'http://localhost:8000/dash/'
+
   return (
     <div style={{ padding: 16 }}>
       <h1>Biometric Gait Dashboard</h1>
