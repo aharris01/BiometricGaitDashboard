@@ -3,3 +3,9 @@ __pycache__/
 .venv/
 .env
 .conda/
+node_modules/
+dist/
+build/
+*.zip
+auth-lambda.zip
+.DS_Store
