@@ -9,9 +9,6 @@ on:
 jobs:
   backend-ci:
    runs-on: ubuntu-latest
-   defaults:
-     run:
-       working-directory: backend
 
    steps:
      - name: Checkout Code
