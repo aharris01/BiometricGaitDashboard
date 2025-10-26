@@ -1,3 +1,22 @@
+## Project Overview
+The **Biometric Gait Dashboard** is an interactive platform for analyzing and visualizing gait biometrics using data collected from pressure tiles recording.
+The system enables:
+- Secure user authentication through AWS Lambda (UNB login verification)
+- Automatic extraction of individual footsteps from raw pressure data
+- Data visualization through a React + Dash web interface
+- Integration of Python analytics with a modern frontend dashboard
+
+## Repository Structure
+.github/                → CI/CD workflows (GitHub Actions)
+auth-lambda/            → AWS Lambda authentication function
+backend/                → Flask + Dash backend server
+  processing/           → Footstep extraction & analysis scripts
+frontend/               → React (Vite) frontend dashboard
+notebooks/              → Jupyter notebooks for data exploration
+environment.yml         → Conda environment for backend
+.gitignore              → Ignore system & secret files
+README.md               → Project documentation
+
 #### Backend (Python: Flask + Dash)
 - Install Python
 - In a terminal, go to `backend/`
