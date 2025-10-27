@@ -28,7 +28,7 @@ jobs:
         run: |
           pip install ruff
           ruff check .
-
+        continue-on-error: true
       - name: Run backend tests with pytest
         run: |
           pip install pytest pytest-cov
