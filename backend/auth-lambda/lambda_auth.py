@@ -1,4 +1,6 @@
-import json, os, time
+import json
+import os
+import time
 import jwt  # PyJWT
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")

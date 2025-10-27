@@ -1,4 +1,4 @@
-name: CI
+name: Backend CI
 
 on:
   push:
@@ -24,6 +24,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Linting
+        run: |
+          pip install ruff
+          ruff check .
+        continue-on-error: true
       - name: Run backend tests with pytest
         run: |
           pip install pytest pytest-cov
