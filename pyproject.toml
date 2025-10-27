@@ -1,0 +1,8 @@
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = ["--cov=."]
+
+[tool.coverage.run]
+source = ["./*"]
+omit = ["tests/*"]
