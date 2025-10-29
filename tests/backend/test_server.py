@@ -1,5 +1,5 @@
 import pytest
-from backend.app import server
+from backend.server.app import server
 
 
 @pytest.fixture
