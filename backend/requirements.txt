@@ -10,6 +10,7 @@ cryptography==46.0.3
 dash==3.2.0
 Flask==3.1.2
 flask-cors==6.0.1
+greenlet==3.2.4
 idna==3.11
 importlib_metadata==8.7.0
 iniconfig==2.3.0
@@ -25,7 +26,8 @@ pandas==2.3.3
 paramiko==4.0.0
 plotly==6.3.1
 pluggy==1.6.0
-psycopg2==2.9.11
+psycopg==3.2.12
+psycopg-binary==3.2.12
 pycparser==2.23
 Pygments==2.19.2
 PyJWT==2.10.1
@@ -40,6 +42,7 @@ retrying==1.4.2
 ruff==0.14.2
 setuptools==80.9.0
 six==1.17.0
+SQLAlchemy==2.0.44
 typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
