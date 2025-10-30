@@ -1,6 +1,4 @@
-SET search_path TO app,
-    public;
-CREATE TABLE swipe_event (
+CREATE TABLE app.swipe_event (
     event_id TEXT PRIMARY KEY,
     -- Human readable format ie. ('001_yyyy-mm-dd_(in|out)_event#_state')
     participant INT NOT NULL,
