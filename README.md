@@ -10,6 +10,14 @@ UNB_PORT=22
 ```
 - Run server: `python app.py` (backend runs at 127.0.0.1:8000)
 
+#### Docker
+- Install Docker Desktop
+- Copy the contents of .env.example into a new .env file
+  - Make sure it's at the root of the repo
+- In a terminal navigate to the root directory
+- Run `docker compose up`
+- A postgres instance should now be running
+
 #### Frontend (React + Vite)
 - Install Node.js
 - In a terminal, go to `frontend/`
