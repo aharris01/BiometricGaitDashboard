@@ -5,3 +5,4 @@ __pycache__/
 .conda/
 .*_cache
 .coverage
+secrets/
