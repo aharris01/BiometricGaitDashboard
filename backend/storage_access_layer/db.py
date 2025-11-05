@@ -12,9 +12,22 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
+from contextlib import contextmanager
 import datetime
 
 load_dotenv()
+
+
+dsn = os.environ.get("DATABASE_URL")
+if dsn:  # just added this so I could use sql lite to run my pytest -jon
+    engine = create_engine(dsn)
+else:
+    engine = create_engine("sqlite:///:memory:")
+
+# added a session helper function to limit coupling between layers
+
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 class Base(DeclarativeBase):
@@ -33,8 +46,15 @@ class SwipeEvent(Base):
     trial_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
     trial_p100_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
     trial_grf_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    # small modification made here to help with sql lite temp server compatability with postgres syntax -jon
     created_at: Mapped[datetime.datetime] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text(
+            "CURRENT_TIMESTAMP"
+            if os.environ.get("DATABASE_URL", "").startswith("sqlite")
+            else "now()"
+        ),  # only for pytest to help CI -jon
     )
 
 
@@ -49,9 +69,6 @@ def addSwipeEvent(
     trial_p100_npz_uri,
     trial_grf_npz_uri,
 ):
-    dsn = os.environ.get("DATABASE_URL")
-
-    engine = create_engine(dsn)
 
     swipe_event = SwipeEvent(
         event_id=event_id,
@@ -71,3 +88,16 @@ def addSwipeEvent(
             session.commit()
         except:
             print("Duplicate found")
+
+
+@contextmanager
+def get_session():
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
