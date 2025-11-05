@@ -12,6 +12,8 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
+from contextlib import contextmanager
 import datetime
 
 load_dotenv()
@@ -40,15 +42,27 @@ class SwipeEvent(Base):
         server_default=text("CURRENT_TIMESTAMP" if os.environ.get("DATABASE_URL", "").startswith("sqlite") else "now()") #only for pytest to help CI -jon
     )
     
-
-
 dsn = os.environ.get("DATABASE_URL")
-
-#just added this so I could use sql lite to run my pytest -jon
-if dsn:
+if dsn:#just added this so I could use sql lite to run my pytest -jon
     engine = create_engine(dsn)
 else:
     engine = create_engine("sqlite:///:memory:") 
+
+#added a session helper function to limit coupling between layers 
+
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+@contextmanager
+def get_session():
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 participant = 1
 date = datetime.date(2025, 1, 1)

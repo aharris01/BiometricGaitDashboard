@@ -1,13 +1,15 @@
 # tests/test_accessfunctions.py
 import os
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-
+# use on-disk sqlite database for testing. avoids shared-memory issues on windows
+os.environ["DATABASE_URL"] = "sqlite:///test_temp.db"
 
 import pytest
 import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+# import from the backend storage access layer
+from backend.storage_access_layer import db
 from backend.storage_access_layer.db import Base, SwipeEvent
 from backend.storage_access_layer.accessfunctions import (
     getParticipants,
@@ -15,16 +17,22 @@ from backend.storage_access_layer.accessfunctions import (
     getDirections,
     getEvents,
     getSwipeEventId,
+    getBothDirectionEvents,
 )
 
-@pytest.fixture(scope="module")
-def session():
-    #create in memory sql lite. temp database for testing 
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    session = Session(engine)
+@pytest.fixture(scope="module", autouse=True)
+def setup_test_db():
+    # create on-disk sqlite. temp database for testing 
+    test_engine = create_engine("sqlite:///test_temp.db")
 
-    #simple test data, should simulate real swipe event data
+    # rebind backend engine and session maker to shared test engine
+    db.engine = test_engine
+    db.SessionLocal.configure(bind=test_engine)
+
+    # create database schema for testing
+    Base.metadata.create_all(test_engine)
+
+    # simple test data, should simulate real swipe event data
     test_data = [
         SwipeEvent(
             event_id="test_11111_2025-01-01_in_1_complete",
@@ -61,34 +69,49 @@ def session():
         ),
     ]
 
-    session.add_all(test_data)
-    session.commit()
-    #use yield to provide session to tests
-    yield session  
+    # use context manager to populate temp db
+    with Session(test_engine) as session:
+        session.add_all(test_data)
+        session.commit()
 
-    #equivelant to closing things down when the tests are complete
-    session.close()
-    Base.metadata.drop_all(engine)
+    # yield allows setup before tests and teardown after tests
+    yield  
 
-#tests
+    # teardown the test database and dispose of engine resources
+    Base.metadata.drop_all(test_engine)
+    test_engine.dispose()
 
-def test_getParticipants(session):
-    assert sorted(getParticipants(session)) == [11111, 22222, 33333]
+    # remove temp file when done
+    if os.path.exists("test_temp.db"):
+        os.remove("test_temp.db")
 
-def test_getDates(session):
-    assert getDates(session, 11111) == [datetime.date(2025, 1, 1)]
 
-def test_getDirections(session):
-    assert getDirections(session, 22222, datetime.date(2025, 1, 2)) == ["out"]
+# -------------------- TESTS -------------------- #
 
-def test_getEvents(session):
-    assert getEvents(session, 33333, datetime.date(2025, 1, 3), "in") == [3]
+def test_getParticipants():
+    assert sorted(getParticipants()) == [11111, 22222, 33333]
 
-def test_getSwipeEventId(session):
-    result = getSwipeEventId(session, 11111, datetime.date(2025, 1, 1), 1, "in")
+def test_getDates():
+    assert getDates(11111) == [datetime.date(2025, 1, 1)]
+
+def test_getDirections():
+    assert getDirections(22222, datetime.date(2025, 1, 2)) == ["out"]
+
+def test_getEvents():
+    assert getEvents(33333, datetime.date(2025, 1, 3), "in") == [3]
+
+def test_getSwipeEventId():
+    result = getSwipeEventId(11111, datetime.date(2025, 1, 1), 1, "in")
     assert result == "test_11111_2025-01-01_in_1_complete"
 
-def test_getSwipeEventId_nonexistent(session):
-    result = getSwipeEventId(session, 99999, datetime.date(2025, 1, 1), 1, "in")
+def test_getSwipeEventId_nonexistent():
+    result = getSwipeEventId(99999, datetime.date(2025, 1, 1), 1, "in")
     assert result is None
+
+# new function test for getBothDirectionEvents
+def test_getBothDirectionEvents():
+    result = getBothDirectionEvents(22222, datetime.date(2025, 1, 2))
+    # should return a 2D list even if only one direction exists
+    assert isinstance(result, list)
+    assert all(isinstance(inner, list) for inner in result)
 
