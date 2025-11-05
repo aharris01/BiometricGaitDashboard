@@ -19,6 +19,17 @@ import datetime
 load_dotenv()
 
 
+dsn = os.environ.get("DATABASE_URL")
+if dsn:  # just added this so I could use sql lite to run my pytest -jon
+    engine = create_engine(dsn)
+else:
+    engine = create_engine("sqlite:///:memory:")
+
+# added a session helper function to limit coupling between layers
+
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -35,22 +46,49 @@ class SwipeEvent(Base):
     trial_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
     trial_p100_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
     trial_grf_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
-    #small modification made here to help with sql lite temp server compatability with postgres syntax -jon
+    # small modification made here to help with sql lite temp server compatability with postgres syntax -jon
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        server_default=text("CURRENT_TIMESTAMP" if os.environ.get("DATABASE_URL", "").startswith("sqlite") else "now()") #only for pytest to help CI -jon
+        server_default=text(
+            "CURRENT_TIMESTAMP"
+            if os.environ.get("DATABASE_URL", "").startswith("sqlite")
+            else "now()"
+        ),  # only for pytest to help CI -jon
     )
-    
-dsn = os.environ.get("DATABASE_URL")
-if dsn:#just added this so I could use sql lite to run my pytest -jon
-    engine = create_engine(dsn)
-else:
-    engine = create_engine("sqlite:///:memory:") 
 
-#added a session helper function to limit coupling between layers 
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+def addSwipeEvent(
+    event_id,
+    participant,
+    date,
+    direction,
+    event_number,
+    state,
+    trial_npz_uri,
+    trial_p100_npz_uri,
+    trial_grf_npz_uri,
+):
+
+    swipe_event = SwipeEvent(
+        event_id=event_id,
+        participant=participant,
+        date=date,
+        direction=direction,
+        event_number=event_number,
+        state=state,
+        trial_npz_uri=trial_npz_uri,
+        trial_p100_npz_uri=trial_p100_npz_uri,
+        trial_grf_npz_uri=trial_grf_npz_uri,
+    )
+
+    with Session(engine) as session:
+        try:
+            session.add(swipe_event)
+            session.commit()
+        except:
+            print("Duplicate found")
+
 
 @contextmanager
 def get_session():
@@ -63,26 +101,3 @@ def get_session():
         raise
     finally:
         session.close()
-
-participant = 1
-date = datetime.date(2025, 1, 1)
-direction = "in"
-event_number = 1
-state = "ready"
-
-swipe_event = SwipeEvent(
-    event_id="001_2025-01-01_in_1_ready",
-    participant=participant,
-    date=date,
-    direction=direction,
-    event_number=event_number,
-    state=state,
-    trial_npz_uri=f"file://{participant}/{date}/{direction}/{event_number}/trial.npz",
-    trial_p100_npz_uri=f"file://{participant}/{date}/{direction}/{event_number}/trial.p100.npz",
-    trial_grf_npz_uri=f"file://{participant}/{date}/{direction}/{event_number}/trial.grf.npz",
-)
-# needed to add this too so that I can use the swipe event class in my functions -jon
-if __name__ == "__main__": 
-    with Session(engine) as session:
-        session.add(swipe_event)
-        session.commit()
