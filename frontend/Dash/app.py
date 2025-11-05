@@ -10,7 +10,7 @@ app = Dash(__name__)
 
 
 app.layout = Div(
-    [Dropdown(id="participant-dropdown"), Interval(id="page-load", max_intervals=1)]
+    [Interval(id="page-load", max_intervals=1), Dropdown(id="participant-dropdown")]
 )
 
 
