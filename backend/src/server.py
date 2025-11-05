@@ -108,14 +108,11 @@ def samples():
     return jsonify(df.to_dict(orient="records"))
 
 
-# --- Optional Dash page ---
-dash_app = dash.Dash(__name__, server=server, url_base_pathname="/dash/")
-dash_app.layout = html.Div(
-    [
-        html.H2("Dash diagnostics"),
-        dcc.Markdown("Backend is up; try GET /api/health and POST /auth/unb-login."),
-    ]
-)
+@server.get("/api/participants")
+def getParticipants():
+    participants = [1, 2, 3, 4, 5]
+    return jsonify(participants)
+
 
 if __name__ == "__main__":
     # set envs before running in dev if you want:
