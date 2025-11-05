@@ -38,28 +38,36 @@ class SwipeEvent(Base):
     )
 
 
-dsn = os.environ.get("DATABASE_URL")
+def addSwipeEvent(
+    event_id,
+    participant,
+    date,
+    direction,
+    event_number,
+    state,
+    trial_npz_uri,
+    trial_p100_npz_uri,
+    trial_grf_npz_uri,
+):
+    dsn = os.environ.get("DATABASE_URL")
 
-engine = create_engine(dsn)
+    engine = create_engine(dsn)
 
-participant = 1
-date = datetime.date(2025, 1, 1)
-direction = "in"
-event_number = 1
-state = "ready"
+    swipe_event = SwipeEvent(
+        event_id=event_id,
+        participant=participant,
+        date=date,
+        direction=direction,
+        event_number=event_number,
+        state=state,
+        trial_npz_uri=trial_npz_uri,
+        trial_p100_npz_uri=trial_p100_npz_uri,
+        trial_grf_npz_uri=trial_grf_npz_uri,
+    )
 
-swipe_event = SwipeEvent(
-    event_id="001_2025-01-01_in_1_ready",
-    participant=participant,
-    date=date,
-    direction=direction,
-    event_number=event_number,
-    state=state,
-    trial_npz_uri=f"file://{participant}/{date}/{direction}/{event_number}/trial.npz",
-    trial_p100_npz_uri=f"file://{participant}/{date}/{direction}/{event_number}/trial.p100.npz",
-    trial_grf_npz_uri=f"file://{participant}/{date}/{direction}/{event_number}/trial.grf.npz",
-)
-
-with Session(engine) as session:
-    session.add(swipe_event)
-    session.commit()
+    with Session(engine) as session:
+        try:
+            session.add(swipe_event)
+            session.commit()
+        except:
+            print("Duplicate found")
