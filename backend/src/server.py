@@ -114,6 +114,12 @@ def getParticipants():
     return jsonify(participants)
 
 
+@server.get("/api/participants/<participant>/dates")
+def getDates(participant):
+    dates = ["2023-07-10", "2023-10-10", "2023-10-13"]
+    return jsonify(dates)
+
+
 if __name__ == "__main__":
     # set envs before running in dev if you want:
     # export JWT_SECRET="a-very-strong-secret"

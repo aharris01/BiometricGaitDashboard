@@ -10,7 +10,16 @@ app = Dash(__name__)
 
 
 app.layout = Div(
-    [Interval(id="page-load", max_intervals=1), Dropdown(id="participant-dropdown")]
+    [
+        Interval(id="page-load", max_intervals=1),
+        Div(
+            id="dropdown-container",
+            children=[
+                Dropdown(id="participant-dropdown"),
+                Dropdown(id="date-dropdown"),
+            ],
+        ),
+    ]
 )
 
 
@@ -20,6 +29,14 @@ def getParticipants(_):
     resp.raise_for_status()
     data = resp.json()
     return [{"label": str(p), "value": p} for p in data]
+
+
+@callback(Output("date-dropdown", "options"), Input("participant-dropdown", "value"))
+def getDates(participant):
+    resp = requests.get(f"{API_BASE}/api/participants/{participant}/dates", timeout=5)
+    resp.raise_for_status()
+    data = resp.json()
+    return [{"label": str(date), "value": str(date)} for date in data]
 
 
 if __name__ == "__main__":
