@@ -4,7 +4,7 @@ import signal
 
 
 def main():
-    from frontend.Dash.app import runDash
+    from frontend.app import runDash
     from backend.src.server import runBackend
 
     stopEvent = Event()
