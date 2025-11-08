@@ -39,5 +39,5 @@ def getDates(participant):
     return [{"label": str(date), "value": str(date)} for date in data]
 
 
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8050, debug=True)
+def runDash():
+    app.run(host="127.0.0.1", port=8050, debug=False)

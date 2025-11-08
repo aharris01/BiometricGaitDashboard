@@ -120,8 +120,8 @@ def getDates(participant):
     return jsonify(dates)
 
 
-if __name__ == "__main__":
+def runBackend():
     # set envs before running in dev if you want:
     # export JWT_SECRET="a-very-strong-secret"
     # export UNB_HOST="lambda.int.unb.ca"
-    server.run(host="127.0.0.1", port=8000, debug=True)
+    server.run(host="127.0.0.1", port=8000, debug=False)
