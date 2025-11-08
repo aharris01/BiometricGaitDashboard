@@ -10,7 +10,8 @@ app = Dash(__name__)
 
 
 app.layout = Div(
-    [
+    id="page",
+    children=[
         Interval(id="page-load", max_intervals=1),
         Div(
             id="dropdown-container",
@@ -19,7 +20,7 @@ app.layout = Div(
                 Dropdown(id="date-dropdown"),
             ],
         ),
-    ]
+    ],
 )
 
 
