@@ -5,6 +5,6 @@ def test_backend_imports():
 
 
 def test_app_instance():
-    from backend.server.app import server
+    from backend.src.server import server
 
     assert server is not None
