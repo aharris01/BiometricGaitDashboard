@@ -23,7 +23,7 @@ def getDirections(participant: int, date: datetime.date) -> list[str]:
         query = select(distinct(SwipeEvent.direction)).where(SwipeEvent.participant == participant, SwipeEvent.date == date).order_by(SwipeEvent.direction)
         return session.scalars(query).all()
 
-#function which retrieves directions based on participant, date and direction
+#function which retrieves events based on participant, date and direction
 def getEvents(participant: int, date: datetime.date, direction: str) -> list[int]:
      with get_session() as session:
         query = select(distinct(SwipeEvent.event_number)).where(SwipeEvent.participant == participant, SwipeEvent.date == date, SwipeEvent.direction == direction).order_by(SwipeEvent.event_number)
