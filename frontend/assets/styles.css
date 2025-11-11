@@ -1,0 +1,2 @@
+#dropdown-container { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+#dropdown-container > * { flex: 1 1 220px; }

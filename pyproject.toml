@@ -1,8 +1,13 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = ["--cov=backend"]
+addopts = [
+    "--cov=backend",
+    "--cov=frontend",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
 
 [tool.coverage.run]
-source = ["backend"]
+source = ["backend", "frontend"]
 omit = ["tests/*"]
