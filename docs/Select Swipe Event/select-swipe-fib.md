@@ -30,8 +30,10 @@ Dynamically populate dropdown menus with available swipe event data and make req
 |---------|----------------|----------|-----------|--------|
 | Get participants | `GET /api/participants` | None | `{ "items": [participant] }` | N/A |
 | Get dates | `GET /api/participants/{participant}/dates` | `participant` | `{ "items": [date] }` | N/A |
-| Get events | `GET /api/participants/{participant}/dates/{date}` | `participant`, `date` | `{ "items": { "directions": ["in", "out"], "events": { "in": [1, 2, …], "out": [4, 5, …] } } }` | Directions can be `in`, `out`, or both. |
-| Get swipe | `GET /api/swipe/{participant}/{date}/{direction}/{event}` | `participant`, `date`, `direction`, `event` | `{ "id": event_id }` | N/A |
+| Get directions | `GET /api/participants/{participant}/dates/{date}/directions` | `participant`, `date` | `{ "items": ["in", "out"]}` | The response should be used in the subsequent get events call |
+| Get events | `GET /api/participants/{participant}/dates/{date}/directions/{direction}/events` | `participant`, `date` | `{ "items": [1, 2, 3, etc.]}` | Should be called after receiving a response from get directions |
+| Get events by direction | `GET /api/participants/{participant}/dates/{date}/eventsByDirection` | `{ "in": [1, 2, 3, …], "out": [4, 5, 6, …] }` | This is in place to populate the last two dropdowns without the frontend handling the logic to build the dictionary |
+| Get swipe | `GET /api/swipe/{participant}/{date}/{direction}/{event}` | `participant`, `date`, `direction`, `event` | `{ "id": event_id }` | This should be cached somewhere in the frontend to be used in subsequent api calls. Look at dcc.Store |
 
 #### Error Model and Status Codes
 
@@ -64,5 +66,7 @@ The Flask backend will call the SAL to get participants, dates, directions, even
 |-----------|--------|---------|--------|
 | `getParticipants` | None | `[participant]` | None |
 | `getDates` | `participant` | `[date]` | None |
-| `getEvents` | `participant`, `date` | `{ "in": [1, 2, 3, …], "out": [4, 5, 6, …] }` | None |
+| `getDirections` | `participant`, `date` | `[in, out]` | None |
+| `getEvents` | `participant`, `date`, `direction` | `{ "items": [1, 2, 3, …] }` | None |
+| `getEventsByDirection` | `participant`, `date` | `{ "in": [1, 2, 3, …], "out": [4, 5, 6, …] }` | This is an extra function that can be used if desired. Backend can use it in Get events by direction call |
 | `getSwipeEventId` | `participant`, `date`, `direction`, `event` | `event_id` | None |
