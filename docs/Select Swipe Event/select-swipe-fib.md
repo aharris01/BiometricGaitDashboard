@@ -1,7 +1,7 @@
 # Feature Interface — Select Swipe Event
 
-**Version:** 1.0  
-**Date:** 2025-11-18  
+**Version:** 1.1  
+**Date:** 2025-11-11  
 **Owner:** Aidan Harrison
 
 ---
