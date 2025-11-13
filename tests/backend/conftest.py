@@ -11,11 +11,11 @@ from sqlalchemy.orm import Session
 # DB imports
 from backend.storage_access_layer.db import Base
 from backend.storage_access_layer.db import SwipeEvent
-from backend.storage_access_layer import db as db_module
+from backend.storage_access_layer.db import DB
 
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_test_db(tmp_path_factory):
+@pytest.fixture(scope="module")
+def test_db(tmp_path_factory):
 
     # create temp npz files
     tmp = tmp_path_factory.mktemp("npzdata")
@@ -42,9 +42,7 @@ def setup_test_db(tmp_path_factory):
     os.environ["DATABASE_URL"] = "sqlite:///test_temp.db"
     test_engine = create_engine("sqlite:///test_temp.db")
 
-    db_module.engine.dispose()
-    db_module.engine = test_engine
-    db_module.SessionLocal.configure(bind=test_engine)
+    db = DB(test_engine)
 
     Base.metadata.drop_all(test_engine)
     Base.metadata.create_all(test_engine)
@@ -90,7 +88,7 @@ def setup_test_db(tmp_path_factory):
         s.add_all(rows)
         s.commit()
 
-    yield
+    yield db
 
     Base.metadata.drop_all(test_engine)
     test_engine.dispose()
