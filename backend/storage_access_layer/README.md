@@ -1,168 +1,139 @@
-# Storage Access Layer (SAL)
+# Storage Access Layer
 
 ## Overview
 
-The **Storage Access Layer** is responsible for all database interaction
-in the Biometric Gait Dashboard backend.\
-It provides:
+The Storage Access Layer is the component responsible for database management and access within the Biometric Gait Dashboard backend.  
+It defines the ORM schema, establishes the database engine connection, and exposes functions to safely query stored Swipe Event data.
 
--   a SQLAlchemy ORM model (`SwipeEvent`)
--   an automatically configured database engine and session factory
--   validated access functions used throughout the backend
--   an optional `SAL` class wrapper for structured access
+This layer now automatically manages its own database sessions internally.  
+Consumers (such as Flask endpoints or backend services) can import the module directly and call its functions without manually creating or passing a session object.
 
-The key design principle is:\
-\### **The rest of the application does not manage sessions.**\
-All session handling is internal to the storage layer.
+This design keeps the storage layer isolated so the rest of the project layers don't have to worry about changes in data storage or session management.
 
-This ensures:
+---
 
--   consistent lifetime & cleanup of DB sessions\
--   compatibility with unit tests (which inject a temporary DB)\
--   isolation from SQLAlchemy engine changes\
--   safety when the backend code runs in multiple environments
+## Modules
 
-------------------------------------------------------------------------
+File | Description
+------|--------------
+db.py | Defines the SwipeEvent ORM model, SQLAlchemy engine, session factory, and internal session helpers.
+accessfunctions.py | Provides user-facing query functions that internally manage their own database session.
+SAL.py | Provides the SAL class wrapper around DB, with validation automatically enforced.
+validators.py | Defines validation rules for all access functions, ensuring input and output types remain correct.
 
-# Module Breakdown
+---
 
-  -----------------------------------------------------------------------
-  File                        Purpose
-  --------------------------- -------------------------------------------
-  **db.py**                   Database engine, session factory, ORM
-                              model, low-level query functions.
+## Database Model — SwipeEvent
 
-  **accessfunctions.py**      Public API for storage access. Each
-                              function internally manages its session.
+Represents a single gait‑trial event stored in the database.
 
-  **validators.py**           Ensures inputs/outputs follow the expected
-                              invariants.
+Column | Type | Description
+---------|------|-------------
+event_id | String (PK) | Unique event identifier.
+participant | Integer | Participant ID.
+date | Date | The date of the swipe event.
+direction | String | Direction ("in" or "out").
+event_number | Integer | Event number.
+state | String | State ("ready", "complete", etc.)
+trial_npz_uri | Text | Path to trial file.
+trial_p100_npz_uri | Text | Path to P100 file.
+trial_grf_npz_uri | Text | Path to GRF file.
+created_at | TIMESTAMP | Automatically set to CURRENT_TIMESTAMP.
 
-  **SAL.py**                  Optional object-oriented wrapper around
-                              accessfunctions (used by some parts of the
-                              backend).
-  -----------------------------------------------------------------------
+---
 
-------------------------------------------------------------------------
+## Access Functions (accessfunctions.py)
 
-# Database Model --- `SwipeEvent`
+Each function internally manages its own session using `with get_session()`:
 
-The `SwipeEvent` ORM model represents a single gait-trial event stored
-in SQLite.
+Function | Parameters | Returns | Description
+-----------|-------------|----------|--------------
+getParticipants() | — | list[int] | Returns all participant IDs.
+getDates(participant) | participant: int | list[date] | Returns all dates for the given participant.
+getDirections(participant, date) | participant: int, date: date | list[str] | Returns directions for that participant/date.
+getEvents(participant, date, direction) | (int, date, str) | list[int] | Returns event numbers for a given swipe context.
+getSwipeEventId(participant, date, event, direction) | (...) | str or None | Returns the matching event ID, or None.
+getBothDirectionEvents(participant, date) | (int, date) | list[list[int]] | Returns two lists: “in” events and “out” events.
 
-  ------------------------------------------------------------------------------
-  Field                  Type              Description
-  ---------------------- ----------------- -------------------------------------
-  `event_id`             String (PK)       Unique event identifier (composed
-                                           participant/date/direction/event#).
+---
 
-  `participant`          Integer           Participant ID.
+## SAL Wrapper (SAL.py)
 
-  `date`                 Date              Date of trial.
+SAL wraps the DB class and accessfunctions in a validation layer:
 
-  `direction`            String            `"in"` or `"out"`.
+```python
+class SAL:
+    def getParticipants(): validates output
+    def getDates(): validates input + output
+    def getDirections(): validates input + output
+    def getEvents(): validates input + output
+    def getSwipeEventId(): validates input + output
+    def getBothDirectionEvents(): validates input + output
+```
 
-  `event_number`         Integer           Trial number for the given
-                                           participant/date/direction.
+It ensures the DB layer is never allowed to return malformed data.
 
-  `state`                String            Trial state (cannot be NULL).
+---
 
-  `trial_npz_uri`        Text              Path to `.npz` file.
+## Validators (validators.py)
 
-  `trial_p100_npz_uri`   Text              Path to P100 file.
+The validator module ensures:
 
-  `trial_grf_npz_uri`    Text              Path to GRF file.
+### Input Validation
+- participant must be `int`
+- date must be `datetime.date`
+- direction must be `"in"` or `"out"`
+- event must be `int`
 
-  `created_at`           Timestamp         Automatically added when the event is
-                                           stored.
-  ------------------------------------------------------------------------------
+### Output Validation
+Function | Output Must Be | Validation Notes
+----------|-------------------|----------------
+getParticipants_check | list[int] | No duplicates allowed.
+getDates_check | list[date] | All items must be `datetime.date`.
+getDirections_check | list[str] | Must only contain "in" / "out".
+getEvents_check | list[int] | Must only contain integers.
+getSwipeEventId_check | str \| None | If returned, must be a string.
+getBothDirectionEvents_check | list[list[int]] | Must be a list of event-number lists.
 
-------------------------------------------------------------------------
+If validation fails, `ValueError` is raised — this is expected, and is covered by test_sal.py and test_validators.py.
 
-# Database Engine & Sessions
+---
 
-`db.py` now defines:
+## Example Usage
 
-### A module-level SQLAlchemy engine
+```python
+import backend.storage_access_layer.accessfunctions as db
 
-### A `SessionLocal = sessionmaker(bind=engine)` factory
+participants = db.getParticipants()
+dates = db.getDates(participants[0])
+directions = db.getDirections(participants[0], dates[0])
+events = db.getEvents(participants[0], dates[0], directions[0])
+both = db.getBothDirectionEvents(participants[0], dates[0])
 
-### A `get_session()` context manager
-
-This pattern guarantees:
-
--   automatic commit/rollback\
--   automatic cleanup\
--   no external session handling
-
-------------------------------------------------------------------------
-
-# Access Functions (Final Behavior)
-
-All functions in `accessfunctions.py`:
-
--   create and manage their own sessions\
--   return plain Python types\
--   match strict validator requirements
-
-  -------------------------------------------------------------------------------------------------------------
-  Function                                      Input          Output              Description
-  --------------------------------------------- -------------- ------------------- ----------------------------
-  `getParticipants()`                           ---            `list[int]`         All participant IDs.
-
-  `getDates(participant)`                       `int`          `list[date]`        All dates for that
-                                                                                   participant.
-
-  `getDirections(participant, date)`            ---            `list[str]`         `"in"` / `"out"`.
-
-  `getEvents(participant, date, direction)`     ---            `list[int]`         Event numbers.
-
-  `getSwipeEventId(...)`                        params         `str | None`        Unique event ID.
-
-  `getBothDirectionEvents(participant, date)`   ---            `list[list[int]]`   `[in_events, out_events]`.
-  -------------------------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-# SAL Class
-
-The `SAL` class adds:
-
--   input validation\
--   output validation\
--   encapsulation of the `DB` object
-
-All logic still delegates to accessfunctions but wraps them safely.
-
-------------------------------------------------------------------------
-
-# Example Usage
-
-``` python
-import backend.storage_access_layer.accessfunctions as af
-
-participants = af.getParticipants()
-dates = af.getDates(participants[0])
-dirs = af.getDirections(participants[0], dates[0])
-events = af.getEvents(participants[0], dates[0], dirs[0])
-
-swipe_id = af.getSwipeEventId(
+swipe_event_id = db.getSwipeEventId(
     participants[0],
     dates[0],
     events[0],
-    dirs[0],
+    directions[0],
 )
 ```
 
-------------------------------------------------------------------------
+---
 
-# Test Behavior
+## Testing Notes
 
--   Tests use a temporary SQLite DB defined in `conftest.py`
--   Real DB is not touched\
--   Fake `.npz` files are created for server routes\
--   All functions produce strictly validated output
+- The Storage Access Layer uses **real SQLite tables** during tests.
+- `tests/backend/conftest.py` overrides the engine so **our database is not touched**.
+- The server tests mock `_load_swipe()` to avoid db usage entirely.
+- All validation tests ensure incorrect types raise `ValueError` to avoid null elements.
 
-------------------------------------------------------------------------
+---
 
+## Summary
 
+The Storage Access Layer:
+- Defines the SwipeEvent ORM model
+- Provides safe, validated access to all gait‑trial event data
+- Manages all SQLAlchemy sessions internally
+- Ensures the rest of the project never has to deal with DB operations directly
+- Is fully covered by unit tests (≥80% coverage target)
