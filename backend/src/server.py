@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import numpy as np
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -28,22 +28,29 @@ from backend.storage_access_layer.accessfunctions import (  # noqa: E402
 )
 
 # ---- Direct DB access for event lookups (internal helper) ----
-from backend.storage_access_layer.db import (  # noqa: E402
-    SwipeEvent,
-    get_session,
-)
-
+#from backend.storage_access_layer.db import (  # noqa: E402
+#    SwipeEvent,
+#    get_session,
+#)
+import backend.storage_access_layer.db as db
 
 def _uri_to_path(uri_or_path: str) -> Path:
-    """Accept file:// URIs or plain paths."""
     if uri_or_path.startswith("file://"):
-        return Path(urlparse(uri_or_path).path)
+        p = urlparse(uri_or_path).path
+
+        # Windows fix
+        if os.name == "nt":
+            if p.startswith("/") and len(p) > 3 and p[2] == ":":
+                p = p[1:]
+
+        return Path(p)
+
     return Path(uri_or_path)
 
 
-def _load_swipe(event_id: str) -> SwipeEvent | None:
-    with get_session() as s:
-        return s.get(SwipeEvent, event_id)
+def _load_swipe(event_id: str) -> db.SwipeEvent | None:
+    with db.get_session() as s:
+        return s.get(db.SwipeEvent, event_id)
 
 
 # ------------------------- Health -------------------------
