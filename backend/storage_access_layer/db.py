@@ -130,13 +130,14 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).all()
 
-    def getDirections(self, session, participant, date):
+    def getDirections(self, participant, date):
         query = (
             select(distinct(SwipeEvent.direction))
             .where(SwipeEvent.participant == participant, SwipeEvent.date == date)
             .order_by(SwipeEvent.direction)
         )
-        return session.scalars(query).all()
+        with self._get_session() as session:
+            return session.scalars(query).all()
 
     def getEvents(self, participant, date, direction):
         query = (

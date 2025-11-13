@@ -4,7 +4,9 @@ import datetime
 import numpy as np
 from pathlib import Path
 
-from backend.storage_access_layer.db import (DB, SwipeEvent)
+from sqlalchemy import create_engine
+
+from backend.storage_access_layer.db import (DB, SwipeEvent, Base)
 
 
 # Basic insert + fetch test
@@ -70,8 +72,10 @@ def test_swipe_event_full_paths(tmp_path, test_db):
 
 # handle empty query outputs
 
-def test_db_empty_queries(test_db):
-    db = test_db
+def test_db_empty_queries():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    db = DB(engine)
 
     # Create raw session manually because get_session didn't work here for some reason
     assert db.getParticipants() == []
@@ -83,15 +87,13 @@ def test_db_empty_queries(test_db):
 
 def test_swipe_eventid_not_found():
     db = DB()
-    with db._get_session() as s:
-        out = db.getSwipeEventId(
-            s,
-            participant=99999,
-            date=datetime.date(2025, 1, 1),
-            event=10,
-            direction="in",
-        )
-        assert out is None
+    out = db.getSwipeEventId(
+        participant=99999,
+        date=datetime.date(2025, 1, 1),
+        event=10,
+        direction="in",
+    )
+    assert out is None
 
 
 #  BothDirectionEvents returns empty
@@ -100,7 +102,6 @@ def test_both_direction_events_empty():
     db = DB()
     with db._get_session() as s:
         out = db.getBothDirectionEvents(
-            s,
             participant=99999,
             date=datetime.date(2025, 1, 1),
         )
