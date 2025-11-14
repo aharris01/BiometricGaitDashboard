@@ -59,7 +59,7 @@ class SwipeEvent(Base):
     )
 
 
-# adding a db class here that holds db engine and access functions. functions still accessable through accessfunctions.py
+# adding a db class here that holds db engine and access functions
 class DB:
     def __init__(self, engine=None):
         self._owns_engine = engine is None
