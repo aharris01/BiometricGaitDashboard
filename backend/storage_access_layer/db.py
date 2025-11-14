@@ -24,7 +24,7 @@ load_dotenv()
 
 dataroot = os.environ.get("DATAROOT")
 if dataroot is None:
-    dataroot = "./data"
+    dataroot = "."
 
 
 class Base(DeclarativeBase):
