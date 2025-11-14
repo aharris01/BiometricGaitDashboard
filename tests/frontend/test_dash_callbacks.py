@@ -1,5 +1,3 @@
-import builtins
-import types
 import pytest
 import requests
 

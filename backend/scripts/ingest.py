@@ -1,15 +1,5 @@
-import os
-from backend.storage_access_layer.db import addSwipeEvent
 from datetime import date
 from pathlib import Path
-from dotenv import load_dotenv
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
-
-load_dotenv(REPO_ROOT / ".env")
-
-DATA_ROOT = Path(os.getenv("DATA_ROOT"))
 
 
 def iter_swipes(root: Path):
@@ -21,8 +11,10 @@ def iter_swipes(root: Path):
             direction = str(swipe_parts[-3])
             event_number = int(swipe_parts[-2])
             event_dir = Path(*swipe_parts[:-1])
-        except:
-            print("error")
+        except Exception:
+            # Skip files that do not follow the expected directory layout
+            print(f"error parsing swipe path: {swipe}")
+            continue
 
         trial_p100 = event_dir / "trial.p100.npz"
         trial_grf = event_dir / "trial.grf.npz"
@@ -42,28 +34,5 @@ def iter_swipes(root: Path):
             "state": state,
             "trial_npz_uri": swipe.resolve().as_uri(),
             "trial_p100_npz_uri": trial_p100.resolve().as_uri(),
-            "trial_GRF_npz_uri": trial_grf.resolve().as_uri(),
+            "trial_grf_npz_uri": trial_grf.resolve().as_uri(),
         }
-
-
-def main():
-    root = Path(DATA_ROOT)
-    if not root.exists():
-        raise SystemExit(f"DATA_ROOT not found: {root}")
-
-    for swipe_event in iter_swipes(root=root):
-        addSwipeEvent(
-            event_id=swipe_event["event_id"],
-            participant=swipe_event["participant"],
-            date=swipe_event["date"],
-            direction=swipe_event["direction"],
-            event_number=swipe_event["event_number"],
-            state=swipe_event["state"],
-            trial_npz_uri=swipe_event["trial_npz_uri"],
-            trial_grf_npz_uri=swipe_event["trial_GRF_npz_uri"],
-            trial_p100_npz_uri=swipe_event["trial_p100_npz_uri"],
-        )
-
-
-if __name__ == "__main__":
-    main()
