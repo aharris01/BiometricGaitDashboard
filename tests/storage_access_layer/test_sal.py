@@ -23,7 +23,9 @@ def fake_db():
 @pytest.fixture
 def sal(fake_db):
     """Create a SAL instance with a mocked DB."""
-    return SAL(fake_db)
+    sal = SAL(db=fake_db)
+    yield sal
+    sal.db.close()
 
 # Tests
 

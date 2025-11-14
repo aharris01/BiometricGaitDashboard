@@ -72,10 +72,8 @@ def test_swipe_event_full_paths(tmp_path, test_db):
 
 # handle empty query outputs
 
-def test_db_empty_queries():
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    db = DB(engine)
+def test_db_empty_queries(empty_db):
+    db = empty_db
 
     # Create raw session manually because get_session didn't work here for some reason
     assert db.getParticipants() == []
@@ -85,8 +83,8 @@ def test_db_empty_queries():
 
 # SwipeEventId not found
 
-def test_swipe_eventid_not_found():
-    db = DB()
+def test_swipe_eventid_not_found(empty_db):
+    db = empty_db
     out = db.getSwipeEventId(
         participant=99999,
         date=datetime.date(2025, 1, 1),
@@ -98,8 +96,8 @@ def test_swipe_eventid_not_found():
 
 #  BothDirectionEvents returns empty
 
-def test_both_direction_events_empty():
-    db = DB()
+def test_both_direction_events_empty(empty_db):
+    db = empty_db
     with db._get_session() as s:
         out = db.getBothDirectionEvents(
             participant=99999,

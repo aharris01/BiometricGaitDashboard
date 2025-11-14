@@ -95,7 +95,10 @@ def test_db(tmp_path_factory):
     if os.path.exists("test_temp.db"):
         os.remove("test_temp.db")
 
-
-
-
-
+@pytest.fixture
+def empty_db():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    db = DB(engine)
+    yield db
+    db.engine.dispose()
