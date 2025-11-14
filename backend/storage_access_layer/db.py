@@ -24,7 +24,7 @@ load_dotenv()
 
 dataroot = os.environ.get("DATAROOT")
 if dataroot is None:
-    dataroot = "./data"
+    dataroot = "."
 
 
 class Base(DeclarativeBase):
@@ -59,7 +59,7 @@ class SwipeEvent(Base):
     )
 
 
-# adding a db class here that holds db engine and access functions. functions still accessable through accessfunctions.py
+# adding a db class here that holds db engine and access functions
 class DB:
     def __init__(self, engine=None):
         self._owns_engine = engine is None
@@ -88,6 +88,10 @@ class DB:
             raise
         finally:
             session.close()
+
+    def close(self):
+        if self.engine:
+            self.engine.dispose()
 
     # New addSwipeEvent function that accepts a SwipeEvent object
     def addSwipeEvent(self, swipe_event: SwipeEvent):
