@@ -89,6 +89,10 @@ class DB:
         finally:
             session.close()
 
+    def close(self):
+        if self.engine:
+            self.engine.dispose()
+
     # New addSwipeEvent function that accepts a SwipeEvent object
     def addSwipeEvent(self, swipe_event: SwipeEvent):
         with self._get_session() as session:
