@@ -1,5 +1,5 @@
 # tests/backend/conftest.py
-#The purpose of this fixture in conftest is to create a simulated environment in which SQLite scripts can be tested against 
+# The purpose of this fixture in conftest is to create a simulated environment in which SQLite scripts can be tested against
 import os
 import datetime
 import pytest
@@ -29,9 +29,7 @@ def test_db(tmp_path_factory):
 
     np.savez(p100_file, p100=a)
     np.savez(grf_file, grf=g)
-    np.savez(trial_file,
-             footstep_0_p100=np.ones((2, 2)),
-             footstep_0_grf=np.arange(5))
+    np.savez(trial_file, footstep_0_p100=np.ones((2, 2)), footstep_0_grf=np.arange(5))
 
     # use filesystem paths, uri's break for some reason
     p100_path = str(p100_file.resolve())
@@ -94,6 +92,7 @@ def test_db(tmp_path_factory):
     test_engine.dispose()
     if os.path.exists("test_temp.db"):
         os.remove("test_temp.db")
+
 
 @pytest.fixture
 def empty_db():
