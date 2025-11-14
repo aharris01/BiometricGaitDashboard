@@ -1,11 +1,12 @@
 from dash import Dash, Input, Output, callback
 from dash.dcc import Dropdown, Interval
 from dash.html import Div
+from dash.exceptions import PreventUpdate
 import requests
 
 API_BASE = "http://127.0.0.1:8000"
 
-app = Dash(__name__)
+app = Dash(__name__, prevent_initial_callbacks=True)
 
 
 app.layout = Div(
@@ -33,6 +34,8 @@ def getParticipants(_):
 
 @callback(Output("date-dropdown", "options"), Input("participant-dropdown", "value"))
 def getDates(participant):
+    if participant is None:
+        raise PreventUpdate
     resp = requests.get(f"{API_BASE}/api/participants/{participant}/dates", timeout=5)
     resp.raise_for_status()
     data = resp.json()
