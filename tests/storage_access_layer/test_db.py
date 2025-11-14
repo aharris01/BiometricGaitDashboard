@@ -4,9 +4,7 @@ import datetime
 import numpy as np
 from pathlib import Path
 
-from sqlalchemy import create_engine
-
-from backend.storage_access_layer.db import (DB, SwipeEvent, Base)
+from backend.storage_access_layer.db import SwipeEvent
 
 
 # Basic insert + fetch test
@@ -98,13 +96,12 @@ def test_swipe_eventid_not_found(empty_db):
 
 def test_both_direction_events_empty(empty_db):
     db = empty_db
-    with db._get_session() as s:
-        out = db.getBothDirectionEvents(
-            participant=99999,
-            date=datetime.date(2025, 1, 1),
-        )
-        # There are no directions at all → empty list
-        assert out == []
+    out = db.getBothDirectionEvents(
+        participant=99999,
+        date=datetime.date(2025, 1, 1),
+    )
+    # There are no directions at all → empty list
+    assert out == []
 
 
 # 

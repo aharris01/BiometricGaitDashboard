@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy import ForeignKey
+# from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import Date
@@ -11,7 +11,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
-from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 import datetime
@@ -74,44 +73,13 @@ class DB:
         finally:
             session.close()
 
-    # Original addSwipeEvent function with parameters
-    def addSwipeEvent(self,
-        event_id,
-        participant,
-        date,
-        direction,
-        event_number,
-        state,
-        trial_npz_uri,
-        trial_p100_npz_uri,
-        trial_grf_npz_uri,
-    ):
-
-        swipe_event = SwipeEvent(
-            event_id=event_id,
-            participant=participant,
-            date=date,
-            direction=direction,
-            event_number=event_number,
-            state=state,
-            trial_npz_uri=trial_npz_uri,
-            trial_p100_npz_uri=trial_p100_npz_uri,
-            trial_grf_npz_uri=trial_grf_npz_uri,
-        )
-
-        with self._get_session() as session:
-            try:
-                session.add(swipe_event)
-            except:
-                print("Duplicate found")
-
     # New addSwipeEvent function that accepts a SwipeEvent object
     def addSwipeEvent(self, swipe_event: SwipeEvent):
         with self._get_session() as session:
             try:
                 session.add(swipe_event)
-            except:
-                print("Duplicate found")
+            except Exception as e:
+                print(f"{e}: Duplicate found")
 
     # identical logic to previous version of accessfunctions.py
     def getParticipants(self):

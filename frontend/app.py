@@ -1,7 +1,6 @@
-from dash import Dash, Input, Output, State, callback
+from dash import Dash, Input, Output, callback
 from dash.dcc import Dropdown, Interval
 from dash.html import Div
-import asyncio
 import requests
 
 API_BASE = "http://127.0.0.1:8000"

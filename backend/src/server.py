@@ -4,13 +4,13 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-import numpy as np
+#import numpy as np
 from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 
 from backend.storage_access_layer.SAL import SAL
-from backend.storage_access_layer.db import SwipeEvent
+#from backend.storage_access_layer.db import SwipeEvent
 
 # Load root .env
 ROOT = Path(__file__).resolve().parents[2]

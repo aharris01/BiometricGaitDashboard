@@ -21,7 +21,7 @@ def iter_swipes(root: Path):
             direction = str(swipe_parts[-3])
             event_number = int(swipe_parts[-2])
             event_dir = Path(*swipe_parts[:-1])
-        except:
+        except Exception:
             print("error")
 
         trial_p100 = event_dir / "trial.p100.npz"
