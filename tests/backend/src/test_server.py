@@ -1,126 +1,309 @@
-# tests/backend/src/test_server.py
-from __future__ import annotations
-import importlib
-# from dataclasses import dataclass
-# from pathlib import Path
-# from datetime import date
+import json
+import datetime as dt
 
-# import numpy as np
 import pytest
+
+from backend.src.server import server
+
+
+class FakeSAL:
+    """
+    Minimal fake SAL that lives entirely in memory.
+    It implements all methods that server.py calls.
+    """
+
+    def __init__(self):
+        # simple in-memory fixtures
+        self._participants = [1001]
+        self._dates = {1001: [dt.date(2024, 10, 1)]}
+        self._directions = {
+            (1001, dt.date(2024, 10, 1)): ["in", "out"],
+        }
+        self._events = {
+            (1001, dt.date(2024, 10, 1), "in"): [1, 2],
+            (1001, dt.date(2024, 10, 1), "out"): [3],
+        }
+        self._swipe_ids = {
+            (1001, dt.date(2024, 10, 1), 1, "in"): "evt-in-1",
+            (1001, dt.date(2024, 10, 1), 2, "in"): "evt-in-2",
+            (1001, dt.date(2024, 10, 1), 3, "out"): "evt-out-3",
+        }
+
+    # ---------- metadata methods ----------
+
+    def getParticipants(self):
+        return self._participants
+
+    def getDates(self, participant):
+        return self._dates.get(participant, [])
+
+    def getDirections(self, participant, dt_):
+        return self._directions.get((participant, dt_), [])
+
+    def getEvents(self, participant, dt_, direction):
+        return self._events.get((participant, dt_, direction), [])
+
+    def getSwipeEventId(self, participant, dt_, event, direction):
+        return self._swipe_ids.get((participant, dt_, event, direction))
+
+    def getBothDirectionEvents(self, participant, dt_):
+        """
+        Return list[list[int]] matching whatever getDirections() returns.
+        """
+        dirs = self.getDirections(participant, dt_)
+        return [self.getEvents(participant, dt_, d) for d in dirs]
+
+    # ---------- high-level event helpers ----------
+
+    def getEventSummary(self, event_id: str):
+        """
+        Return (event_dict, availability_dict) or None if missing.
+        """
+        if event_id == "missing":
+            return None
+
+        # simple fake event; real values don't matter much for route behavior
+        event = {
+            "id": event_id,
+            "participant": 1001,
+            "date": "2024-10-01",
+            "direction": "in",
+            "event_number": 1,
+        }
+        availability = {
+            "p100": True,
+            "grf": True,
+            "footsteps": True,
+        }
+        return event, availability
+
+    def getEventP100(self, event_id: str):
+        """
+        Return (data, err) where:
+        - err is None, "missing_event", or "missing_file"
+        """
+        if event_id == "missing":
+            return None, "missing_event"
+        if event_id == "nofile_p100":
+            return None, "missing_file"
+        return [[1.0, 2.0], [3.0, 4.0]], None
+
+    def getEventGRF(self, event_id: str):
+        if event_id == "missing":
+            return None, "missing_event"
+        if event_id == "nofile_grf":
+            return None, "missing_file"
+        return [0.1, 0.2, 0.3], None
+
+    def getEventFootsteps(self, event_id: str):
+        if event_id == "missing":
+            return None, "missing_event"
+        if event_id == "nofile_steps":
+            return None, "missing_file"
+        return (
+            [
+                {
+                    "footstep_id": 0,
+                    "p100": [[1.0, 2.0]],
+                    "grf": [0.5, 0.6],
+                }
+            ],
+            None,
+        )
 
 
 @pytest.fixture
-def server_mod(monkeypatch):
-    # Disable auth for tests
-    monkeypatch.setenv("ENABLE_AUTH", "false")
-    monkeypatch.setenv("ALLOWED_ORIGIN", "http://127.0.0.1:8050")
-    from backend.src import server as mod
-    importlib.reload(mod)
-    return mod
+def client(monkeypatch):
+    """
+    Patch the global `sal` in server.py so get_sal() returns our FakeSAL,
+    then yield a Flask test client.
+    """
+    from backend.src import server as server_module
+
+    fake_sal = FakeSAL()
+    # ensure get_sal() sees our fake instance
+    monkeypatch.setattr(server_module, "sal", fake_sal)
+    return server.test_client()
 
 
-# def _make_npzs(tmp: Path):
-#     p100 = tmp / "trial.p100.npz"
-#     grf  = tmp / "trial.grf.npz"
-#     trial= tmp / "trial.npz"
-#     a = np.arange(12).reshape(3, 4)            # for rotation check
-#     g = np.linspace(0, 1, 10)
-#     np.savez(p100, p100=a)
-#     np.savez(grf,  grf=g)
-#     np.savez(trial, footstep_0_p100=np.ones((2,2)), footstep_0_grf=np.arange(5))
-#     return p100, grf, trial, a, g
+# -------------------- basic / health --------------------
 
 
-# @dataclass
-# class FakeRow:
-#     event_id: str
-#     participant: int
-#     date: date
-#     direction: str
-#     event_number: int
-#     state: str
-#     trial_npz_uri: str
-#     trial_p100_npz_uri: str
-#     trial_grf_npz_uri: str
+def test_health_ok(client):
+    resp = client.get("/api/health")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data == {"status": "ok"}
 
 
-# @pytest.fixture
-# def client_with_fake_event(server_mod, tmp_path, monkeypatch):
-#     p100, grf, trial, a, g = _make_npzs(tmp_path)
-#     ev_id = "001_2025-01-01_in_1_ready"
-#     row = FakeRow(
-#         event_id=ev_id,
-#         participant=1,
-#         date=date(2025,1,1),
-#         direction="in",
-#         event_number=1,
-#         state="ready",
-#         trial_npz_uri=trial.resolve().as_uri(),
-#         trial_p100_npz_uri=p100.resolve().as_uri(),
-#         trial_grf_npz_uri=grf.resolve().as_uri(),
-#     )
-
-#     # Mock the DB fetch so we don't touch the real DB
-#     monkeypatch.setattr(server_mod, "_load_swipe", lambda eid: row if eid == ev_id else None, raising=True)
-
-#     server_mod.server.config["TESTING"] = True
-#     with server_mod.server.test_client() as c:
-#         yield c, ev_id, a, g
+# -------------------- dropdown + swipe lookup --------------------
 
 
-def test_health(server_mod):
-    server_mod.server.config["TESTING"] = True
-    with server_mod.server.test_client() as c:
-        r = c.get("/api/health")
-        assert r.status_code == 200
-        assert r.get_json() == {"status": "ok"}
+def test_get_participants_ok(client):
+    resp = client.get("/api/participants")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["items"] == [1001]
 
 
-# def test_summary(client_with_fake_event):
-#     c, ev_id, *_ = client_with_fake_event
-#     r = c.get(f"/api/events/{ev_id}/summary")
-#     assert r.status_code == 200
-#     js = r.get_json()
-#     assert js["event"]["id"] == ev_id
-#     assert js["availability"] == {"p100": True, "grf": True, "footsteps": True}
+def test_get_dates_ok(client):
+    resp = client.get("/api/participants/1001/dates")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    # dates should be ISO strings
+    assert data["items"] == ["2024-10-01"]
 
 
-# def test_p100_rotated(client_with_fake_event):
-#     c, ev_id, a, _ = client_with_fake_event
-#     r = c.get(f"/api/events/{ev_id}/p100")
-#     assert r.status_code == 200
-#     arr = np.array(r.get_json()["p100"])
-#     np.testing.assert_array_equal(arr, np.rot90(a, 1))
-#     assert arr.shape == (4, 3)
+def test_get_dates_not_found(client):
+    # participant with no dates -> 404
+    resp = client.get("/api/participants/9999/dates")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
 
 
-# def test_grf(client_with_fake_event):
-#     c, ev_id, _, g = client_with_fake_event
-#     r = c.get(f"/api/events/{ev_id}/grf")
-#     assert r.status_code == 200
-#     arr = np.array(r.get_json()["grf"])
-#     assert arr.ndim == 1 and arr.size == g.size
-#     np.testing.assert_allclose(arr, g)
+def test_get_directions_ok(client):
+    resp = client.get("/api/participants/1001/dates/2024-10-01/directions")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["items"] == ["in", "out"]
 
 
-# def test_footsteps(client_with_fake_event):
-#     c, ev_id, *_ = client_with_fake_event
-#     r = c.get(f"/api/events/{ev_id}/footsteps/data")
-#     assert r.status_code == 200
-#     steps = r.get_json()
-#     assert isinstance(steps, list) and len(steps) == 1
-#     assert steps[0]["footstep_id"] == 0
-#     a = np.array(steps[0]["p100"])
-#     assert a.shape == (2, 2)
+def test_get_directions_invalid_date(client):
+    # bad date format should yield 400
+    resp = client.get("/api/participants/1001/dates/2024-13-40/directions")
+    assert resp.status_code == 400
+    data = json.loads(resp.data)
+    assert data["code"] == "invalid_argument"
 
 
-# def test_missing_event(server_mod, monkeypatch):
-#     # Pretend DB lookup returns nothing; avoids hitting real DB/tables
-#     monkeypatch.setattr(server_mod, "_load_swipe", lambda eid: None, raising=True)
+def test_get_events_ok(client):
+    resp = client.get(
+        "/api/participants/1001/dates/2024-10-01/directions/in/events"
+    )
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["items"] == [1, 2]
 
-#     server_mod.server.config["TESTING"] = True
-#     with server_mod.server.test_client() as c:
-#         r = c.get("/api/events/NOPE/summary")
-#         assert r.status_code == 404
-#         assert r.get_json()["error"] == "event not found"
 
+def test_get_events_invalid_direction(client):
+    resp = client.get(
+        "/api/participants/1001/dates/2024-10-01/directions/sideways/events"
+    )
+    assert resp.status_code == 400
+    data = json.loads(resp.data)
+    assert data["code"] == "invalid_argument"
+
+
+def test_get_events_by_direction_ok(client):
+    resp = client.get("/api/participants/1001/dates/2024-10-01/eventsByDirection")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    # directions in FakeSAL: "in" -> [1,2], "out" -> [3]
+    assert data["in"] == [1, 2]
+    assert data["out"] == [3]
+
+
+def test_get_swipe_lookup_ok(client):
+    resp = client.get("/api/swipe/1001/2024-10-01/in/1")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["id"] == "evt-in-1"
+
+
+def test_get_swipe_lookup_not_found(client):
+    resp = client.get("/api/swipe/1001/2024-10-01/in/99")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+
+
+# -------------------- event summary + assets --------------------
+
+
+def test_event_summary_ok(client):
+    resp = client.get("/api/events/evt-in-1/summary")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data["event"]["id"] == "evt-in-1"
+    assert "availability" in data
+    assert data["availability"]["p100"] is True
+
+
+def test_event_summary_not_found(client):
+    resp = client.get("/api/events/missing/summary")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+
+
+def test_event_p100_ok(client):
+    resp = client.get("/api/events/evt-in-1/p100")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert "p100" in data
+    assert isinstance(data["p100"], list)
+    assert isinstance(data["p100"][0], list)
+
+
+def test_event_p100_missing_event(client):
+    resp = client.get("/api/events/missing/p100")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+
+
+def test_event_p100_missing_file(client):
+    resp = client.get("/api/events/nofile_p100/p100")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+    assert "p100 not available" in data["message"]
+
+
+def test_event_grf_ok(client):
+    resp = client.get("/api/events/evt-in-1/grf")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert "grf" in data
+    assert isinstance(data["grf"], list)
+
+
+def test_event_grf_missing_event(client):
+    resp = client.get("/api/events/missing/grf")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+
+
+def test_event_grf_missing_file(client):
+    resp = client.get("/api/events/nofile_grf/grf")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+    assert "grf not available" in data["message"]
+
+
+def test_event_footsteps_ok(client):
+    resp = client.get("/api/events/evt-in-1/footsteps/data")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert isinstance(data, list)
+    assert data[0]["footstep_id"] == 0
+    assert "p100" in data[0]
+    assert "grf" in data[0]
+
+
+def test_event_footsteps_missing_event(client):
+    resp = client.get("/api/events/missing/footsteps/data")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+
+
+def test_event_footsteps_missing_file_returns_empty_list(client):
+    # server.py returns [] (200) when err == "missing_file"
+    resp = client.get("/api/events/nofile_steps/footsteps/data")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert data == []

@@ -2,165 +2,212 @@
 from __future__ import annotations
 import os
 from pathlib import Path
-from urllib.parse import urlparse
+from datetime import datetime, date
+from typing import Tuple, Optional
 
-#import numpy as np
 from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 
 from backend.storage_access_layer.SAL import SAL
-#from backend.storage_access_layer.db import SwipeEvent
 
-# Load root .env
+# ---- Load root .env ----
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
 
-# Config
+# ---- Config ----
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://127.0.0.1:8050")
-ENABLE_AUTH = os.getenv("ENABLE_AUTH", "false").lower() == "true"
+ENABLE_AUTH = os.getenv("ENABLE_AUTH", "false").lower() == "true"  # reserved for future
 
-# App
+# ---- App ----
 server = Flask(__name__)
-CORS(server, supports_credentials=True, resources={r"/api/*": {"origins": ALLOWED_ORIGIN}})
+CORS(
+    server,
+    supports_credentials=True,
+    resources={r"/api/*": {"origins": ALLOWED_ORIGIN}},
+)
 
-sal = SAL()
+# ---- SAL ----
+sal: Optional[SAL] = None
 
-def _uri_to_path(uri_or_path: str) -> Path:
-    if uri_or_path.startswith("file://"):
-        p = urlparse(uri_or_path).path
+def get_sal() -> SAL:
+    """Return the global SAL instance, creating it on first use.
 
-        # Windows fix
-        if os.name == "nt":
-            if p.startswith("/") and len(p) > 3 and p[2] == ":":
-                p = p[1:]
+    Tests are free to monkeypatch backend.src.server.sal before any
+    endpoint is called; in that case this simply returns the patched SAL.
+    """
+    global sal
+    if sal is None:
+        sal = SAL()
+    return sal
 
-        return Path(p)
+# ------------------------- Helpers -------------------------
+def make_error(http: int, code: str, message: str, details=None):
+    return jsonify({"code": code, "message": message, "details": details}), http
 
-    return Path(uri_or_path)
+
+def parse_date_str(s: str) -> Tuple[Optional[date], Optional[Tuple]]:
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date(), None
+    except ValueError:
+        return None, make_error(400, "invalid_argument", "date must be YYYY-MM-DD")
 
 
-# def _load_swipe(event_id: str) -> SwipeEvent | None:
-#     with db.get_session() as s:
-#         return s.get(SwipeEvent, event_id)
-
+def validate_direction(direction: str) -> Optional[Tuple]:
+    if direction not in ("in", "out"):
+        return make_error(400, "invalid_argument", "direction must be 'in' or 'out'")
+    return None
 
 # ------------------------- Health -------------------------
 @server.get("/api/health")
 def health_check():
-    # Keep exactly this payload so the existing unit test passes
+    # Keep exactly this payload for existing tests
     return jsonify({"status": "ok"})
 
+# =========================================================
+# Frontend ↔ Backend (dropdown population + swipe id)
+# =========================================================
 
-# ------------------- Participants / Dates -----------------
+# Get participants → { "items": [participant] }
 @server.get("/api/participants")
 def api_participants():
-    return jsonify(sal.getParticipants())
+    try:
+        return jsonify({"items": get_sal().getParticipants()})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-
+# Get dates → { "items": [date] }
 @server.get("/api/participants/<int:participant>/dates")
 def api_dates(participant: int):
-    # Convert date objects to ISO strings for JSON
-    return jsonify([d.isoformat() for d in sal.getDates(participant)])
+    try:
+        items = [d.isoformat() for d in get_sal().getDates(participant)]
+        if not items:
+            return make_error(404, "not_found", "no dates for participant")
+        return jsonify({"items": items})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
+# Get directions → { "items": ["in","out"] }
+@server.get("/api/participants/<int:participant>/dates/<date>/directions")
+def api_directions(participant: int, date: str):
+    dt, err = parse_date_str(date)
+    if err:
+        return err
+    try:
+        items = get_sal().getDirections(participant, dt)
+        if not items:
+            return make_error(404, "not_found", "no directions for participant/date")
+        return jsonify({"items": items})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-# --------------- Swipe Event Summary Endpoints ------------
-# @server.get("/api/events/<event_id>/summary")
-# def api_event_summary(event_id: str):
-#     row = _load_swipe(event_id)
-#     if not row:
-#         return jsonify({"error": "event not found"}), 404
+# Get events → { "items": [1,2,3,...] }
+@server.get("/api/participants/<int:participant>/dates/<date>/directions/<direction>/events")
+def api_events(participant: int, date: str, direction: str):
+    dt, err = parse_date_str(date)
+    if err:
+        return err
+    derr = validate_direction(direction)
+    if derr:
+        return derr
+    try:
+        items = get_sal().getEvents(participant, dt, direction)
+        if not items:
+            return make_error(
+                404, "not_found", "no events for participant/date/direction"
+            )
+        return jsonify({"items": items})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-#     p100_exists = _uri_to_path(row.trial_p100_npz_uri).exists()
-#     grf_exists = _uri_to_path(row.trial_grf_npz_uri).exists()
-#     trial_exists = _uri_to_path(row.trial_npz_uri).exists()
+# Get events by direction → { "in": [...], "out": [...] }
+@server.get("/api/participants/<int:participant>/dates/<date>/eventsByDirection")
+def api_events_by_direction(participant: int, date: str):
+    dt, err = parse_date_str(date)
+    if err:
+        return err
+    try:
+        s = get_sal()
+        dirs = s.getDirections(participant, dt)  # subset of {"in","out"}
+        by_dir_lists = s.getBothDirectionEvents(participant, dt)
+        out = {"in": [], "out": []}
+        for d, events in zip(dirs, by_dir_lists):
+            out[d] = events
+        if not out["in"] and not out["out"]:
+            return make_error(404, "not_found", "no events for participant/date")
+        return jsonify(out)
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+    
+# Get swipe → { "id": event_id }
+@server.get("/api/swipe/<int:participant>/<date>/<direction>/<int:event>")
+def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
+    dt, err = parse_date_str(date)
+    if err:
+        return err
+    derr = validate_direction(direction)
+    if derr:
+        return derr
+    try:
+        event_id = get_sal().getSwipeEventId(participant, dt, event, direction)
+        if not event_id:
+            return make_error(404, "not_found", "swipe not found")
+        return jsonify({"id": event_id})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-#     event = {
-#         "id": row.event_id,
-#         "participant": row.participant,
-#         "date": row.date.isoformat(),
-#         "direction": row.direction,
-#         "event_number": row.event_number,
-#     }
-#     availability = {"p100": p100_exists, "grf": grf_exists, "footsteps": trial_exists}
-#     return jsonify({"event": event, "availability": availability})
+# =====================================================
+# Frontend ↔ Backend (swipe event summary + assets)
+# =====================================================
 
+@server.get("/api/events/<event_id>/summary")
+def api_event_summary(event_id: str):
+    try:
+        result = get_sal().getEventSummary(event_id)
+        if not result:
+            return make_error(404, "not_found", "event not found")
+        event, availability = result
+        return jsonify({"event": event, "availability": availability})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-# @server.get("/api/events/<event_id>/p100")
-# def api_event_p100(event_id: str):
-#     row = _load_swipe(event_id)
-#     if not row:
-#         return jsonify({"error": "event not found"}), 404
+@server.get("/api/events/<event_id>/p100")
+def api_event_p100(event_id: str):
+    try:
+        data, err = get_sal().getEventP100(event_id)
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+        if err == "missing_file":
+            return make_error(404, "not_found", "p100 not available")
+        return jsonify({"p100": data})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-#     p = _uri_to_path(row.trial_p100_npz_uri)
-#     if not p.exists():
-#         return jsonify({"error": "p100 not available"}), 404
+@server.get("/api/events/<event_id>/grf")
+def api_event_grf(event_id: str):
+    try:
+        data, err = get_sal().getEventGRF(event_id)
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+        if err == "missing_file":
+            return make_error(404, "not_found", "grf not available")
+        return jsonify({"grf": data})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-#     data = np.load(p)
-#     # Try common keys; fall back to the first array in the file
-#     for key in ("p100", "a", "arr_0"):
-#         if key in data:
-#             arr = data[key]
-#             break
-#     else:
-#         arr = list(data.values())[0]
+@server.get("/api/events/<event_id>/footsteps/data")
+def api_event_footsteps(event_id: str):
+    try:
+        data, err = get_sal().getEventFootsteps(event_id)
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+        if err == "missing_file":
+            # keep previous behaviour: missing trial → empty list
+            return jsonify([])
+        return jsonify(data)
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
 
-#     arr = np.rot90(arr, 1)  # rotate 90° for horizontal display
-#     return jsonify({"p100": arr.tolist()})
-
-
-# @server.get("/api/events/<event_id>/grf")
-# def api_event_grf(event_id: str):
-#     row = _load_swipe(event_id)
-#     if not row:
-#         return jsonify({"error": "event not found"}), 404
-
-#     p = _uri_to_path(row.trial_grf_npz_uri)
-#     if not p.exists():
-#         return jsonify({"error": "grf not available"}), 404
-
-#     data = np.load(p)
-#     for key in ("grf", "g", "arr_0"):
-#         if key in data:
-#             arr = data[key]
-#             break
-#     else:
-#         arr = list(data.values())[0]
-
-#     arr = np.asarray(arr).reshape(-1)
-#     return jsonify({"grf": arr.tolist()})
-
-
-# @server.get("/api/events/<event_id>/footsteps/data")
-# def api_event_footsteps(event_id: str):
-#     row = _load_swipe(event_id)
-#     if not row:
-#         return jsonify({"error": "event not found"}), 404
-
-#     p = _uri_to_path(row.trial_npz_uri)
-#     if not p.exists():
-#         return jsonify([])
-
-#     z = np.load(p)
-#     steps = []
-#     # Look for keys like footstep_0_p100 / footstep_0_grf
-#     idx = 0
-#     while True:
-#         k_p = f"footstep_{idx}_p100"
-#         k_g = f"footstep_{idx}_grf"
-#         if k_p not in z and k_g not in z:
-#             break
-#         item = {"footstep_id": idx}
-#         if k_p in z:
-#             item["p100"] = np.asarray(z[k_p]).tolist()
-#         if k_g in z:
-#             g = np.asarray(z[k_g]).reshape(-1)
-#             item["grf"] = g.tolist()
-#         steps.append(item)
-#         idx += 1
-
-#     return jsonify(steps)
-
-
+# --------------- dev runner ---------------
 def runBackend():
     server.run(host="127.0.0.1", port=8000, debug=False)
