@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from datetime import datetime, date
-from typing import Dict, List, Tuple, Optional
+from typing import Tuple, Optional
 
 from flask import Flask, jsonify
 from flask_cors import CORS
