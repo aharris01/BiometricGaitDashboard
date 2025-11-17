@@ -65,3 +65,32 @@ jobs:
                   source .venv/bin/activate
                   pyright
               shell: bash
+
+    format:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: "3.11"
+            - name: Restore cached venv
+              id: cache-venv
+              uses: actions/cache@v4
+              with:
+                  path: .venv
+                  key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+
+            - name: Create venv and install deps (on cache miss)
+              if: steps.cache-venv.outputs.cache-hit != 'true'
+              run: |
+                  python -m venv .venv
+                  source .venv/bin/activate
+                  pip install -r requirements.txt
+                  pip install ruff pyright pytest
+              shell: bash
+
+            - name: Format Check
+              run: |
+                  source .venv/bin/activate
+                  ruff format --check
+              shell: bash
