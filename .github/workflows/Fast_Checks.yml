@@ -30,7 +30,7 @@ jobs:
                   source .venv/bin/activate
                   pip install -r requirements.txt
                   pip install ruff pyright pytest
-                  shell: bash
+              shell: bash
 
             - name: Lint (ruff)
               run: |
