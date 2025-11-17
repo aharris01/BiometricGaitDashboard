@@ -54,3 +54,15 @@ class SAL:
             result[d] = self.db.getEvents(participant, date, d)
         v.getBothDirectionEvents_check(participant, date, result)
         return result
+
+    def getEventSummary(self, event_id: str):
+        raise NotImplementedError
+
+    def getP100(self, event_id):
+        raise NotImplementedError
+
+    def getGRF(self, event_id):
+        raise NotImplementedError
+
+    def getFootsteps(self, event_id):
+        raise NotImplementedError
