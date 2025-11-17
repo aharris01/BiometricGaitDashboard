@@ -20,9 +20,11 @@ import datetime
 from sqlalchemy import select, distinct
 from ..scripts.ingest import iter_swipes
 
+DATALOCATION = "DATA_ROOT"
+
 load_dotenv()
 
-dataroot = os.environ.get("DATAROOT")
+dataroot = os.environ.get(DATALOCATION)
 if dataroot is None:
     dataroot = "."
 
