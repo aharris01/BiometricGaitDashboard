@@ -1,96 +1,124 @@
 name: Fast CI Checks
 
 on:
-    push:
-        branches:
-            - "**"
-    pull_request:
-        branches:
-            - main
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - main
 
 jobs:
-    lint:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-python@v6
-              with:
-                  python-version: "3.11"
-            - name: Restore cached venv
-              id: cache-venv
-              uses: actions/cache@v4
-              with:
-                  path: .venv
-                  key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Restore cached venv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
 
-            - name: Create venv and install deps (on cache miss)
-              if: steps.cache-venv.outputs.cache-hit != 'true'
-              run: |
-                  python -m venv .venv
-                  source .venv/bin/activate
-                  pip install -r requirements.txt
-                  pip install ruff pyright pytest
-              shell: bash
+      - name: Create venv and install deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install ruff pyright pytest
+        shell: bash
 
-            - name: Lint (ruff)
-              run: |
-                  source .venv/bin/activate
-                  ruff check .
-              shell: bash
-    typecheck:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-python@v6
-              with:
-                  python-version: "3.11"
-            - name: Restore cached venv
-              id: cache-venv
-              uses: actions/cache@v4
-              with:
-                  path: .venv
-                  key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+      - name: Lint (ruff)
+        run: |
+          source .venv/bin/activate
+          ruff check .
+        shell: bash
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Restore cached venv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
 
-            - name: Create venv and install deps (on cache miss)
-              if: steps.cache-venv.outputs.cache-hit != 'true'
-              run: |
-                  python -m venv .venv
-                  source .venv/bin/activate
-                  pip install -r requirements.txt
-                  pip install ruff pyright pytest
-              shell: bash
+      - name: Create venv and install deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install ruff pyright pytest
+        shell: bash
 
-            - name: Typecheck (pyright)
-              run: |
-                  source .venv/bin/activate
-                  pyright
-              shell: bash
+      - name: Typecheck (pyright)
+        run: |
+          source .venv/bin/activate
+          pyright
+        shell: bash
 
-    format:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-python@v6
-              with:
-                  python-version: "3.11"
-            - name: Restore cached venv
-              id: cache-venv
-              uses: actions/cache@v4
-              with:
-                  path: .venv
-                  key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Restore cached venv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
 
-            - name: Create venv and install deps (on cache miss)
-              if: steps.cache-venv.outputs.cache-hit != 'true'
-              run: |
-                  python -m venv .venv
-                  source .venv/bin/activate
-                  pip install -r requirements.txt
-                  pip install ruff pyright pytest
-              shell: bash
+      - name: Create venv and install deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install ruff pyright pytest
+        shell: bash
 
-            - name: Format Check
-              run: |
-                  source .venv/bin/activate
-                  ruff format --check
-              shell: bash
+      - name: Format Check
+        run: |
+          source .venv/bin/activate
+          ruff format --check
+        shell: bash
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Restore cached venv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+
+      - name: Create venv and install deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          pip install ruff pyright pytest pytest-cov
+        shell: bash
+
+      - name: Unit Test (pytest)
+        run: |
+          source .venv/bin/activate
+          pytest
+        shell: bash
