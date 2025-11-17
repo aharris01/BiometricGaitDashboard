@@ -14,8 +14,6 @@ omit = ["tests/*"]
 
 
 [tool.pyright]
-venvPath = "."
-venv = ".venv"
 include = ["backend", "frontend", "tests"]
 exclude = [
     "**/node_modules",
