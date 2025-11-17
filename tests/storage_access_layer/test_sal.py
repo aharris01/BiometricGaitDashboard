@@ -16,7 +16,6 @@ def fake_db():
     db.getDirections = MagicMock()
     db.getEvents = MagicMock()
     db.getSwipeEventId = MagicMock()
-    db.getBothDirectionEvents = MagicMock()
     return db
 
 
@@ -27,7 +26,9 @@ def sal(fake_db):
     yield sal
     sal.db.close()
 
+
 # Tests
+
 
 def test_sal_getParticipants(sal, fake_db):
     fake_db.getParticipants.return_value = [11111, 22222, 33333]
@@ -67,11 +68,15 @@ def test_sal_getSwipeEventId(sal, fake_db):
 
 
 def test_sal_getBothDirectionEvents(sal, fake_db):
-    # MUST be list[list[int]]
-    fake_db.getBothDirectionEvents.return_value = [[1, 2], [3, 4]]
+    # MUST be dict[str, list[int]]
+    fake_db.getDirections.return_value = ["in", "out"]
+    fake_db.getEvents.side_effect = [[1, 2], [3, 4]]
     out = sal.getBothDirectionEvents(11111, datetime.date(2025, 1, 1))
-    assert out == [[1, 2], [3, 4]]
-    fake_db.getBothDirectionEvents.assert_called_once()
+    assert out == {"in": [1, 2], "out": [3, 4]}
+    fake_db.getDirections.assert_called_once()
+    assert fake_db.getEvents.call_count == 2
+    fake_db.getEvents.side_effect = None
+
 
 def test_sal_input_validation_failure(sal, fake_db):
     # validators should reject invalid types
@@ -85,5 +90,3 @@ def test_sal_output_validation_failure(sal, fake_db):
     fake_db.getDates.return_value = ["not-a-date"]
     with pytest.raises(ValueError):
         sal.getDates(11111)
-
-

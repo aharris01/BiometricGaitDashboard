@@ -9,19 +9,20 @@ from backend.storage_access_layer.db import SwipeEvent
 
 # Basic insert + fetch test
 
+
 def test_add_and_query_swipe_event(test_db):
-    swipe_event  = SwipeEvent(
-            event_id="EV1",
-            participant=123,
-            date=datetime.date(2025, 1, 1),
-            direction="in",
-            event_number=1,
-            state="complete",           # ← REQUIRED
-            trial_npz_uri="test_trial.npz",
-            trial_p100_npz_uri="test_p100.npz",
-            trial_grf_npz_uri="test_grf.npz",
-        )
-    
+    swipe_event = SwipeEvent(
+        event_id="EV1",
+        participant=123,
+        date=datetime.date(2025, 1, 1),
+        direction="in",
+        event_number=1,
+        state="complete",  # ← REQUIRED
+        trial_npz_uri="test_trial.npz",
+        trial_p100_npz_uri="test_p100.npz",
+        trial_grf_npz_uri="test_grf.npz",
+    )
+
     test_db.addSwipeEvent(swipe_event)
 
     with test_db._get_session() as s:
@@ -32,11 +33,10 @@ def test_add_and_query_swipe_event(test_db):
         assert row.event_number == 1
 
 
-
 # full file-path fields
 
-def test_swipe_event_full_paths(tmp_path, test_db):
 
+def test_swipe_event_full_paths(tmp_path, test_db):
     fp = tmp_path / "trial.npz"
     fp_p100 = tmp_path / "p100.npz"
     fp_grf = tmp_path / "grf.npz"
@@ -52,7 +52,7 @@ def test_swipe_event_full_paths(tmp_path, test_db):
             date=datetime.date(2025, 1, 1),
             direction="in",
             event_number=1,
-            state="complete",   # ← REQUIRED
+            state="complete",  # ← REQUIRED
             trial_npz_uri=str(fp),
             trial_p100_npz_uri=str(fp_p100),
             trial_grf_npz_uri=str(fp_grf),
@@ -67,8 +67,8 @@ def test_swipe_event_full_paths(tmp_path, test_db):
         assert Path(row.trial_grf_npz_uri).exists()
 
 
-
 # handle empty query outputs
+
 
 def test_db_empty_queries(empty_db):
     db = empty_db
@@ -79,7 +79,9 @@ def test_db_empty_queries(empty_db):
     assert db.getDirections(99999, datetime.date(2020, 1, 1)) == []
     assert db.getEvents(99999, datetime.date(2020, 1, 1), "in") == []
 
+
 # SwipeEventId not found
+
 
 def test_swipe_eventid_not_found(empty_db):
     db = empty_db
@@ -90,51 +92,3 @@ def test_swipe_eventid_not_found(empty_db):
         direction="in",
     )
     assert out is None
-
-
-#  BothDirectionEvents returns empty
-
-def test_both_direction_events_empty(empty_db):
-    db = empty_db
-    out = db.getBothDirectionEvents(
-        participant=99999,
-        date=datetime.date(2025, 1, 1),
-    )
-    # There are no directions at all → empty list
-    assert out == []
-
-
-# 
-#  BothDirectionEvents returns with valid data
-#
-def test_both_direction_events_with_data(test_db):
-    e1 = SwipeEvent(
-        event_id="IN1",
-        participant=5,
-        date=datetime.date(2024, 1, 1),
-        direction="in",
-        event_number=1,
-        state="complete",    
-        trial_npz_uri="a.npz",
-        trial_p100_npz_uri="b.npz",
-        trial_grf_npz_uri="c.npz",
-    )
-    e2 = SwipeEvent(
-        event_id="OUT1",
-        participant=5,
-        date=datetime.date(2024, 1, 1),
-        direction="out",
-        event_number=2,
-        state="complete",    
-        trial_npz_uri="a.npz",
-        trial_p100_npz_uri="b.npz",
-        trial_grf_npz_uri="c.npz",
-    )
-    test_db.addSwipeEvent(e1)
-    test_db.addSwipeEvent(e2)
-
-    out = test_db.getBothDirectionEvents(5, datetime.date(2024, 1, 1))
-    assert out == [[1], [2]]
-
-
-

@@ -48,10 +48,13 @@ class FakeSAL:
 
     def getBothDirectionEvents(self, participant, dt_):
         """
-        Return list[list[int]] matching whatever getDirections() returns.
+        Return dict[str, list[int]] matching whatever getDirections() returns.
         """
         dirs = self.getDirections(participant, dt_)
-        return [self.getEvents(participant, dt_, d) for d in dirs]
+        result = {}
+        for d in dirs:
+            result[d] = self.getEvents(participant, dt_, d)
+        return result
 
     # ---------- high-level event helpers ----------
 
@@ -77,7 +80,7 @@ class FakeSAL:
         }
         return event, availability
 
-    def getEventP100(self, event_id: str):
+    def getP100(self, event_id: str):
         """
         Return (data, err) where:
         - err is None, "missing_event", or "missing_file"
@@ -88,14 +91,14 @@ class FakeSAL:
             return None, "missing_file"
         return [[1.0, 2.0], [3.0, 4.0]], None
 
-    def getEventGRF(self, event_id: str):
+    def getGRF(self, event_id: str):
         if event_id == "missing":
             return None, "missing_event"
         if event_id == "nofile_grf":
             return None, "missing_file"
         return [0.1, 0.2, 0.3], None
 
-    def getEventFootsteps(self, event_id: str):
+    def getFootsteps(self, event_id: str):
         if event_id == "missing":
             return None, "missing_event"
         if event_id == "nofile_steps":
@@ -178,9 +181,7 @@ def test_get_directions_invalid_date(client):
 
 
 def test_get_events_ok(client):
-    resp = client.get(
-        "/api/participants/1001/dates/2024-10-01/directions/in/events"
-    )
+    resp = client.get("/api/participants/1001/dates/2024-10-01/directions/in/events")
     assert resp.status_code == 200
     data = json.loads(resp.data)
     assert data["items"] == [1, 2]
