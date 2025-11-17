@@ -49,6 +49,7 @@ pytest-cov==7.0.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytz==2025.2
+pyright==1.1.407
 requests
 retrying==1.4.2
 ruff==0.14.2
