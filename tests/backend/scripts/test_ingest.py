@@ -2,12 +2,18 @@ import os
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from backend.scripts.ingest import iter_swipes
 
 
-def _make_event(root, participant=123, date_str="2025-01-01", direction="in", event_number=1, missing=None):
+def _make_event(
+    root,
+    participant=123,
+    date_str="2025-01-01",
+    direction="in",
+    event_number=1,
+    missing=None,
+):
     event_dir = root / str(participant) / date_str / direction / str(event_number)
     event_dir.mkdir(parents=True, exist_ok=True)
 
@@ -31,7 +37,9 @@ def _make_event(root, participant=123, date_str="2025-01-01", direction="in", ev
 
 
 def test_iter_swipes_parses_valid_structure(tmp_path):
-    event = _make_event(tmp_path, participant=111, date_str="2025-01-15", direction="in", event_number=5)
+    event = _make_event(
+        tmp_path, participant=111, date_str="2025-01-15", direction="in", event_number=5
+    )
 
     rows = list(iter_swipes(tmp_path))
     assert len(rows) == 1
@@ -49,7 +57,14 @@ def test_iter_swipes_parses_valid_structure(tmp_path):
 
 
 def test_iter_swipes_marks_failed_when_missing_files(tmp_path):
-    event = _make_event(tmp_path, participant=222, date_str="2025-02-01", direction="out", event_number=7, missing={"grf"})
+    event = _make_event(
+        tmp_path,
+        participant=222,
+        date_str="2025-02-01",
+        direction="out",
+        event_number=7,
+        missing={"grf"},
+    )
 
     rows = list(iter_swipes(tmp_path))
     assert len(rows) == 1
@@ -71,8 +86,16 @@ def test_iter_swipes_skips_malformed_paths(tmp_path, capfd):
 
 
 def test_iter_swipes_handles_multiple_events(tmp_path):
-    first = _make_event(tmp_path, participant=333, date_str="2025-03-01", direction="in", event_number=1)
-    second = _make_event(tmp_path, participant=444, date_str="2025-03-02", direction="out", event_number=2)
+    _make_event(
+        tmp_path, participant=333, date_str="2025-03-01", direction="in", event_number=1
+    )
+    _make_event(
+        tmp_path,
+        participant=444,
+        date_str="2025-03-02",
+        direction="out",
+        event_number=2,
+    )
 
     rows = sorted(iter_swipes(tmp_path), key=lambda r: r["event_id"])
     assert [row["participant"] for row in rows] == [333, 444]
@@ -82,7 +105,9 @@ def test_iter_swipes_handles_multiple_events(tmp_path):
 
 def test_iter_swipes_relative_paths(tmp_path, monkeypatch):
     root = tmp_path / "nested" / "data"
-    event = _make_event(root, participant=555, date_str="2025-04-05", direction="in", event_number=3)
+    event = _make_event(
+        root, participant=555, date_str="2025-04-05", direction="in", event_number=3
+    )
 
     monkeypatch.chdir(tmp_path)
     rel_root = Path(os.path.relpath(root, start=tmp_path))
