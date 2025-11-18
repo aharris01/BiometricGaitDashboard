@@ -11,12 +11,19 @@ from backend.storage_access_layer.SAL import SAL
 def fake_db():
     """A fake DB object with all required methods mocked."""
     db = MagicMock()
-    db.getParticipants = MagicMock()
-    db.getDates = MagicMock()
-    db.getDirections = MagicMock()
-    db.getEvents = MagicMock()
-    db.getSwipeEventId = MagicMock()
-    return db
+    mocked_methods = [
+        "getParticipants",
+        "getDates",
+        "getDirections",
+        "getEvents",
+        "getSwipeEventId",
+    ]
+    for method in mocked_methods:
+        setattr(db, method, MagicMock())
+    yield db
+    for method in mocked_methods:
+        getattr(db, method).reset_mock(return_value=True, side_effect=True)
+    db.reset_mock(return_value=True, side_effect=True)
 
 
 @pytest.fixture
