@@ -4,7 +4,10 @@ import atexit
 
 
 class SAL:
-    # requested seperate SAL file with accessfunctions now living on db.py
+    # =========================================================
+    # Backend ↔ SAL to get path with event_id Primary key
+    # =========================================================
+
     def __init__(self, db=None):
         self.db = db or DB()
         atexit.register(self._close_db)
@@ -44,3 +47,19 @@ class SAL:
         result = self.db.getBothDirectionEvents(participant, date)
         v.getBothDirectionEvents_check(participant, date, result)
         return result
+
+    # =========================================================
+    # Backend ↔ SAL request summary assets with event_id
+    # =========================================================
+
+    def getEventSummary():
+        pass
+
+    def getP100():
+        pass
+
+    def getGRF():
+        pass
+
+    def getFootsteps():
+        pass
