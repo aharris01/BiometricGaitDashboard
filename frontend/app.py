@@ -1,26 +1,61 @@
 from dash import Dash, Input, Output, State, callback
 from dash.dcc import Dropdown, Interval
-from dash.html import Div
+from dash.html import Div, Button
 from dash.exceptions import PreventUpdate
 import requests
 
 API_BASE = "http://127.0.0.1:8000"
+CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
 
 app = Dash(__name__, prevent_initial_callbacks=True)
 
-
 app.layout = Div(
     id="page",
+    style={
+        "minHeight": "100vh",
+        "display": "flex",
+        "flexDirection": "column",
+        "alignItems": "center",
+        "justifyContent": "flex-start",
+        "padding": "16px",
+        "boxSizing": "border-box",
+        "gap": "24px",
+    },
     children=[
         Interval(id="page-load", max_intervals=1),
         Div(
             id="dropdown-container",
+            style={
+                "height": "15vh",
+                "width": "100%",
+                "maxWidth": "900px",
+                "display": "flex",
+                "alignItems": "center",
+                "justifyContent": "center",
+                "gap": "8px",
+            },
             children=[
-                Dropdown(id="participant-dropdown"),
-                Dropdown(id="date-dropdown"),
-                Dropdown(id="direction-dropdown"),
-                Dropdown(id="event-dropdown"),
+                Dropdown(id="participant-dropdown", style=CONTROL_STYLE),
+                Dropdown(id="date-dropdown", style=CONTROL_STYLE),
+                Dropdown(id="direction-dropdown", style=CONTROL_STYLE),
+                Dropdown(id="event-dropdown", style=CONTROL_STYLE),
+                Button(
+                    "Submit",
+                    id="submit",
+                    style={"height": "38px", "padding": "0 24px"},
+                ),
             ],
+        ),
+        Div(
+            id="swipe-event-metadata",
+            style={
+                "width": "100%",
+                "maxWidth": "900px",
+                "flex": "1",
+                "display": "flex",
+                "justifyContent": "center",
+            },
+            children=[],
         ),
     ],
 )
