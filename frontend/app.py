@@ -40,8 +40,9 @@ app.layout = Div(
                 Dropdown(id="direction-dropdown", style=CONTROL_STYLE),
                 Dropdown(id="event-dropdown", style=CONTROL_STYLE),
                 Button(
-                    "Submit",
-                    id="submit",
+                    id="submit-button",
+                    n_clicks=0,
+                    children="Submit",
                     style={"height": "38px", "padding": "0 24px"},
                 ),
             ],
@@ -61,7 +62,10 @@ app.layout = Div(
 )
 
 
-@callback(Output("participant-dropdown", "options"), Input("page-load", "n_intervals"))
+@callback(
+    Output("participant-dropdown", "options"),
+    Input("page-load", "n_intervals")
+)
 def getParticipants(_):
     resp = requests.get(f"{API_BASE}/api/participants", timeout=5)
     resp.raise_for_status()
@@ -69,7 +73,10 @@ def getParticipants(_):
     return [{"label": str(p), "value": p} for p in data["items"]]
 
 
-@callback(Output("date-dropdown", "options"), Input("participant-dropdown", "value"))
+@callback(
+    Output("date-dropdown", "options"),
+    Input("participant-dropdown", "value")
+)
 def getDates(participant):
     if participant is None:
         raise PreventUpdate
@@ -85,9 +92,7 @@ def getDates(participant):
     Input("date-dropdown", "value"),
 )
 def getDirections(participant, datestr):
-    if (
-        participant is None or datestr is None
-    ):  # if no participant callback is not fired
+    if (participant is None or datestr is None):  # if no participant callback is not fired
         raise PreventUpdate
     resp = requests.get(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
@@ -107,7 +112,7 @@ def getDirections(participant, datestr):
     Input("direction-dropdown", "value"),
 )
 def getEvents(participant, datestr, direction):
-    if participant is None or datestr is None or direction is None:
+    if (participant is None or datestr is None or direction is None):
         raise PreventUpdate  # do not call API if any var is null
     resp = requests.get(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
@@ -117,6 +122,26 @@ def getEvents(participant, datestr, direction):
     data = resp.json()
     return [{"label": str(event), "value": event} for event in data["items"]]
 
+@callback(
+    Output("swipe-event-metadata","children"),
+    Input("submit-button","n_clicks"),
+    State("participant-dropdown","value"),
+    State("date-dropdown", "value"),
+    State("direction-dropdown", "value"),
+    State("event-dropdown","value")
+)
+def getSwipeEventId(self, participant, datestr, direction, event):
+    if (participant is None or datestr is None or direction is None or event is None):
+        raise PreventUpdate
+    resp = requests.get(
+        f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}",
+        timeout=5
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return f''' 
+        {data["id"]}
+    '''
 
 def runDash():
     app.run(host="127.0.0.1", port=8050, debug=False)
