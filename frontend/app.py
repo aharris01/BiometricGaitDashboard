@@ -1,5 +1,5 @@
 from dash import Dash, Input, Output, State, callback
-from dash.dcc import Dropdown, Interval
+from dash.dcc import Dropdown, Interval, Store
 from dash.html import Div, Button
 from dash.exceptions import PreventUpdate
 import requests
@@ -22,6 +22,7 @@ app.layout = Div(
         "gap": "24px",
     },
     children=[
+        Store(id="event-id-store", data={"event_id": None}, storage_type="session"),
         Interval(id="page-load", max_intervals=1),
         Div(
             id="dropdown-container",
@@ -58,14 +59,12 @@ app.layout = Div(
             },
             children=[],
         ),
+        Div(id="store-data", children=[]),
     ],
 )
 
 
-@callback(
-    Output("participant-dropdown", "options"),
-    Input("page-load", "n_intervals")
-)
+@callback(Output("participant-dropdown", "options"), Input("page-load", "n_intervals"))
 def getParticipants(_):
     resp = requests.get(f"{API_BASE}/api/participants", timeout=5)
     resp.raise_for_status()
@@ -73,10 +72,7 @@ def getParticipants(_):
     return [{"label": str(p), "value": p} for p in data["items"]]
 
 
-@callback(
-    Output("date-dropdown", "options"),
-    Input("participant-dropdown", "value")
-)
+@callback(Output("date-dropdown", "options"), Input("participant-dropdown", "value"))
 def getDates(participant):
     if participant is None:
         raise PreventUpdate
@@ -92,7 +88,9 @@ def getDates(participant):
     Input("date-dropdown", "value"),
 )
 def getDirections(participant, datestr):
-    if (participant is None or datestr is None):  # if no participant callback is not fired
+    if (
+        participant is None or datestr is None
+    ):  # if no participant callback is not fired
         raise PreventUpdate
     resp = requests.get(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
@@ -112,7 +110,7 @@ def getDirections(participant, datestr):
     Input("direction-dropdown", "value"),
 )
 def getEvents(participant, datestr, direction):
-    if (participant is None or datestr is None or direction is None):
+    if participant is None or datestr is None or direction is None:
         raise PreventUpdate  # do not call API if any var is null
     resp = requests.get(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
@@ -122,26 +120,34 @@ def getEvents(participant, datestr, direction):
     data = resp.json()
     return [{"label": str(event), "value": event} for event in data["items"]]
 
+
 @callback(
-    Output("swipe-event-metadata","children"),
-    Input("submit-button","n_clicks"),
-    State("participant-dropdown","value"),
+    Output("swipe-event-metadata", "children"),
+    Output("event-id-store", "data"),
+    Input("submit-button", "n_clicks"),
+    State("participant-dropdown", "value"),
     State("date-dropdown", "value"),
     State("direction-dropdown", "value"),
-    State("event-dropdown","value")
+    State("event-dropdown", "value"),
 )
-def getSwipeEventId(self, participant, datestr, direction, event):
-    if (participant is None or datestr is None or direction is None or event is None):
+def getSwipeEventId(_, participant, datestr, direction, event):
+    if participant is None or datestr is None or direction is None or event is None:
         raise PreventUpdate
     resp = requests.get(
-        f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}",
-        timeout=5
+        f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}", timeout=5
     )
     resp.raise_for_status()
     data = resp.json()
-    return f''' 
-        {data["id"]}
-    '''
+    event_id = data["id"]
+    return f"Swipe Event ID: {event_id}", {"event_id": event_id}
+
+
+@callback(Output("store-data", "children"), Input("event-id-store", "data"))
+def displayStoredData(store_data):
+    if store_data is None or store_data.get("event_id") is None:
+        raise PreventUpdate
+    return f"Stored Event ID: {store_data['event_id']}"
+
 
 def runDash():
     app.run(host="127.0.0.1", port=8050, debug=False)
