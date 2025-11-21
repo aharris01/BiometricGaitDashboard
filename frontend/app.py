@@ -9,6 +9,19 @@ CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
 
 app = Dash(__name__, prevent_initial_callbacks=True)
 
+
+def fetch_json(url, *, timeout=5, context="API request"):
+    """Fetch JSON from the API and log readable errors"""
+    try:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        message = f"[{context}] Failed to fetch {url}: {exc}"
+        app.logger.error(message)
+        raise PreventUpdate
+
+
 app.layout = Div(
     id="page",
     style={
@@ -66,19 +79,16 @@ app.layout = Div(
 
 @callback(Output("participant-dropdown", "options"), Input("page-load", "n_intervals"))
 def getParticipants(_):
-    resp = requests.get(f"{API_BASE}/api/participants", timeout=5)
-    resp.raise_for_status()
-    data = resp.json()
+    data = fetch_json(f"{API_BASE}/api/participants", context="getParticipants")
     return [{"label": str(p), "value": p} for p in data["items"]]
 
 
 @callback(Output("date-dropdown", "options"), Input("participant-dropdown", "value"))
 def getDates(participant):
-    if participant is None:
-        raise PreventUpdate
-    resp = requests.get(f"{API_BASE}/api/participants/{participant}/dates", timeout=5)
-    resp.raise_for_status()
-    data = resp.json()
+    require_values(participant)
+    data = fetch_json(
+        f"{API_BASE}/api/participants/{participant}/dates", context="getDates"
+    )
     return [{"label": str(date), "value": str(date)} for date in data["items"]]
 
 
@@ -88,16 +98,11 @@ def getDates(participant):
     Input("date-dropdown", "value"),
 )
 def getDirections(participant, datestr):
-    if (
-        participant is None or datestr is None
-    ):  # if no participant callback is not fired
-        raise PreventUpdate
-    resp = requests.get(
+    require_values(participant, datestr)
+    data = fetch_json(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
-        timeout=5,
+        context="getDirections",
     )
-    resp.raise_for_status()
-    data = resp.json()
     return [
         {"label": str(direction), "value": direction} for direction in data["items"]
     ]
@@ -110,14 +115,11 @@ def getDirections(participant, datestr):
     Input("direction-dropdown", "value"),
 )
 def getEvents(participant, datestr, direction):
-    if participant is None or datestr is None or direction is None:
-        raise PreventUpdate  # do not call API if any var is null
-    resp = requests.get(
+    require_values(participant, datestr, direction)
+    data = fetch_json(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
-        timeout=5,
+        context="getEvents",
     )
-    resp.raise_for_status()
-    data = resp.json()
     return [{"label": str(event), "value": event} for event in data["items"]]
 
 
@@ -131,13 +133,11 @@ def getEvents(participant, datestr, direction):
     State("event-dropdown", "value"),
 )
 def getSwipeEventId(_, participant, datestr, direction, event):
-    if participant is None or datestr is None or direction is None or event is None:
-        raise PreventUpdate
-    resp = requests.get(
-        f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}", timeout=5
+    require_values(participant, datestr, direction, event)
+    data = fetch_json(
+        f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}",
+        context="getSwipeEventId",
     )
-    resp.raise_for_status()
-    data = resp.json()
     event_id = data["id"]
     return f"Swipe Event ID: {event_id}", {"event_id": event_id}
 
@@ -151,3 +151,9 @@ def displayStoredData(store_data):
 
 def runDash():
     app.run(host="127.0.0.1", port=8050, debug=False)
+
+
+def require_values(*args):
+    if any(arg is None for arg in args):
+        print("Missing parameters; skipping data fetch.")
+        raise PreventUpdate
