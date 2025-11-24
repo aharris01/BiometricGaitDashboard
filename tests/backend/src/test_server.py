@@ -132,6 +132,7 @@ def client(monkeypatch):
 # -------------------- basic / health --------------------
 
 
+@pytest.mark.unit
 def test_health_ok(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
@@ -142,6 +143,7 @@ def test_health_ok(client):
 # -------------------- dropdown + swipe lookup --------------------
 
 
+@pytest.mark.unit
 def test_get_participants_ok(client):
     resp = client.get("/api/participants")
     assert resp.status_code == 200
@@ -149,6 +151,7 @@ def test_get_participants_ok(client):
     assert data["items"] == [1001]
 
 
+@pytest.mark.unit
 def test_get_dates_ok(client):
     resp = client.get("/api/participants/1001/dates")
     assert resp.status_code == 200
@@ -157,6 +160,7 @@ def test_get_dates_ok(client):
     assert data["items"] == ["2024-10-01"]
 
 
+@pytest.mark.unit
 def test_get_dates_not_found(client):
     # participant with no dates -> 404
     resp = client.get("/api/participants/9999/dates")
@@ -165,6 +169,7 @@ def test_get_dates_not_found(client):
     assert data["code"] == "not_found"
 
 
+@pytest.mark.unit
 def test_get_directions_ok(client):
     resp = client.get("/api/participants/1001/dates/2024-10-01/directions")
     assert resp.status_code == 200
@@ -172,6 +177,7 @@ def test_get_directions_ok(client):
     assert data["items"] == ["in", "out"]
 
 
+@pytest.mark.unit
 def test_get_directions_invalid_date(client):
     # bad date format should yield 400
     resp = client.get("/api/participants/1001/dates/2024-13-40/directions")
@@ -180,6 +186,7 @@ def test_get_directions_invalid_date(client):
     assert data["code"] == "invalid_argument"
 
 
+@pytest.mark.unit
 def test_get_events_ok(client):
     resp = client.get("/api/participants/1001/dates/2024-10-01/directions/in/events")
     assert resp.status_code == 200
@@ -187,6 +194,7 @@ def test_get_events_ok(client):
     assert data["items"] == [1, 2]
 
 
+@pytest.mark.unit
 def test_get_events_invalid_direction(client):
     resp = client.get(
         "/api/participants/1001/dates/2024-10-01/directions/sideways/events"
@@ -196,6 +204,7 @@ def test_get_events_invalid_direction(client):
     assert data["code"] == "invalid_argument"
 
 
+@pytest.mark.unit
 def test_get_events_by_direction_ok(client):
     resp = client.get("/api/participants/1001/dates/2024-10-01/eventsByDirection")
     assert resp.status_code == 200
@@ -205,6 +214,7 @@ def test_get_events_by_direction_ok(client):
     assert data["out"] == [3]
 
 
+@pytest.mark.unit
 def test_get_swipe_lookup_ok(client):
     resp = client.get("/api/swipe/1001/2024-10-01/in/1")
     assert resp.status_code == 200
@@ -212,6 +222,7 @@ def test_get_swipe_lookup_ok(client):
     assert data["id"] == "evt-in-1"
 
 
+@pytest.mark.unit
 def test_get_swipe_lookup_not_found(client):
     resp = client.get("/api/swipe/1001/2024-10-01/in/99")
     assert resp.status_code == 404
@@ -222,6 +233,7 @@ def test_get_swipe_lookup_not_found(client):
 # -------------------- event summary + assets --------------------
 
 
+@pytest.mark.unit
 def test_event_summary_ok(client):
     resp = client.get("/api/events/evt-in-1/summary")
     assert resp.status_code == 200
@@ -231,6 +243,7 @@ def test_event_summary_ok(client):
     assert data["availability"]["p100"] is True
 
 
+@pytest.mark.unit
 def test_event_summary_not_found(client):
     resp = client.get("/api/events/missing/summary")
     assert resp.status_code == 404
@@ -238,6 +251,7 @@ def test_event_summary_not_found(client):
     assert data["code"] == "not_found"
 
 
+@pytest.mark.unit
 def test_event_p100_ok(client):
     resp = client.get("/api/events/evt-in-1/p100")
     assert resp.status_code == 200
@@ -247,6 +261,7 @@ def test_event_p100_ok(client):
     assert isinstance(data["p100"][0], list)
 
 
+@pytest.mark.unit
 def test_event_p100_missing_event(client):
     resp = client.get("/api/events/missing/p100")
     assert resp.status_code == 404
@@ -254,6 +269,7 @@ def test_event_p100_missing_event(client):
     assert data["code"] == "not_found"
 
 
+@pytest.mark.unit
 def test_event_p100_missing_file(client):
     resp = client.get("/api/events/nofile_p100/p100")
     assert resp.status_code == 404
@@ -262,6 +278,7 @@ def test_event_p100_missing_file(client):
     assert "p100 not available" in data["message"]
 
 
+@pytest.mark.unit
 def test_event_grf_ok(client):
     resp = client.get("/api/events/evt-in-1/grf")
     assert resp.status_code == 200
@@ -270,6 +287,7 @@ def test_event_grf_ok(client):
     assert isinstance(data["grf"], list)
 
 
+@pytest.mark.unit
 def test_event_grf_missing_event(client):
     resp = client.get("/api/events/missing/grf")
     assert resp.status_code == 404
@@ -277,6 +295,7 @@ def test_event_grf_missing_event(client):
     assert data["code"] == "not_found"
 
 
+@pytest.mark.unit
 def test_event_grf_missing_file(client):
     resp = client.get("/api/events/nofile_grf/grf")
     assert resp.status_code == 404
@@ -285,6 +304,7 @@ def test_event_grf_missing_file(client):
     assert "grf not available" in data["message"]
 
 
+@pytest.mark.unit
 def test_event_footsteps_ok(client):
     resp = client.get("/api/events/evt-in-1/footsteps/data")
     assert resp.status_code == 200
@@ -295,6 +315,7 @@ def test_event_footsteps_ok(client):
     assert "grf" in data[0]
 
 
+@pytest.mark.unit
 def test_event_footsteps_missing_event(client):
     resp = client.get("/api/events/missing/footsteps/data")
     assert resp.status_code == 404
@@ -302,6 +323,7 @@ def test_event_footsteps_missing_event(client):
     assert data["code"] == "not_found"
 
 
+@pytest.mark.unit
 def test_event_footsteps_missing_file_returns_empty_list(client):
     # server.py returns [] (200) when err == "missing_file"
     resp = client.get("/api/events/nofile_steps/footsteps/data")

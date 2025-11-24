@@ -37,6 +37,7 @@ def sal(fake_db):
 # Tests
 
 
+@pytest.mark.unit
 def test_sal_getParticipants(sal, fake_db):
     fake_db.getParticipants.return_value = [11111, 22222, 33333]
     out = sal.getParticipants()
@@ -44,6 +45,7 @@ def test_sal_getParticipants(sal, fake_db):
     fake_db.getParticipants.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getDates(sal, fake_db):
     d = datetime.date(2025, 1, 1)
     fake_db.getDates.return_value = [d]
@@ -52,6 +54,7 @@ def test_sal_getDates(sal, fake_db):
     fake_db.getDates.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getDirections(sal, fake_db):
     fake_db.getDirections.return_value = ["in", "out"]
     out = sal.getDirections(11111, datetime.date(2025, 1, 1))
@@ -59,6 +62,7 @@ def test_sal_getDirections(sal, fake_db):
     fake_db.getDirections.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getEvents(sal, fake_db):
     # MUST be ints per validators
     fake_db.getEvents.return_value = [1, 2, 3]
@@ -67,6 +71,7 @@ def test_sal_getEvents(sal, fake_db):
     fake_db.getEvents.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getSwipeEventId(sal, fake_db):
     fake_db.getSwipeEventId.return_value = "EV12345"
     out = sal.getSwipeEventId(11111, datetime.date(2025, 1, 1), 1, "in")
@@ -74,6 +79,7 @@ def test_sal_getSwipeEventId(sal, fake_db):
     fake_db.getSwipeEventId.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getBothDirectionEvents(sal, fake_db):
     # MUST be dict[str, list[int]]
     fake_db.getDirections.return_value = ["in", "out"]
@@ -85,6 +91,7 @@ def test_sal_getBothDirectionEvents(sal, fake_db):
     fake_db.getEvents.side_effect = None
 
 
+@pytest.mark.unit
 def test_sal_input_validation_failure(sal, fake_db):
     # validators should reject invalid types
     fake_db.getDates.return_value = []
@@ -92,6 +99,7 @@ def test_sal_input_validation_failure(sal, fake_db):
         sal.getDates("not-an-int")
 
 
+@pytest.mark.unit
 def test_sal_output_validation_failure(sal, fake_db):
     # returning wrong type should trigger validator error
     fake_db.getDates.return_value = ["not-a-date"]

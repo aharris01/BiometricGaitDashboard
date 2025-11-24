@@ -19,6 +19,7 @@ class StubResponse:
         return self._json_data
 
 
+@pytest.mark.unit
 def test_getParticipants_success(monkeypatch):
     captured = {}
 
@@ -39,6 +40,7 @@ def test_getParticipants_success(monkeypatch):
     assert captured["timeout"] == 5
 
 
+@pytest.mark.unit
 def test_getParticipants_http_error(monkeypatch):
     def fake_get(url, timeout):
         return StubResponse([], status_ok=False)
@@ -49,6 +51,7 @@ def test_getParticipants_http_error(monkeypatch):
         app_mod.getParticipants(None)
 
 
+@pytest.mark.unit
 def test_getDates_success(monkeypatch):
     captured = {}
 
@@ -69,6 +72,7 @@ def test_getDates_success(monkeypatch):
     assert captured["timeout"] == 5
 
 
+@pytest.mark.unit
 def test_getDates_http_error(monkeypatch):
     def fake_get(url, timeout):
         return StubResponse([], status_ok=False)

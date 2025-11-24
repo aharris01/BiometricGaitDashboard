@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-
+import pytest
 import numpy as np
 
 from backend.scripts.ingest import iter_swipes
@@ -36,6 +36,7 @@ def _make_event(
     }
 
 
+@pytest.mark.unit
 def test_iter_swipes_parses_valid_structure(tmp_path):
     event = _make_event(
         tmp_path, participant=111, date_str="2025-01-15", direction="in", event_number=5
@@ -56,6 +57,7 @@ def test_iter_swipes_parses_valid_structure(tmp_path):
     assert row["trial_grf_npz_uri"] == event["grf"].resolve().as_uri()
 
 
+@pytest.mark.unit
 def test_iter_swipes_marks_failed_when_missing_files(tmp_path):
     event = _make_event(
         tmp_path,
@@ -73,6 +75,7 @@ def test_iter_swipes_marks_failed_when_missing_files(tmp_path):
     assert row["trial_grf_npz_uri"] == event["grf"].resolve().as_uri()
 
 
+@pytest.mark.unit
 def test_iter_swipes_skips_malformed_paths(tmp_path, capfd):
     bad_dir = tmp_path / "not_enough" / "segments"
     bad_dir.mkdir(parents=True)
@@ -85,6 +88,7 @@ def test_iter_swipes_skips_malformed_paths(tmp_path, capfd):
     assert "error parsing swipe path" in captured.out
 
 
+@pytest.mark.unit
 def test_iter_swipes_handles_multiple_events(tmp_path):
     _make_event(
         tmp_path, participant=333, date_str="2025-03-01", direction="in", event_number=1
@@ -103,6 +107,7 @@ def test_iter_swipes_handles_multiple_events(tmp_path):
     assert [row["state"] for row in rows] == ["ready", "ready"]
 
 
+@pytest.mark.unit
 def test_iter_swipes_relative_paths(tmp_path, monkeypatch):
     root = tmp_path / "nested" / "data"
     event = _make_event(

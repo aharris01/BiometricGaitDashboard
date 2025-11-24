@@ -3,6 +3,7 @@
 import datetime
 import numpy as np
 from pathlib import Path
+import pytest
 
 from backend.storage_access_layer.db import SwipeEvent
 
@@ -10,6 +11,7 @@ from backend.storage_access_layer.db import SwipeEvent
 # Basic insert + fetch test
 
 
+@pytest.mark.unit
 def test_add_and_query_swipe_event(test_db):
     swipe_event = SwipeEvent(
         event_id="EV1",
@@ -36,6 +38,7 @@ def test_add_and_query_swipe_event(test_db):
 # full file-path fields
 
 
+@pytest.mark.unit
 def test_swipe_event_full_paths(tmp_path, test_db):
     fp = tmp_path / "trial.npz"
     fp_p100 = tmp_path / "p100.npz"
@@ -70,6 +73,7 @@ def test_swipe_event_full_paths(tmp_path, test_db):
 # handle empty query outputs
 
 
+@pytest.mark.unit
 def test_db_empty_queries(empty_db):
     db = empty_db
 
@@ -83,6 +87,7 @@ def test_db_empty_queries(empty_db):
 # SwipeEventId not found
 
 
+@pytest.mark.unit
 def test_swipe_eventid_not_found(empty_db):
     db = empty_db
     out = db.getSwipeEventId(
