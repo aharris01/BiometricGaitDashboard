@@ -1,6 +1,7 @@
 # validators.py
 from datetime import date
 
+
 # getParticipants()
 def getParticipants_check(result):
     if not isinstance(result, list):
@@ -49,6 +50,7 @@ def getEvents_check(participant, dt, direction, result):
         if not isinstance(e, int):
             raise ValueError(f"getEvents returned non-int event: {e}")
 
+
 # getSwipeEventId(participant, date, event, direction)
 def getSwipeEventId_check(participant, dt, event, direction, result):
     if not isinstance(participant, int):
@@ -63,6 +65,7 @@ def getSwipeEventId_check(participant, dt, event, direction, result):
     if result is not None and not isinstance(result, str):
         raise ValueError("getSwipeEventId must return str or None")
 
+
 # getBothDirectionEvents(participant, date)
 def getBothDirectionEvents_check(participant, dt, result):
     if not isinstance(participant, int):
@@ -70,10 +73,12 @@ def getBothDirectionEvents_check(participant, dt, result):
     if not isinstance(dt, date):
         raise ValueError("date must be datetime.date in getBothDirectionEvents")
 
-    if not isinstance(result, list):
-        raise ValueError("getBothDirectionEvents must return list[list[int]]")
+    if not isinstance(result, dict):
+        raise ValueError("getBothDirectionEvents must return dict[str, list[int]]")
 
-    for sub in result:
+    for key, sub in result.items():
+        if not isinstance(key, str):
+            raise ValueError("getBothDirectionEvents must return dict[str, list[int]]")
         if not isinstance(sub, list):
             raise ValueError("getBothDirectionEvents must return nested lists")
         for v in sub:

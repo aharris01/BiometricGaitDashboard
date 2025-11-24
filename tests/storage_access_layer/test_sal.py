@@ -11,13 +11,19 @@ from backend.storage_access_layer.SAL import SAL
 def fake_db():
     """A fake DB object with all required methods mocked."""
     db = MagicMock()
-    db.getParticipants = MagicMock()
-    db.getDates = MagicMock()
-    db.getDirections = MagicMock()
-    db.getEvents = MagicMock()
-    db.getSwipeEventId = MagicMock()
-    db.getBothDirectionEvents = MagicMock()
-    return db
+    mocked_methods = [
+        "getParticipants",
+        "getDates",
+        "getDirections",
+        "getEvents",
+        "getSwipeEventId",
+    ]
+    for method in mocked_methods:
+        setattr(db, method, MagicMock())
+    yield db
+    for method in mocked_methods:
+        getattr(db, method).reset_mock(return_value=True, side_effect=True)
+    db.reset_mock(return_value=True, side_effect=True)
 
 
 @pytest.fixture
@@ -27,8 +33,11 @@ def sal(fake_db):
     yield sal
     sal.db.close()
 
+
 # Tests
 
+
+@pytest.mark.unit
 def test_sal_getParticipants(sal, fake_db):
     fake_db.getParticipants.return_value = [11111, 22222, 33333]
     out = sal.getParticipants()
@@ -36,6 +45,7 @@ def test_sal_getParticipants(sal, fake_db):
     fake_db.getParticipants.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getDates(sal, fake_db):
     d = datetime.date(2025, 1, 1)
     fake_db.getDates.return_value = [d]
@@ -44,6 +54,7 @@ def test_sal_getDates(sal, fake_db):
     fake_db.getDates.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getDirections(sal, fake_db):
     fake_db.getDirections.return_value = ["in", "out"]
     out = sal.getDirections(11111, datetime.date(2025, 1, 1))
@@ -51,6 +62,7 @@ def test_sal_getDirections(sal, fake_db):
     fake_db.getDirections.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getEvents(sal, fake_db):
     # MUST be ints per validators
     fake_db.getEvents.return_value = [1, 2, 3]
@@ -59,6 +71,7 @@ def test_sal_getEvents(sal, fake_db):
     fake_db.getEvents.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getSwipeEventId(sal, fake_db):
     fake_db.getSwipeEventId.return_value = "EV12345"
     out = sal.getSwipeEventId(11111, datetime.date(2025, 1, 1), 1, "in")
@@ -66,13 +79,19 @@ def test_sal_getSwipeEventId(sal, fake_db):
     fake_db.getSwipeEventId.assert_called_once()
 
 
+@pytest.mark.unit
 def test_sal_getBothDirectionEvents(sal, fake_db):
-    # MUST be list[list[int]]
-    fake_db.getBothDirectionEvents.return_value = [[1, 2], [3, 4]]
+    # MUST be dict[str, list[int]]
+    fake_db.getDirections.return_value = ["in", "out"]
+    fake_db.getEvents.side_effect = [[1, 2], [3, 4]]
     out = sal.getBothDirectionEvents(11111, datetime.date(2025, 1, 1))
-    assert out == [[1, 2], [3, 4]]
-    fake_db.getBothDirectionEvents.assert_called_once()
+    assert out == {"in": [1, 2], "out": [3, 4]}
+    fake_db.getDirections.assert_called_once()
+    assert fake_db.getEvents.call_count == 2
+    fake_db.getEvents.side_effect = None
 
+
+@pytest.mark.unit
 def test_sal_input_validation_failure(sal, fake_db):
     # validators should reject invalid types
     fake_db.getDates.return_value = []
@@ -80,10 +99,9 @@ def test_sal_input_validation_failure(sal, fake_db):
         sal.getDates("not-an-int")
 
 
+@pytest.mark.unit
 def test_sal_output_validation_failure(sal, fake_db):
     # returning wrong type should trigger validator error
     fake_db.getDates.return_value = ["not-a-date"]
     with pytest.raises(ValueError):
         sal.getDates(11111)
-
-

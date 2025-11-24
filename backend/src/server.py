@@ -30,6 +30,7 @@ CORS(
 # ---- SAL ----
 sal: Optional[SAL] = None
 
+
 def get_sal() -> SAL:
     """Return the global SAL instance, creating it on first use.
 
@@ -40,6 +41,7 @@ def get_sal() -> SAL:
     if sal is None:
         sal = SAL()
     return sal
+
 
 # ------------------------- Helpers -------------------------
 def make_error(http: int, code: str, message: str, details=None):
@@ -58,15 +60,18 @@ def validate_direction(direction: str) -> Optional[Tuple]:
         return make_error(400, "invalid_argument", "direction must be 'in' or 'out'")
     return None
 
+
 # ------------------------- Health -------------------------
 @server.get("/api/health")
 def health_check():
     # Keep exactly this payload for existing tests
     return jsonify({"status": "ok"})
 
+
 # =========================================================
 # Frontend ↔ Backend (dropdown population + swipe id)
 # =========================================================
+
 
 # Get participants → { "items": [participant] }
 @server.get("/api/participants")
@@ -75,6 +80,7 @@ def api_participants():
         return jsonify({"items": get_sal().getParticipants()})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
+
 
 # Get dates → { "items": [date] }
 @server.get("/api/participants/<int:participant>/dates")
@@ -86,6 +92,7 @@ def api_dates(participant: int):
         return jsonify({"items": items})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
+
 
 # Get directions → { "items": ["in","out"] }
 @server.get("/api/participants/<int:participant>/dates/<date>/directions")
@@ -101,8 +108,11 @@ def api_directions(participant: int, date: str):
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
+
 # Get events → { "items": [1,2,3,...] }
-@server.get("/api/participants/<int:participant>/dates/<date>/directions/<direction>/events")
+@server.get(
+    "/api/participants/<int:participant>/dates/<date>/directions/<direction>/events"
+)
 def api_events(participant: int, date: str, direction: str):
     dt, err = parse_date_str(date)
     if err:
@@ -120,6 +130,7 @@ def api_events(participant: int, date: str, direction: str):
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
+
 # Get events by direction → { "in": [...], "out": [...] }
 @server.get("/api/participants/<int:participant>/dates/<date>/eventsByDirection")
 def api_events_by_direction(participant: int, date: str):
@@ -131,14 +142,15 @@ def api_events_by_direction(participant: int, date: str):
         dirs = s.getDirections(participant, dt)  # subset of {"in","out"}
         by_dir_lists = s.getBothDirectionEvents(participant, dt)
         out = {"in": [], "out": []}
-        for d, events in zip(dirs, by_dir_lists):
+        for d, events in zip(dirs, by_dir_lists.values()):
             out[d] = events
         if not out["in"] and not out["out"]:
             return make_error(404, "not_found", "no events for participant/date")
         return jsonify(out)
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
-    
+
+
 # Get swipe → { "id": event_id }
 @server.get("/api/swipe/<int:participant>/<date>/<direction>/<int:event>")
 def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
@@ -156,9 +168,11 @@ def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
+
 # =====================================================
 # Frontend ↔ Backend (swipe event summary + assets)
 # =====================================================
+
 
 @server.get("/api/events/<event_id>/summary")
 def api_event_summary(event_id: str):
@@ -171,10 +185,11 @@ def api_event_summary(event_id: str):
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
+
 @server.get("/api/events/<event_id>/p100")
 def api_event_p100(event_id: str):
     try:
-        data, err = get_sal().getEventP100(event_id)
+        data, err = get_sal().getP100(event_id)
         if err == "missing_event":
             return make_error(404, "not_found", "event not found")
         if err == "missing_file":
@@ -183,10 +198,11 @@ def api_event_p100(event_id: str):
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
+
 @server.get("/api/events/<event_id>/grf")
 def api_event_grf(event_id: str):
     try:
-        data, err = get_sal().getEventGRF(event_id)
+        data, err = get_sal().getGRF(event_id)
         if err == "missing_event":
             return make_error(404, "not_found", "event not found")
         if err == "missing_file":
@@ -195,10 +211,11 @@ def api_event_grf(event_id: str):
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
+
 @server.get("/api/events/<event_id>/footsteps/data")
 def api_event_footsteps(event_id: str):
     try:
-        data, err = get_sal().getEventFootsteps(event_id)
+        data, err = get_sal().getFootsteps(event_id)
         if err == "missing_event":
             return make_error(404, "not_found", "event not found")
         if err == "missing_file":
@@ -207,6 +224,7 @@ def api_event_footsteps(event_id: str):
         return jsonify(data)
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
+
 
 # --------------- dev runner ---------------
 def runBackend():
