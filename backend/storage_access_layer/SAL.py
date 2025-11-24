@@ -1,5 +1,7 @@
 from datetime import date
 from typing import Dict, List, Literal, cast
+
+import numpy as np
 from .db import DB
 from . import validators as v
 import atexit
@@ -62,7 +64,10 @@ class SAL:
         raise NotImplementedError
 
     def getP100(self, event_id):
-        raise NotImplementedError
+        file = self.db.getSwipeEvent(event_id).trial_p100_npz_uri
+        array = np.load(file)["arr_0"]
+        json_array = array
+        return json_array
 
     def getGRF(self, event_id):
         raise NotImplementedError

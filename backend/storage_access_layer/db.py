@@ -153,6 +153,12 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).first()
 
+    def getSwipeEvent(self, event_id):
+        query = select(SwipeEvent).where(SwipeEvent.event_id == event_id)
+
+        with self._get_session() as session:
+            return session.scalars(query).first()
+
 
 def _initDB():  # added function as required
     engine = create_engine(f"sqlite:///{dataroot}/metadata.db")

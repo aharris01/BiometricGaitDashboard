@@ -3,6 +3,9 @@ from dash.dcc import Dropdown, Interval, Store
 from dash.html import Div, Button
 from dash.exceptions import PreventUpdate
 import requests
+import plotly.express as px
+
+from frontend.views import summary_view
 
 API_BASE = "http://127.0.0.1:8000"
 CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
@@ -72,7 +75,10 @@ app.layout = Div(
             },
             children=[],
         ),
-        Div(id="swipe-event-visualization", children=[]),
+        Div(
+            id="swipe-event-visualization",
+            children=[summary_view.SummaryView(event_id=None).render()],
+        ),
         Div(id="store-data", children=[]),
     ],
 )
@@ -143,14 +149,23 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     return f"Swipe Event ID: {event_id}", {"event_id": event_id}
 
 
-@callback(
-    Output("swipe-event-visualization", "children"), Input("event-id-store", "data")
-)
-def displaySwipeEventVisualization(store_data):
+# Define the color map to be used in the graphs
+cmap = px.colors.sequential.Jet
+cmap[0] = "#000000"  # Set the 0 value of the color map to black
+
+
+@app.callback(Output("summary-graph", "figure"), Input("event-id-store", "data"))
+def display_summary_graph(store_data):
     if store_data is None or store_data.get("event_id") is None:
         raise PreventUpdate
     event_id = store_data["event_id"]
-    return Div(f"Visualization for Swipe Event ID: {event_id}")
+    data = fetch_json(
+        f"{API_BASE}/api/events/{event_id}/p100",
+        context="display_summary_graph",
+    )
+    trial = data["p100"]
+    fig = px.imshow(trial, color_continuous_scale=cmap)
+    return fig
 
 
 @callback(Output("store-data", "children"), Input("event-id-store", "data"))
