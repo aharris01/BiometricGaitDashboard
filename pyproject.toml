@@ -1,13 +1,27 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = [
-    "--cov=backend",
-    "--cov=frontend",
-    "--cov-report=term-missing",
-    "--cov-fail-under=80",
+addopts = ["--cov=backend", "--cov=frontend", "--cov-fail-under=80"]
+markers = [
+    "integration: mark a test as an integration test.",
+    "unit: mark a test as a unit test.",
 ]
 
 [tool.coverage.run]
 source = ["backend", "frontend"]
 omit = ["tests/*"]
+
+
+[tool.pyright]
+include = ["backend", "frontend", "tests"]
+exclude = ["**/node_modules", "**/__pycache__", "dist", "build"]
+typeCheckingMode = "basic"
+pythonVersion = "3.13"
+reportMissingImports = "warning"
+reportMissingTypeStubs = "warning"
+
+reportUnknownVariableType = "none"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownParameterType = "none"
+reportUnknownLambdaType = "none"
