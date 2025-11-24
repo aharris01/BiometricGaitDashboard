@@ -6,4 +6,5 @@ __pycache__/
 .*_cache
 .coverage
 secrets/
-.vscode
+*.db
+.vscode/
