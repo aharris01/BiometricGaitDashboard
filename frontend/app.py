@@ -72,6 +72,7 @@ app.layout = Div(
             },
             children=[],
         ),
+        Div(id="swipe-event-visualization", children=[]),
         Div(id="store-data", children=[]),
     ],
 )
@@ -140,6 +141,16 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     )
     event_id = data["id"]
     return f"Swipe Event ID: {event_id}", {"event_id": event_id}
+
+
+@callback(
+    Output("swipe-event-visualization", "children"), Input("event-id-store", "data")
+)
+def displaySwipeEventVisualization(store_data):
+    if store_data is None or store_data.get("event_id") is None:
+        raise PreventUpdate
+    event_id = store_data["event_id"]
+    return Div(f"Visualization for Swipe Event ID: {event_id}")
 
 
 @callback(Output("store-data", "children"), Input("event-id-store", "data"))
