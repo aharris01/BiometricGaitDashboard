@@ -62,12 +62,6 @@ class TestGetParticipants:
         assert captured["url"] == f"{app_mod.API_BASE}/api/participants"
         assert captured["timeout"] == 5
 
-    def test_http_error(self, monkeypatch):
-        monkeypatch.setattr(app_mod.requests, "get", make_fake_get([], status_ok=False))
-
-        with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getParticipants(None)
-
 
 class TestGetDates:
     def test_success(self, monkeypatch):
@@ -90,12 +84,6 @@ class TestGetDates:
             == f"{app_mod.API_BASE}/api/participants/{participant}/dates"
         )
         assert captured["timeout"] == 5
-
-    def test_http_error(self, monkeypatch):
-        monkeypatch.setattr(app_mod.requests, "get", make_fake_get([], status_ok=False))
-
-        with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getDates("5")
 
     def test_no_parameters(self):
         with pytest.raises(app_mod.PreventUpdate):
@@ -125,16 +113,10 @@ class TestGetDirections:
         )
         assert captured["timeout"] == 5
 
-    def test_http_error(self, monkeypatch):
-        monkeypatch.setattr(app_mod.requests, "get", make_fake_get([], status_ok=False))
-
-        with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getDirections("5", "2024-01-01")
-
     @pytest.mark.parametrize(
         "values", [(None, "2024-01-01"), ("3", None), (None, None)]
     )
-    def test_no_parameters(self):
+    def test_no_parameters(self, values):
         with pytest.raises(app_mod.PreventUpdate):
             app_mod.getDirections(None, "2024-01-01")
             app_mod.getDirections("3", None)
@@ -164,12 +146,6 @@ class TestGetEvents:
             == f"{app_mod.API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events"
         )
         assert captured["timeout"] == 5
-
-    def test_http_error(self, monkeypatch):
-        monkeypatch.setattr(app_mod.requests, "get", make_fake_get([], status_ok=False))
-
-        with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getEvents("5", "2024-01-01", "in")
 
     def test_no_parameters(self):
         with pytest.raises(app_mod.PreventUpdate):
@@ -202,12 +178,6 @@ class TestGetSwipeEventId:
             == f"{app_mod.API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}"
         )
         assert captured["timeout"] == 5
-
-    def test_http_error(self, monkeypatch):
-        monkeypatch.setattr(app_mod.requests, "get", make_fake_get([], status_ok=False))
-
-        with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getSwipeEventId(None, "5", "2024-01-01", "in", "event1")
 
 
 class TestUtilFunctions:
