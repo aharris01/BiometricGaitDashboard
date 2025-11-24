@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 
 # from sqlalchemy import ForeignKey
 from sqlalchemy import String
@@ -24,9 +24,7 @@ DATALOCATION = "DATA_ROOT"
 
 load_dotenv()
 
-dataroot = os.environ.get(DATALOCATION)
-if dataroot is None:
-    dataroot = "."
+dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root
 
 
 class Base(DeclarativeBase):
@@ -63,12 +61,13 @@ class SwipeEvent(Base):
 
 # adding a db class here that holds db engine and access functions
 class DB:
-    def __init__(self, engine=None):
+    def __init__(self, engine: Engine | None = None):
         self._owns_engine = engine is None
 
         if self._owns_engine:
             self.engine, created_new = _initDB()
         else:
+            assert engine is not None
             self.engine = engine
             created_new = False
 
@@ -155,10 +154,6 @@ class DB:
 
         with self._get_session() as session:
             return session.scalars(query).first()
-
-    def getBothDirectionEvents(self, participant, date):
-        directions = self.getDirections(participant, date)
-        return [self.getEvents(participant, date, d) for d in directions]
 
 
 def _initDB():  # added function as required

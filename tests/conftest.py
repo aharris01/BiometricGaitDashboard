@@ -16,7 +16,6 @@ from backend.storage_access_layer.db import DB
 
 @pytest.fixture(scope="module")
 def test_db(tmp_path_factory):
-
     # create temp npz files
     tmp = tmp_path_factory.mktemp("npzdata")
 

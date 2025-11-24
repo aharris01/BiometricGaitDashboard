@@ -30,6 +30,7 @@ def make_fake_get(response_data, *, status_ok=True, captured=None):
 
 
 class TestGetParticipants:
+    @pytest.mark.unit
     @pytest.mark.parametrize(
         "value, expected",
         [
@@ -64,6 +65,7 @@ class TestGetParticipants:
 
 
 class TestGetDates:
+    @pytest.mark.unit
     def test_success(self, monkeypatch):
         captured = {}
 
@@ -85,12 +87,14 @@ class TestGetDates:
         )
         assert captured["timeout"] == 5
 
+    @pytest.mark.unit
     def test_no_parameters(self):
         with pytest.raises(app_mod.PreventUpdate):
             app_mod.getDates(None)
 
 
 class TestGetDirections:
+    @pytest.mark.unit
     def test_success(self, monkeypatch):
         captured = {}
 
@@ -113,6 +117,7 @@ class TestGetDirections:
         )
         assert captured["timeout"] == 5
 
+    @pytest.mark.unit
     @pytest.mark.parametrize(
         "values", [(None, "2024-01-01"), ("3", None), (None, None)]
     )
@@ -124,6 +129,7 @@ class TestGetDirections:
 
 
 class TestGetEvents:
+    @pytest.mark.unit
     def test_success(self, monkeypatch):
         captured = {}
 
@@ -147,6 +153,7 @@ class TestGetEvents:
         )
         assert captured["timeout"] == 5
 
+    @pytest.mark.unit
     def test_no_parameters(self):
         with pytest.raises(app_mod.PreventUpdate):
             app_mod.getEvents(None, "2024-01-01", "in")
@@ -155,6 +162,7 @@ class TestGetEvents:
 
 
 class TestGetSwipeEventId:
+    @pytest.mark.unit
     def test_success(self, monkeypatch):
         captured = {}
 
@@ -181,12 +189,14 @@ class TestGetSwipeEventId:
 
 
 class TestUtilFunctions:
+    @pytest.mark.unit
     def test_fetch_json_http_error(self, monkeypatch):
         monkeypatch.setattr(app_mod.requests, "get", make_fake_get({}, status_ok=False))
 
         with pytest.raises(app_mod.PreventUpdate):
             app_mod.fetch_json("http://example.com/api", context="test")
 
+    @pytest.mark.unit
     def test_fetch_json_success(self, monkeypatch):
         expected_data = {"key": "value"}
         monkeypatch.setattr(
@@ -198,6 +208,7 @@ class TestUtilFunctions:
         result = app_mod.fetch_json("http://example.com/api", context="test")
         assert result == expected_data
 
+    @pytest.mark.unit
     def test_require_values_all_present(self):
         # Should not raise
         app_mod.require_values("a", "b", "c")
