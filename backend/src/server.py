@@ -189,13 +189,15 @@ def api_event_summary(event_id: str):
 @server.get("/api/events/<event_id>/p100")
 def api_event_p100(event_id: str):
     try:
-        #data,err = get_sal().getP100(event_id)
+        # data,err = get_sal().getP100(event_id)
         data = get_sal().getP100(event_id)
         # if err == "missing_event":
         #     return make_error(404, "not_found", "event not found")
         # if err == "missing_file":
         #     return make_error(404, "not_found", "p100 not available")
         # see https://stackoverflow.com/questions/26646362/numpy-array-is-not-json-serializable
+        if data is None:
+            return jsonify({"p100": []})
         return jsonify({"p100": data})
     except Exception as e:
         if e == "missing_event":
