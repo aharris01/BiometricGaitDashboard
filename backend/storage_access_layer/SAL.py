@@ -64,7 +64,12 @@ class SAL:
         raise NotImplementedError
 
     def getP100(self, event_id):
-        file = self.db.getSwipeEvent(event_id).trial_p100_npz_uri
+        event = self.db.getSwipeEvent(event_id)
+
+        if event is None:
+            return None
+
+        file = event.trial_p100_npz_uri
         # loaded_file = np.load(file)
         # Here, file has the form "file:///D:/../BiometricGaitDashboard/data/<ptcp>/<date>/<direction>/<eid>/trial.p100.npz"
         # file_location truncates the "file:///" since numpy.load reads that as invalid for some reason
@@ -73,7 +78,7 @@ class SAL:
         array = loaded_file["arr_0"]
         # see https://stackoverflow.com/questions/26646362/numpy-array-is-not-json-serializable
         pre_json_array = array.tolist()
-        #print(len(json_array),'x',len(json_array[0]))
+        # print(len(json_array),'x',len(json_array[0]))
         return pre_json_array
 
     def getGRF(self, event_id):
