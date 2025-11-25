@@ -17,7 +17,20 @@ from dash.exceptions import PreventUpdate
 import requests
 import plotly.express as px
 from datetime import datetime
-from frontend.views import summary_view
+from frontend.views.summary_view import SummaryView
+
+# Define the color map to be used in the graphs
+cmap = px.colors.sequential.Jet
+cmap[0] = "#000000"  # Set the 0 value of the color map to black
+
+
+def require_values(context, **kwargs):
+    missing = [name for name, value in kwargs.items() if value is None]
+    if missing:
+        print(
+            f"[{context}] Missing parameters: {', '.join(missing)}; skipping data fetch."
+        )
+        raise PreventUpdate
 
 
 def parse_date_str(s: str):
@@ -83,6 +96,51 @@ def calculate_cascade_state(triggered_id, all_ids, all_values):
             new_options.append(no_update)
 
     return new_values, new_options
+
+
+def fetch_options_for_level(target_level, upstream_selections):
+    """
+    name: one of "date", "direction", "event"
+    target_level: Which dropdown was changed
+    upstream_selection: dict object with {level: value} for lookup
+    returns a list of {label, value} dicts
+    """
+    participant = upstream_selections.get(4)
+    datestr = upstream_selections.get(3)
+    direction = upstream_selections.get(2)
+
+    if target_level == 3 and participant:
+        require_values(context="Get Dates", participant=participant)
+        data = fetch_json(
+            f"{API_BASE}/api/participants/{participant}/dates", context="getDates"
+        )
+        dates = [{"label": str(d), "value": str(d)} for d in data["items"]]
+        return dates
+
+    elif target_level == 2 and datestr:
+        require_values(
+            context="Get Directions", participant=participant, datestr=datestr
+        )
+        data = fetch_json(
+            f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
+            context="getDirections",
+        )
+        return [{"label": str(dir_), "value": dir_} for dir_ in data["items"]]
+
+    elif target_level == 1 and direction:
+        require_values(
+            context="Get Events",
+            participant=participant,
+            datestr=datestr,
+            direction=direction,
+        )
+        data = fetch_json(
+            f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
+            context="getEvents",
+        )
+        return [{"label": str(e), "value": e} for e in data["items"]]
+
+    return []
 
 
 API_BASE = "http://127.0.0.1:8000"
@@ -168,22 +226,10 @@ app.layout = Div(
             ],
         ),
         Div(
-            dcc.Graph(id="p100-graph"),
-            style={
-                "height": "75vh",
-                "maxWidth": "1500px",
-                "flex": "1",
-                "display": "flex",
-                "justifyContent": "center",
-            },
+            SummaryView(None, cmap).render(),
         ),
     ],
 )
-
-
-# @callback(Output("button-pressed", "children"), Input("submit-button", "n_clicks"))
-# def numberOfClicks(n_clicks):
-#     return f"Button clicked {n_clicks} times"
 
 
 @callback(
@@ -222,125 +268,91 @@ def manage_dropdown_cascade(values, ids):
     )
 
 
-def fetch_options_for_level(target_level, upstream_selections):
-    """
-    name: one of "date", "direction", "event"
-    target_level: Which dropdown was changed
-    upstream_selection: dict object with {level: value} for lookup
-    returns a list of {label, value} dicts
-    """
-    participant = upstream_selections.get(4)
-    datestr = upstream_selections.get(3)
-    direction = upstream_selections.get(2)
-
-    if target_level == 3 and participant:
-        require_values(context="Get Dates", participant=participant)
-        data = fetch_json(
-            f"{API_BASE}/api/participants/{participant}/dates", context="getDates"
-        )
-        dates = [{"label": str(d), "value": str(d)} for d in data["items"]]
-        return dates
-
-    elif target_level == 2 and datestr:
-        require_values(
-            context="Get Directions", participant=participant, datestr=datestr
-        )
-        data = fetch_json(
-            f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
-            context="getDirections",
-        )
-        return [{"label": str(dir_), "value": dir_} for dir_ in data["items"]]
-
-    elif target_level == 1 and direction:
-        require_values(
-            context="Get Events",
-            participant=participant,
-            datestr=datestr,
-            direction=direction,
-        )
-        data = fetch_json(
-            f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
-            context="getEvents",
-        )
-        return [{"label": str(e), "value": e} for e in data["items"]]
-
-    return []
+@callback(
+    Output("event-id-store", "data"),
+    Input("submit-button", "n_clicks"),
+    State({"type": "dropdown", "name": "participant", "level": 4}, "value"),
+    State({"type": "dropdown", "name": "date", "level": 3}, "value"),
+    State({"type": "dropdown", "name": "direction", "level": 2}, "value"),
+    State({"type": "dropdown", "name": "event", "level": 1}, "value"),
+    prevent_initial_call=True,
+)
+def getSwipeEventId(_, participant, datestr, direction, event):
+    trigger = ctx.triggered_id or "<no trigger>"
+    app.logger.warning(
+        "Get Swipe Event ID - triggered=%s; inputs=%s",
+        ctx.triggered,
+        ctx.inputs,
+    )
+    require_values(
+        context=f"Get Swipe Event - Trigger: {trigger}",
+        participant=participant,
+        datestr=datestr,
+        direction=direction,
+        event=event,
+    )
+    data = fetch_json(
+        f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}",
+        context="getSwipeEventId",
+    )
+    event_id = data["id"]
+    app.logger.warning(f"Swipe Event ID: {event_id}")
+    return {"event_id": event_id}
 
 
-# @callback(
-#     Output("event-id-store", "data"),
-#     Input("submit-button", "n_clicks"),
-#     State({"type": "dropdown", "name": "participant", "level": 4}, "value"),
-#     State({"type": "dropdown", "name": "date", "level": 3}, "value"),
-#     State({"type": "dropdown", "name": "direction", "level": 2}, "value"),
-#     State({"type": "dropdown", "name": "event", "level": 1}, "value"),
-# )
-# def getSwipeEventId(_, participant, datestr, direction, event):
-#     trigger = ctx.triggered_id or "<no trigger>"
-#     app.logger.warning(
-#         "Get Swipe Event ID - triggered=%s; inputs=%s",
-#         ctx.triggered,
-#         ctx.inputs,
-#     )
-#     require_values(
-#         context=f"Get Swipe Event - Trigger: {trigger}",
-#         participant=participant,
-#         datestr=datestr,
-#         direction=direction,
-#         event=event,
-#     )
-#     data = fetch_json(
-#         f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}",
-#         context="getSwipeEventId",
-#     )
-#     event_id = data["id"]
-#     return {"event_id": event_id}
+@app.callback(
+    Output("p100-graph", "figure"),
+    Input("event-id-store", "data"),
+    prevent_initial_call=True,
+)
+def display_summary_graph(store_data):
+    trigger = ctx.triggered_id or "<no trigger>"
+    app.logger.warning(
+        "Update Graph - triggered=%s; inputs=%s",
+        ctx.triggered,
+        ctx.inputs,
+    )
+    require_values(
+        context=f"Update Graph - Trigger: {trigger}",
+        store_data=store_data,
+    )
+    if store_data is None or store_data.get("event_id") is None:
+        raise PreventUpdate
+    event_id = store_data["event_id"]
+    data = fetch_json(
+        f"{API_BASE}/api/events/{event_id}/p100",
+        context="display_summary_graph",
+    )
+    trial = data["p100"]
+    if trial == []:
+        app.logger.warning("No P100 returned")
+        raise PreventUpdate
+    fig = px.imshow(trial, color_continuous_scale=cmap)
+    colorscale = []
+    num_colors = len(cmap)
 
+    if num_colors > 0:
+        for i, color in enumerate(cmap):
+            # Map the color index to a 0.0 to 1.0 scale
+            scale_value = i / (num_colors - 1) if num_colors > 1 else 0.0
+            colorscale.append([scale_value, color])
 
-# # Define the color map to be used in the graphs
-# cmap = px.colors.sequential.Jet
-# cmap[0] = "#000000"  # Set the 0 value of the color map to black
+    # 3. Apply the custom colorscale list and zmin to the trace
+    if fig.data and fig.data[0].type in ("heatmap", "image"):
+        # This is the correct Plotly format for colorscale
+        fig.data[0].colorscale = colorscale
 
+        # Explicitly set the minimum data value for the color axis to 0.
+        # This forces the first color in 'colorscale' (black) to map to 0.
+        fig.data[0].zmin = 0
 
-# @app.callback(
-#     Output("p100-graph", "figure"),
-#     Input("event-id-store", "data"),
-#     prevent_initial_call=True,
-# )
-# def display_summary_graph(store_data):
-#     trigger = ctx.triggered_id or "<no trigger>"
-#     app.logger.warning(
-#         "Update Graph - triggered=%s; inputs=%s",
-#         ctx.triggered,
-#         ctx.inputs,
-#     )
-#     require_values(
-#         context=f"Update Graph - Trigger: {trigger}",
-#         store_data=store_data,
-#     )
-#     if store_data is None or store_data.get("event_id") is None:
-#         raise PreventUpdate
-#     event_id = store_data["event_id"]
-#     data = fetch_json(
-#         f"{API_BASE}/api/events/{event_id}/p100",
-#         context="display_summary_graph",
-#     )
-#     trial = data["p100"]
-#     if trial == []:
-#         app.logger.warning("No P100 returned")
-#         raise PreventUpdate
-#     fig = px.imshow(trial, color_continuous_scale=cmap)
-#     return fig
+    # 4. Return the dictionary with BOTH data and layout for a complete partial update
+    return {"data": fig.data, "layout": fig.layout}
 
 
 def runDash():
     app.run(host="127.0.0.1", port=8050, debug=False)
 
 
-def require_values(context, **kwargs):
-    missing = [name for name, value in kwargs.items() if value is None]
-    if missing:
-        print(
-            f"[{context}] Missing parameters: {', '.join(missing)}; skipping data fetch."
-        )
-        raise PreventUpdate
+if __name__ == "__main__":
+    app.run(host="127.0.0.1", port=8050, debug=True, dev_tools_hot_reload=False)
