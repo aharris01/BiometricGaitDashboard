@@ -1,4 +1,4 @@
-from dash import Dash, Input, Output, State, callback, dcc
+from dash import Dash, Input, Output, State, callback, dcc, ctx
 from dash.dcc import Dropdown, Interval, Store
 from dash.html import Div, Button
 from dash.exceptions import PreventUpdate
@@ -52,10 +52,12 @@ app.layout = Div(
                 "gap": "8px",
             },
             children=[
-                Dropdown(id="participant-dropdown", style=CONTROL_STYLE),
-                Dropdown(id="date-dropdown", style=CONTROL_STYLE),
-                Dropdown(id="direction-dropdown", style=CONTROL_STYLE),
-                Dropdown(id="event-dropdown", style=CONTROL_STYLE),
+                Dropdown(
+                    id="participant-dropdown", style=CONTROL_STYLE, clearable=True
+                ),
+                Dropdown(id="date-dropdown", style=CONTROL_STYLE, clearable=True),
+                Dropdown(id="direction-dropdown", style=CONTROL_STYLE, clearable=True),
+                Dropdown(id="event-dropdown", style=CONTROL_STYLE, clearable=True),
                 Button(
                     id="submit-button",
                     n_clicks=0,
@@ -65,31 +67,19 @@ app.layout = Div(
             ],
         ),
         Div(
-            id="swipe-event-metadata",
-            style={
-                "width": "100%",
-                "maxWidth": "900px",
-                "flex": "1",
-                "display": "flex",
-                "justifyContent": "center",
-            },
-            children=[],
-        ),
-        Div(
-            dcc.Graph(id='p100-graph'),
+            dcc.Graph(id="p100-graph"),
             style={
                 "height": "75vh",
                 "maxWidth": "1500px",
                 "flex": "1",
                 "display": "flex",
                 "justifyContent": "center",
-            }
+            },
         ),
-        Div(
-            id="swipe-event-visualization",
-            children=[summary_view.SummaryView(event_id=None).render()],
-        ),
-        Div(id="store-data", children=[]),
+        # Div(
+        #     id="swipe-event-visualization",
+        #     children=[summary_view.SummaryView(event_id=None).render()],
+        # ),
     ],
 )
 
@@ -100,9 +90,22 @@ def getParticipants(_):
     return [{"label": str(p), "value": p} for p in data["items"]]
 
 
-@callback(Output("date-dropdown", "options"), Input("participant-dropdown", "value"))
+@callback(
+    Output("date-dropdown", "options"),
+    Input("participant-dropdown", "value"),
+    prevent_initial_call=True,
+)
 def getDates(participant):
-    require_values(participant)
+    trigger = ctx.triggered_id or "<no trigger>"
+    app.logger.info(
+        "Get Dates - triggered=%s; inputs=%s",
+        ctx.triggered,
+        ctx.inputs,
+    )
+    require_values(
+        context=f"Get Dates - Trigger: {trigger}",
+        participant=participant,
+    )
     data = fetch_json(
         f"{API_BASE}/api/participants/{participant}/dates", context="getDates"
     )
@@ -113,9 +116,20 @@ def getDates(participant):
     Output("direction-dropdown", "options"),
     State("participant-dropdown", "value"),
     Input("date-dropdown", "value"),
+    prevent_initial_call=True,
 )
 def getDirections(participant, datestr):
-    require_values(participant, datestr)
+    trigger = ctx.triggered_id or "<no trigger>"
+    app.logger.info(
+        "Get Directions - triggered=%s; inputs=%s",
+        ctx.triggered,
+        ctx.inputs,
+    )
+    require_values(
+        context=f"Get Directions - Trigger: {trigger}",
+        participant=participant,
+        datestr=datestr,
+    )
     data = fetch_json(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
         context="getDirections",
@@ -130,9 +144,21 @@ def getDirections(participant, datestr):
     State("participant-dropdown", "value"),
     State("date-dropdown", "value"),
     Input("direction-dropdown", "value"),
+    prevent_initial_call=True,
 )
 def getEvents(participant, datestr, direction):
-    require_values(participant, datestr, direction)
+    trigger = ctx.triggered_id or "<no trigger>"
+    app.logger.info(
+        "Get Events - triggered=%s; inputs=%s",
+        ctx.triggered,
+        ctx.inputs,
+    )
+    require_values(
+        context=f"Get Events - Trigger: {trigger}",
+        participant=participant,
+        datestr=datestr,
+        direction=direction,
+    )
     data = fetch_json(
         f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
         context="getEvents",
@@ -141,22 +167,34 @@ def getEvents(participant, datestr, direction):
 
 
 @callback(
-    Output("swipe-event-metadata", "children"),
     Output("event-id-store", "data"),
     Input("submit-button", "n_clicks"),
     State("participant-dropdown", "value"),
     State("date-dropdown", "value"),
     State("direction-dropdown", "value"),
     State("event-dropdown", "value"),
+    prevent_initial_call=True,
 )
 def getSwipeEventId(_, participant, datestr, direction, event):
-    require_values(participant, datestr, direction, event)
+    trigger = ctx.triggered_id or "<no trigger>"
+    app.logger.info(
+        "Get Swipe Event ID - triggered=%s; inputs=%s",
+        ctx.triggered,
+        ctx.inputs,
+    )
+    require_values(
+        context=f"Get Swipe Event - Trigger: {trigger}",
+        participant=participant,
+        datestr=datestr,
+        direction=direction,
+        event=event,
+    )
     data = fetch_json(
         f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}",
         context="getSwipeEventId",
     )
     event_id = data["id"]
-    return f"Swipe Event ID: {event_id}", {"event_id": event_id}
+    return {"event_id": event_id}
 
 
 # Define the color map to be used in the graphs
@@ -166,9 +204,20 @@ cmap[0] = "#000000"  # Set the 0 value of the color map to black
 
 @app.callback(
     Output("p100-graph", "figure"),
-    Input("event-id-store", "data")
+    Input("event-id-store", "data"),
+    prevent_initial_call=True,
 )
 def display_summary_graph(store_data):
+    trigger = ctx.triggered_id or "<no trigger>"
+    app.logger.info(
+        "Update Graph - triggered=%s; inputs=%s",
+        ctx.triggered,
+        ctx.inputs,
+    )
+    require_values(
+        context=f"Update Graph - Trigger: {trigger}",
+        store_data=store_data,
+    )
     if store_data is None or store_data.get("event_id") is None:
         raise PreventUpdate
     event_id = store_data["event_id"]
@@ -177,22 +226,21 @@ def display_summary_graph(store_data):
         context="display_summary_graph",
     )
     trial = data["p100"]
+    if trial == []:
+        app.logger.info("No P100 returned")
+        raise PreventUpdate
     fig = px.imshow(trial, color_continuous_scale=cmap)
     return fig
-
-
-@callback(Output("store-data", "children"), Input("event-id-store", "data"))
-def displayStoredData(store_data):
-    if store_data is None or store_data.get("event_id") is None:
-        raise PreventUpdate
-    return f"Stored Event ID: {store_data['event_id']}"
 
 
 def runDash():
     app.run(host="127.0.0.1", port=8050, debug=False)
 
 
-def require_values(*args):
-    if any(arg is None for arg in args):
-        print("Missing parameters; skipping data fetch.")
+def require_values(context, **kwargs):
+    missing = [name for name, value in kwargs.items() if value is None]
+    if missing:
+        print(
+            f"[{context}] Missing parameters: {', '.join(missing)}; skipping data fetch."
+        )
         raise PreventUpdate
