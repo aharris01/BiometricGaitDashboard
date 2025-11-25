@@ -70,7 +70,10 @@ class DB:
             created_new = False
 
         self.SessionLocal = sessionmaker(
-            bind=self.engine, autoflush=False, autocommit=False
+            bind=self.engine,
+            autoflush=False,
+            autocommit=False,
+            expire_on_commit=False
         )
 
         if self._owns_engine and created_new:
@@ -82,7 +85,9 @@ class DB:
         try:
             yield session
             session.commit()
-        except Exception:
+        except Exception as e:
+            print("Session exception occurred: ",str(e))
+            print("Rolling back...")
             session.rollback()
             raise
         finally:
@@ -159,9 +164,11 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).first()
 
-
 def _initDB():  # added function as required
-    engine = create_engine(f"sqlite:///{dataroot}/metadata.db")
+    engine = create_engine(
+        f"sqlite:///{dataroot}/metadata.db",
+        echo=True # enables logging to (stdout?)
+    )
     created_new = False
     # check existing tables
     with engine.connect() as conn:
@@ -171,9 +178,11 @@ def _initDB():  # added function as required
             )  # added logic for table search
         ).fetchall()
 
+    print("len(rows)=",len(rows)) # print to stdout for debugging
     if len(rows) == 0:
         Base.metadata.create_all(engine)
         created_new = True
+    print("created_new=",created_new) # print to stdout for debugging
 
     return engine, created_new
 
