@@ -1,4 +1,4 @@
-from dash import Dash, Input, Output, State, callback
+from dash import Dash, Input, Output, State, callback, dcc
 from dash.dcc import Dropdown, Interval, Store
 from dash.html import Div, Button
 from dash.exceptions import PreventUpdate
@@ -74,6 +74,16 @@ app.layout = Div(
                 "justifyContent": "center",
             },
             children=[],
+        ),
+        Div(
+            dcc.Graph(id='p100-graph'),
+            style={
+                "height": "75vh",
+                "maxWidth": "1500px",
+                "flex": "1",
+                "display": "flex",
+                "justifyContent": "center",
+            }
         ),
         Div(
             id="swipe-event-visualization",
@@ -154,7 +164,10 @@ cmap = px.colors.sequential.Jet
 cmap[0] = "#000000"  # Set the 0 value of the color map to black
 
 
-@app.callback(Output("summary-graph", "figure"), Input("event-id-store", "data"))
+@app.callback(
+    Output("p100-graph", "figure"),
+    Input("event-id-store", "data")
+)
 def display_summary_graph(store_data):
     if store_data is None or store_data.get("event_id") is None:
         raise PreventUpdate
