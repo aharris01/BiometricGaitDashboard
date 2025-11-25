@@ -5,7 +5,6 @@ import numpy as np
 from .db import DB
 from . import validators as v
 import atexit
-import json
 
 
 class SAL:
