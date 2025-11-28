@@ -1,15 +1,15 @@
 from datetime import date
-from typing import Dict, List, Literal, cast
+from typing import Dict, List, Literal, cast, Optional
 
-import numpy as np
-from .db import DB
-from . import validators as v
-import atexit
-
-# ----- For MacOS -----
 import os
 from pathlib import Path
 from urllib.parse import urlparse, unquote
+
+import numpy as np
+
+from .db import DB
+from . import validators as v
+import atexit
 
 def uri_to_path(uri: str) -> Path:
     """
@@ -26,14 +26,15 @@ def uri_to_path(uri: str) -> Path:
 
     # On Windows, parsed.path often starts with "/C:/..."
     if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
-        path = path[1:]  # drop leading "/" → "C:/Users/me/..."
+        # drop leading "/" → "C:/Users/me/..."
+        path = path[1:]
 
     return Path(path)
-# ---------------------
+
 
 class SAL:
     # =========================================================
-    # Backend ↔ SAL to get path with event_id Primary key
+    # Backend ↔ SAL to get data by event_id primary key
     # =========================================================
 
     def __init__(self, db=None):
@@ -46,67 +47,131 @@ class SAL:
             if close:
                 close()
 
+    # -------------------- Meta lookups -------------------- #
+
     def getParticipants(self) -> List[int]:
         raw = self.db.getParticipants()
         result = cast(List[int], raw)
         v.getParticipants_check(result)
         return result
 
-    def getDates(self, participant) -> List[date]:
+    def getDates(self, participant: int) -> List[date]:
         raw = self.db.getDates(participant)
         result = cast(List[date], raw)
         v.getDates_check(participant, result)
         return result
 
-    def getDirections(self, participant, date) -> List[Literal["in", "out"]]:
-        raw = self.db.getDirections(participant, date)
+    def getDirections(self, participant: int, dt: date) -> List[Literal["in", "out"]]:
+        raw = self.db.getDirections(participant, dt)
         result = cast(List[Literal["in", "out"]], raw)
-        v.getDirections_check(participant, date, result)
+        v.getDirections_check(participant, dt, result)
         return result
 
-    def getEvents(self, participant, date, direction) -> List[int]:
-        raw = self.db.getEvents(participant, date, direction)
+    def getEvents(self, participant: int, dt: date, direction: str) -> List[int]:
+        raw = self.db.getEvents(participant, dt, direction)
         result = list(raw)
-        v.getEvents_check(participant, date, direction, result)
+        v.getEvents_check(participant, dt, direction, result)
         return result
 
-    def getSwipeEventId(self, participant, date, event, direction) -> str:
-        raw = self.db.getSwipeEventId(participant, date, event, direction)
-        result = str(raw)
-        v.getSwipeEventId_check(participant, date, event, direction, result)
+    def getSwipeEventId(
+        self, participant: int, dt: date, event: int, direction: str
+    ) -> Optional[str]:
+        """
+        Return the event_id string for a given swipe, or None if not found.
+        """
+        raw = self.db.getSwipeEventId(participant, dt, event, direction)
+        # Keep None as None instead of turning it into the string "None"
+        result: Optional[str] = None if raw is None else str(raw)
+        v.getSwipeEventId_check(participant, dt, event, direction, result)
         return result
 
-    def getBothDirectionEvents(self, participant, date) -> Dict[str, List[int]]:
-        result = {}
-        directions = self.db.getDirections(participant, date)
+    def getBothDirectionEvents(self, participant: int, dt: date) -> Dict[str, List[int]]:
+        result: Dict[str, List[int]] = {}
+        directions = self.db.getDirections(participant, dt)
         for d in directions:
-            result[d] = self.db.getEvents(participant, date, d)
-        v.getBothDirectionEvents_check(participant, date, result)
+            result[d] = self.db.getEvents(participant, dt, d)
+        v.getBothDirectionEvents_check(participant, dt, result)
         return result
+
+    # -------------------- Event data -------------------- #
 
     def getEventSummary(self, event_id: str):
         raise NotImplementedError
 
-    def getP100(self, event_id):
+    def getP100(self, event_id: str):
+        """
+        Return P100 as a JSON-serialisable list (2D array), or None if
+        event/file is missing. server.py treats None as "no data".
+        """
         event = self.db.getSwipeEvent(event_id)
-
         if event is None:
             return None
 
-        file = event.trial_p100_npz_uri
-        # loaded_file = np.load(file)
-        # Here, file has the form "file:///D:/../BiometricGaitDashboard/data/<ptcp>/<date>/<direction>/<eid>/trial.p100.npz"
-        # file_location truncates the "file:///" since numpy.load reads that as invalid for some reason
-        file_location = str(file)[8:]
-        loaded_file = np.load(file_location)
+        try:
+            file_path = uri_to_path(event.trial_p100_npz_uri)
+        except ValueError:
+            return None
+
+        try:
+            loaded_file = np.load(file_path)
+        except FileNotFoundError:
+            # File missing on disk
+            return None
+
         array = loaded_file["arr_0"]
-        # see https://stackoverflow.com/questions/26646362/numpy-array-is-not-json-serializable
-        pre_json_array = array.tolist()
-        # print(len(json_array),'x',len(json_array[0]))
-        return pre_json_array
+        return array.tolist()
 
-    def getGRF(self, event_id):
-        raise NotImplementedError
+    def getGRF(self, event_id: str):
+        """
+        Load GRF data for a given event.
 
-    def getFootsteps(self, event_id):
+        Returns:
+            (data_list, None) on success
+            (None, "missing_event") if event not in DB
+            (None, "missing_file")  if GRF file missing or unreadable
+        """
+        event = self.db.getSwipeEvent(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        # Convert file:// URI to local path
+        try:
+            file_path = uri_to_path(event.trial_grf_npz_uri)
+        except ValueError:
+            # URI isn't a proper file://
+            return None, "missing_file"
+
+        # Try loading the .npz file
+        try:
+            loaded = np.load(file_path)
+        except FileNotFoundError:
+            return None, "missing_file"
+        except Exception:
+            # Any other numpy/file-related error
+            return None, "missing_file"
+
+        # Try to extract an array from the npz safely
+        try:
+            # Most np.savez files store the main array as "arr_0"
+            if hasattr(loaded, "files") and "arr_0" in loaded.files:
+                array = loaded["arr_0"]
+            elif hasattr(loaded, "files") and loaded.files:
+                # Fallback: take the first array in the container
+                first_key = loaded.files[0]
+                array = loaded[first_key]
+            else:
+                # Not a standard npz container (maybe already a plain array)
+                array = loaded
+        except Exception:
+            return None, "missing_file"
+
+        # Finally, make sure it's JSON-serialisable
+        try:
+            data_list = array.tolist()
+        except Exception:
+            return None, "missing_file"
+
+        return data_list, None
+
+    def getFootsteps(self, event_id: str):
         raise NotImplementedError

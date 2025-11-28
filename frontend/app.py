@@ -14,6 +14,7 @@ from dash.exceptions import PreventUpdate
 import requests
 import plotly.express as px
 from datetime import datetime
+
 from frontend.views.summary_view import SummaryView
 
 # Define the color map to be used in the graphs
@@ -31,14 +32,11 @@ def require_values(context, **kwargs):
 
 
 def parse_date_str(s: str):
-    format = "%Y-%m-%d"
-    res = True
+    fmt = "%Y-%m-%d"
     try:
-        res = bool(datetime.strptime(s, format))
+        return bool(datetime.strptime(s, fmt))
     except ValueError:
-        res = False
-
-    return res
+        return False
 
 
 def calculate_cascade_state(triggered_id, all_ids, all_values):
@@ -171,7 +169,8 @@ def fetch_json(url, *, timeout=5, context="API request"):
 app.layout = Div(
     id="page",
     style={
-        "minHeight": "100vh",
+        "height": "100vh",
+        "overflowY": "auto",        # <- force vertical scrollbar when needed
         "display": "flex",
         "flexDirection": "column",
         "alignItems": "center",
@@ -321,11 +320,20 @@ def display_summary_graph(store_data):
         context=f"Update Graph - Trigger: {trigger}",
         store_data=store_data,
     )
+
     event_id = store_data["event_id"]
+
+    # Fetch P100
     p100 = fetch_json(
         f"{API_BASE}/api/events/{event_id}/p100", context="getEventP100"
     ).get("p100", [])
-    return SummaryView(event_id, cmap, p100).render()
+
+    # Fetch GRF
+    grf = fetch_json(
+        f"{API_BASE}/api/events/{event_id}/grf", context="getEventGRF"
+    ).get("grf", [])
+
+    return SummaryView(event_id, cmap, p100, grf).render()
 
 
 def runDash():
