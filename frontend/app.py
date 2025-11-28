@@ -107,37 +107,47 @@ def fetch_options_for_level(target_level, upstream_selections):
     direction = upstream_selections.get(2)
 
     if target_level == 3 and participant:
-        require_values(context="Get Dates", participant=participant)
-        data = fetch_json(
-            f"{API_BASE}/api/participants/{participant}/dates", context="getDates"
-        )
-        dates = [{"label": str(d), "value": str(d)} for d in data["items"]]
-        return dates
+        return fetch_dates(participant)
 
     elif target_level == 2 and datestr:
-        require_values(
-            context="Get Directions", participant=participant, datestr=datestr
-        )
-        data = fetch_json(
-            f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
-            context="getDirections",
-        )
-        return [{"label": str(dir_), "value": dir_} for dir_ in data["items"]]
+        return fetch_directions(participant, datestr)
 
     elif target_level == 1 and direction:
-        require_values(
-            context="Get Events",
-            participant=participant,
-            datestr=datestr,
-            direction=direction,
-        )
-        data = fetch_json(
-            f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
-            context="getEvents",
-        )
-        return [{"label": str(e), "value": e} for e in data["items"]]
+        return fetch_events(participant, datestr, direction)
 
     return []
+
+
+def fetch_dates(participant):
+    require_values(context="Get Dates", participant=participant)
+    data = fetch_json(
+        f"{API_BASE}/api/participants/{participant}/dates", context="getDates"
+    )
+    dates = [{"label": str(d), "value": str(d)} for d in data["items"]]
+    return dates
+
+
+def fetch_directions(participant, datestr):
+    require_values(context="Get Directions", participant=participant, datestr=datestr)
+    data = fetch_json(
+        f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions",
+        context="getDirections",
+    )
+    return [{"label": str(dir_), "value": dir_} for dir_ in data["items"]]
+
+
+def fetch_events(participant, datestr, direction):
+    require_values(
+        context="Get Events",
+        participant=participant,
+        datestr=datestr,
+        direction=direction,
+    )
+    data = fetch_json(
+        f"{API_BASE}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
+        context="getEvents",
+    )
+    return [{"label": str(e), "value": e} for e in data["items"]]
 
 
 API_BASE = "http://127.0.0.1:8000"
