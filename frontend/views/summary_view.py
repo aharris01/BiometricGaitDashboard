@@ -1,8 +1,6 @@
 from dash import html
 from dash.dcc import Graph
 import plotly.express as px
-import requests
-import aiohttp
 
 
 class SummaryView:
