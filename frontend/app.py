@@ -5,10 +5,7 @@ from dash import (
     Output,
     State,
     callback,
-    dcc,
     ctx,
-    MATCH,
-    ALLSMALLER,
     no_update,
 )
 from dash.dcc import Dropdown, Interval, Store
@@ -225,9 +222,7 @@ app.layout = Div(
                 Div(id="button-pressed"),
             ],
         ),
-        Div(
-            SummaryView(None, cmap).render(),
-        ),
+        Div(id="summary-container"),
     ],
 )
 
@@ -301,7 +296,7 @@ def getSwipeEventId(_, participant, datestr, direction, event):
 
 
 @app.callback(
-    Output("p100-graph", "figure"),
+    Output("summary-container", "children"),
     Input("event-id-store", "data"),
     prevent_initial_call=True,
 )
@@ -316,38 +311,11 @@ def display_summary_graph(store_data):
         context=f"Update Graph - Trigger: {trigger}",
         store_data=store_data,
     )
-    if store_data is None or store_data.get("event_id") is None:
-        raise PreventUpdate
     event_id = store_data["event_id"]
-    data = fetch_json(
-        f"{API_BASE}/api/events/{event_id}/p100",
-        context="display_summary_graph",
-    )
-    trial = data["p100"]
-    if trial == []:
-        app.logger.warning("No P100 returned")
-        raise PreventUpdate
-    fig = px.imshow(trial, color_continuous_scale=cmap)
-    colorscale = []
-    num_colors = len(cmap)
-
-    if num_colors > 0:
-        for i, color in enumerate(cmap):
-            # Map the color index to a 0.0 to 1.0 scale
-            scale_value = i / (num_colors - 1) if num_colors > 1 else 0.0
-            colorscale.append([scale_value, color])
-
-    # 3. Apply the custom colorscale list and zmin to the trace
-    if fig.data and fig.data[0].type in ("heatmap", "image"):
-        # This is the correct Plotly format for colorscale
-        fig.data[0].colorscale = colorscale
-
-        # Explicitly set the minimum data value for the color axis to 0.
-        # This forces the first color in 'colorscale' (black) to map to 0.
-        fig.data[0].zmin = 0
-
-    # 4. Return the dictionary with BOTH data and layout for a complete partial update
-    return {"data": fig.data, "layout": fig.layout}
+    p100 = fetch_json(
+        f"{API_BASE}/api/events/{event_id}/p100", context="getEventP100"
+    ).get("p100", [])
+    return SummaryView(event_id, cmap, p100).render()
 
 
 def runDash():
