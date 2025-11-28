@@ -6,6 +6,30 @@ from .db import DB
 from . import validators as v
 import atexit
 
+# ----- For MacOS -----
+import os
+from pathlib import Path
+from urllib.parse import urlparse, unquote
+
+def uri_to_path(uri: str) -> Path:
+    """
+    Convert a file:// URI (stored in the DB) to a real filesystem Path,
+    working on both Windows and Unix-like systems.
+    """
+    parsed = urlparse(str(uri))
+
+    if parsed.scheme != "file":
+        raise ValueError(f"Unsupported URI scheme in {uri!r}; expected file://")
+
+    # Decode URL-escaped characters and get the path part
+    path = unquote(parsed.path)  # e.g. "/Users/me/..." or "/C:/Users/me/..."
+
+    # On Windows, parsed.path often starts with "/C:/..."
+    if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
+        path = path[1:]  # drop leading "/" → "C:/Users/me/..."
+
+    return Path(path)
+# ---------------------
 
 class SAL:
     # =========================================================
