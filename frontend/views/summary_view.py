@@ -1,6 +1,7 @@
 from dash import html
 from dash.dcc import Graph
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 class SummaryView:
@@ -12,18 +13,36 @@ class SummaryView:
 
     def render(self):
         # ---- P100 heatmap ----
-        p100_figure = px.imshow(self.p100_data, color_continuous_scale=self.cmap)
-
-        # Make P100 bigger and pull colourbar closer
-        p100_figure.update_layout(
-            height=500,               # taller
-            width=500,                # wider
-            margin=dict(l=20, r=40, t=20, b=40),
-            coloraxis_colorbar=dict(
-                thickness=20,        # slim colour bar
-                xpad=5,              # small gap between image and colour bar
-            ),
-        )
+        if self.p100_data:
+            p100_figure = px.imshow(self.p100_data, color_continuous_scale=self.cmap)
+            p100_figure.update_layout(
+                height=520,
+                width=480,
+                margin=dict(l=20, r=10, t=10, b=40),
+                coloraxis_colorbar=dict(
+                    thickness=18,
+                    xpad=0,
+                ),
+            )
+        else:
+            # Fallback empty figure if no P100 data
+            p100_figure = go.Figure()
+            p100_figure.update_layout(
+                height=520,
+                width=480,
+                xaxis={"visible": False},
+                yaxis={"visible": False},
+                annotations=[
+                    dict(
+                        text="P100 not available for this event.",
+                        x=0.5,
+                        y=0.5,
+                        xref="paper",
+                        yref="paper",
+                        showarrow=False,
+                    )
+                ],
+            )
 
         # ---- GRF line plot (simple 1D case) ----
         grf_figure = None
@@ -40,22 +59,20 @@ class SummaryView:
         components = [
             html.H3(
                 f"P100 for Event ID: {self.event_id}",
-                style={"marginBottom": "16px"},
+                style={"marginBottom": "4px", "marginTop": "8px"},
             ),
-
-            # P100 plot
             Graph(
                 id="p100-graph",
                 figure=p100_figure,
                 style={
-                    "maxWidth": "700px",   # allow space for colourbar
+                    "maxWidth": "700px",  # allow space for colourbar
                     "height": "520px",
                 },
             ),
         ]
 
         # Spacer then GRF plot (if we have data)
-        components.append(html.Div(style={"height": "32px"}))
+        components.append(html.Div(style={"height": "16px"}))
 
         if grf_figure is not None:
             components.append(

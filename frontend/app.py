@@ -151,7 +151,8 @@ def fetch_events(participant, datestr, direction):
 API_BASE = "http://127.0.0.1:8000"
 CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
 
-app = Dash(__name__)
+# IMPORTANT: allow callbacks that reference components added later (like p100-graph)
+app = Dash(__name__, suppress_callback_exceptions=True)
 
 
 def fetch_json(url, *, timeout=5, context="API request"):
@@ -170,14 +171,14 @@ app.layout = Div(
     id="page",
     style={
         "height": "100vh",
-        "overflowY": "auto",        # <- force vertical scrollbar when needed
+        "overflowY": "auto",        # vertical scrollbar when needed
         "display": "flex",
         "flexDirection": "column",
         "alignItems": "center",
         "justifyContent": "flex-start",
         "padding": "16px",
         "boxSizing": "border-box",
-        "gap": "24px",
+        "gap": "4px",
     },
     children=[
         Div(
@@ -185,11 +186,11 @@ app.layout = Div(
             style={"display": "none"},
         ),
         Store(id="event-id-store", data={"event_id": None}, storage_type="session"),
+        Store(id="footsteps-store", data=None, storage_type="session"),
         Interval(id="page-load", max_intervals=1),
         Div(
             id="dropdown-container",
             style={
-                "height": "15vh",
                 "width": "100%",
                 "maxWidth": "900px",
                 "display": "flex",
@@ -231,7 +232,7 @@ app.layout = Div(
                 Div(id="button-pressed"),
             ],
         ),
-        Div(id="summary-container"),
+        Div(id="summary-container", style={"marginTop": "0"}),
     ],
 )
 
@@ -304,8 +305,9 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     return {"event_id": event_id}
 
 
-@app.callback(
+@callback(
     Output("summary-container", "children"),
+    Output("footsteps-store", "data"),
     Input("event-id-store", "data"),
     prevent_initial_call=True,
 )
@@ -333,7 +335,68 @@ def display_summary_graph(store_data):
         f"{API_BASE}/api/events/{event_id}/grf", context="getEventGRF"
     ).get("grf", [])
 
-    return SummaryView(event_id, cmap, p100, grf).render()
+    # Fetch footsteps (list of bounding boxes)
+    footsteps = fetch_json(
+        f"{API_BASE}/api/events/{event_id}/footsteps/data",
+        context="getFootsteps",
+    )
+
+    view = SummaryView(event_id, cmap, p100, grf).render()
+    return view, footsteps
+
+
+@app.callback(
+    Output("p100-graph", "figure"),
+    Input("p100-graph", "clickData"),
+    State("p100-graph", "figure"),
+    State("footsteps-store", "data"),
+    prevent_initial_call=True,
+)
+def highlight_footstep(clickData, figure, footsteps):
+    # No click or no footsteps data → nothing to do
+    if not clickData or not footsteps:
+        raise PreventUpdate
+
+    # Extract clicked coordinates from Plotly clickData
+    point = clickData["points"][0]
+    x = point["x"]
+    y = point["y"]
+
+    # Find the first bounding box that contains this point
+    selected = None
+    for box in footsteps:
+        # Expect keys: x_min, x_max, y_min, y_max
+        if (
+            box["x_min"] <= x <= box["x_max"]
+            and box["y_min"] <= y <= box["y_max"]
+        ):
+            selected = box
+            break
+
+    if selected is None:
+        # Click outside any box → do nothing
+        raise PreventUpdate
+
+    # Work on a copy of the figure
+    fig = figure.copy()
+
+    # Only one highlighted box at a time
+    fig["layout"]["shapes"] = []
+
+    # Add rectangle shape for selected bounding box
+    fig["layout"]["shapes"].append(
+        {
+            "type": "rect",
+            "x0": selected["x_min"],
+            "y0": selected["y_min"],
+            "x1": selected["x_max"],
+            "y1": selected["y_max"],
+            "line": {"width": 3},
+            "fillcolor": "rgba(0,0,0,0)",
+        }
+    )
+
+    return fig
 
 
 def runDash():

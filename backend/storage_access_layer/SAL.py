@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote
 
 import numpy as np
+import pandas as pd
 
 from .db import DB
 from . import validators as v
@@ -174,4 +175,95 @@ class SAL:
         return data_list, None
 
     def getFootsteps(self, event_id: str):
-        raise NotImplementedError
+        """
+        Return one bounding box per footstep for this event, based on
+        metadata CSV (and basic pressure metrics inside each box).
+
+        Expects a metadata.csv in the same folder as trial P100 file,
+        with at least columns: XMin, XMax, YMin, YMax.
+
+        Returns:
+            ([footstep_dict, ...], None) on success
+            (None, "missing_event")  if no such event
+            (None, "missing_file")   if files/metadata missing or invalid
+        """
+        event = self.db.getSwipeEvent(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        # 1. Locate P100 file and metadata.csv
+        try:
+            p100_path = uri_to_path(event.trial_p100_npz_uri)
+        except ValueError:
+            return None, "missing_file"
+
+        event_dir = p100_path.parent            # folder for this trial
+        metadata_path = event_dir / "metadata.csv"
+
+        if not metadata_path.exists():
+            # No metadata → we can't know individual steps
+            return None, "missing_file"
+
+        try:
+            p100_loaded = np.load(p100_path)
+            p100 = p100_loaded["arr_0"]
+        except Exception:
+            return None, "missing_file"
+
+        try:
+            df = pd.read_csv(metadata_path)
+        except Exception:
+            return None, "missing_file"
+
+        # Require notebook-style columns
+        required_cols = {"XMin", "XMax", "YMin", "YMax"}
+        if not required_cols.issubset(df.columns):
+            return None, "missing_file"
+
+        footsteps = []
+
+        # 2. One bounding box per row in metadata.csv
+        for idx, row in df.iterrows():
+            x_min = int(row["XMin"])
+            x_max = int(row["XMax"])
+            y_min = int(row["YMin"])
+            y_max = int(row["YMax"])
+
+            # Clamp to P100 array bounds, just in case
+            h, w = p100.shape[:2]
+            x_min = max(0, min(x_min, w - 1))
+            x_max = max(0, min(x_max, w - 1))
+            y_min = max(0, min(y_min, h - 1))
+            y_max = max(0, min(y_max, h - 1))
+
+            if x_max < x_min or y_max < y_min:
+                # Bad box – skip
+                continue
+
+            # Slice region inside this box
+            region = p100[y_min : y_max + 1, x_min : x_max + 1]
+            active = region[region > 0]
+
+            if active.size == 0:
+                area_px = 0
+                peak_pressure = 0.0
+                mean_pressure = 0.0
+            else:
+                area_px = int(active.size)
+                peak_pressure = float(active.max())
+                mean_pressure = float(active.mean())
+
+            footsteps.append(
+                {
+                    "id": int(idx) + 1,   # 1-based step ID
+                    "x_min": x_min,
+                    "x_max": x_max,
+                    "y_min": y_min,
+                    "y_max": y_max,
+                    "area_px": area_px,
+                    "peak_pressure": peak_pressure,
+                    "mean_pressure": mean_pressure,
+                }
+            )
+
+        return footsteps, None
