@@ -243,7 +243,7 @@ app.layout = Div(
     Input("page-load", "n_intervals"),
     prevent_initial_call=False,
 )
-def getParticipants(_):
+def fetch_participants(_):
     app.logger.warning("Page loaded")
     data = fetch_json(f"{API_BASE}/api/participants", context="getParticipants")
     options = [{"label": str(p), "value": p} for p in data["items"]]
