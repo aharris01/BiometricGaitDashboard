@@ -29,7 +29,7 @@ def make_fake_get(response_data, *, status_ok=True, captured=None):
     return fake_get
 
 
-class TestGetParticipants:
+class TestFetchParticipants:
     @pytest.mark.unit
     @pytest.mark.parametrize(
         "value, expected",
@@ -58,13 +58,13 @@ class TestGetParticipants:
             make_fake_get({"items": value}, captured=captured),
         )
 
-        result = app_mod.getParticipants(None)
+        result = app_mod.fetch_participants(None)
         assert result == expected
         assert captured["url"] == f"{app_mod.API_BASE}/api/participants"
         assert captured["timeout"] == 5
 
 
-class TestGetDates:
+class TestFetchDates:
     @pytest.mark.unit
     def test_success(self, monkeypatch):
         captured = {}
@@ -76,7 +76,7 @@ class TestGetDates:
         )
 
         participant = "3"
-        result = app_mod.getDates(participant)
+        result = app_mod.fetch_dates(participant)
         assert result == [
             {"label": "2024-01-01", "value": "2024-01-01"},
             {"label": "2024-01-02", "value": "2024-01-02"},
@@ -90,10 +90,10 @@ class TestGetDates:
     @pytest.mark.unit
     def test_no_parameters(self):
         with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getDates(None)
+            app_mod.fetch_dates(None)
 
 
-class TestGetDirections:
+class TestFetchDirections:
     @pytest.mark.unit
     def test_success(self, monkeypatch):
         captured = {}
@@ -106,7 +106,7 @@ class TestGetDirections:
 
         participant = "3"
         datestr = "2024-01-01"
-        result = app_mod.getDirections(participant, datestr)
+        result = app_mod.fetch_directions(participant, datestr)
         assert result == [
             {"label": "in", "value": "in"},
             {"label": "out", "value": "out"},
@@ -123,12 +123,12 @@ class TestGetDirections:
     )
     def test_no_parameters(self, values):
         with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getDirections(None, "2024-01-01")
-            app_mod.getDirections("3", None)
-            app_mod.getDirections(None, None)
+            app_mod.fetch_directions(None, "2024-01-01")
+            app_mod.fetch_directions("3", None)
+            app_mod.fetch_directions(None, None)
 
 
-class TestGetEvents:
+class TestFetchEvents:
     @pytest.mark.unit
     def test_success(self, monkeypatch):
         captured = {}
@@ -142,7 +142,7 @@ class TestGetEvents:
         participant = "3"
         datestr = "2024-01-01"
         direction = "in"
-        result = app_mod.getEvents(participant, datestr, direction)
+        result = app_mod.fetch_events(participant, datestr, direction)
         assert result == [
             {"label": "1", "value": "1"},
             {"label": "2", "value": "2"},
@@ -156,9 +156,9 @@ class TestGetEvents:
     @pytest.mark.unit
     def test_no_parameters(self):
         with pytest.raises(app_mod.PreventUpdate):
-            app_mod.getEvents(None, "2024-01-01", "in")
-            app_mod.getEvents("3", None, "in")
-            app_mod.getEvents("3", "2024-01-01", None)
+            app_mod.fetch_events(None, "2024-01-01", "in")
+            app_mod.fetch_events("3", None, "in")
+            app_mod.fetch_events("3", "2024-01-01", None)
 
 
 class TestGetSwipeEventId:
@@ -211,4 +211,9 @@ class TestUtilFunctions:
     @pytest.mark.unit
     def test_require_values_all_present(self):
         # Should not raise
-        app_mod.require_values("a", "b", "c")
+        app_mod.require_values(
+            context="All values present",
+            participant="100",
+            date="2023-01-09",
+            direction="in",
+        )
