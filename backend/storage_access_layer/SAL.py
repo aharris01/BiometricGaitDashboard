@@ -174,96 +174,98 @@ class SAL:
 
         return data_list, None
 
-    def getFootsteps(self, event_id: str):
+    def getFootsteps(self, event_id):
         """
-        Return one bounding box per footstep for this event, based on
-        metadata CSV (and basic pressure metrics inside each box).
-
-        Expects a metadata.csv in the same folder as trial P100 file,
-        with at least columns: XMin, XMax, YMin, YMax.
+        Load per-footstep metadata for this trial.
 
         Returns:
-            ([footstep_dict, ...], None) on success
-            (None, "missing_event")  if no such event
-            (None, "missing_file")   if files/metadata missing or invalid
+            (steps, None) on success, where steps is a list of dicts:
+                {
+                  "id": int,
+                  "start_frame": int,
+                  "end_frame": int,
+                  "x_min": int,
+                  "x_max": int,
+                  "y_min": int,
+                  "y_max": int,
+                }
+
+            (None, "missing_event") if the DB record is missing
+            (None, "missing_file")  if the metadata file is missing/unreadable
         """
         event = self.db.getSwipeEvent(event_id)
         if event is None:
             return None, "missing_event"
 
-        # 1. Locate P100 file and metadata.csv
+        # trial.npz URI → local Path
         try:
-            p100_path = uri_to_path(event.trial_p100_npz_uri)
+            trial_path = uri_to_path(event.trial_npz_uri)
         except ValueError:
             return None, "missing_file"
 
-        event_dir = p100_path.parent            # folder for this trial
-        metadata_path = event_dir / "metadata.csv"
-
-        if not metadata_path.exists():
-            # No metadata → we can't know individual steps
+        # Your data uses "metadata.csv" in the same folder as trial.npz
+        meta_path = trial_path.with_name("metadata.csv")
+        if not meta_path.exists():
             return None, "missing_file"
 
         try:
-            p100_loaded = np.load(p100_path)
-            p100 = p100_loaded["arr_0"]
+            df = pd.read_csv(meta_path)
         except Exception:
             return None, "missing_file"
 
-        try:
-            df = pd.read_csv(metadata_path)
-        except Exception:
-            return None, "missing_file"
-
-        # Require notebook-style columns
-        required_cols = {"XMin", "XMax", "YMin", "YMax"}
-        if not required_cols.issubset(df.columns):
-            return None, "missing_file"
-
-        footsteps = []
-
-        # 2. One bounding box per row in metadata.csv
-        for idx, row in df.iterrows():
-            x_min = int(row["XMin"])
-            x_max = int(row["XMax"])
-            y_min = int(row["YMin"])
-            y_max = int(row["YMax"])
-
-            # Clamp to P100 array bounds, just in case
-            h, w = p100.shape[:2]
-            x_min = max(0, min(x_min, w - 1))
-            x_max = max(0, min(x_max, w - 1))
-            y_min = max(0, min(y_min, h - 1))
-            y_max = max(0, min(y_max, h - 1))
-
-            if x_max < x_min or y_max < y_min:
-                # Bad box – skip
-                continue
-
-            # Slice region inside this box
-            region = p100[y_min : y_max + 1, x_min : x_max + 1]
-            active = region[region > 0]
-
-            if active.size == 0:
-                area_px = 0
-                peak_pressure = 0.0
-                mean_pressure = 0.0
-            else:
-                area_px = int(active.size)
-                peak_pressure = float(active.max())
-                mean_pressure = float(active.mean())
-
-            footsteps.append(
+        steps = []
+        for _, row in df.iterrows():
+            steps.append(
                 {
-                    "id": int(idx) + 1,   # 1-based step ID
-                    "x_min": x_min,
-                    "x_max": x_max,
-                    "y_min": y_min,
-                    "y_max": y_max,
-                    "area_px": area_px,
-                    "peak_pressure": peak_pressure,
-                    "mean_pressure": mean_pressure,
+                    "id": int(row["FootstepID"]),
+                    "start_frame": int(row["StartFrame"]),
+                    "end_frame": int(row["EndFrame"]),
+                    "x_min": int(row["XMin"]),
+                    "x_max": int(row["XMax"]),
+                    "y_min": int(row["YMin"]),
+                    "y_max": int(row["YMax"]),
                 }
             )
 
-        return footsteps, None
+        return steps, None
+
+
+    def getFootstepData(self, event_id: str, step_id: int):
+        """
+        Load a single footstep volume from steps.npz and return:
+          - step_p100: 2D image (P100-style) for this step
+          - step_grf:  1D GRF curve for this step
+        """
+        event = self.db.getSwipeEvent(event_id)
+        if event is None:
+            return None, None, "missing_event"
+
+        try:
+            trial_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, None, "missing_file"
+
+        # Your data uses "steps.npz" in the same folder as trial.npz
+        steps_path = trial_path.with_name("steps.npz")
+        if not steps_path.exists():
+            return None, None, "missing_file"
+
+        try:
+            steps_npz = np.load(steps_path)
+        except Exception:
+            return None, None, "missing_file"
+
+        key = str(step_id)
+        if key not in steps_npz.files:
+            return None, None, "missing_file"
+
+        vol = steps_npz[key]  # shape: (T, H, W)
+
+        # P100-style image for this step
+        step_p100 = vol.max(axis=0)  # (H, W)
+
+        # GRF for this step
+        step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+
+        return step_p100.tolist(), step_grf.tolist(), None
+

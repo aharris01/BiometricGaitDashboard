@@ -13,6 +13,8 @@ from dash.html import Div, Button
 from dash.exceptions import PreventUpdate
 import requests
 import plotly.express as px
+import plotly.graph_objects as go
+import numpy as np
 from datetime import datetime
 
 from frontend.views.summary_view import SummaryView
@@ -20,6 +22,12 @@ from frontend.views.summary_view import SummaryView
 # Define the color map to be used in the graphs
 cmap = px.colors.sequential.Jet
 cmap[0] = "#000000"  # Set the 0 value of the color map to black
+
+API_BASE = "http://127.0.0.1:8000"
+CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
+
+# allow callbacks that reference dynamically-created components
+app = Dash(__name__, suppress_callback_exceptions=True)
 
 
 def require_values(context, **kwargs):
@@ -39,18 +47,20 @@ def parse_date_str(s: str):
         return False
 
 
+def fetch_json(url, *, timeout=5, context="API request"):
+    """Fetch JSON from the API and log readable errors"""
+    try:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        message = f"[{context}] Failed to fetch {url}: {exc}"
+        app.logger.error(message)
+        raise PreventUpdate
+
+
 def calculate_cascade_state(triggered_id, all_ids, all_values):
-    """
-    Determines the new state (values and options) for ALL dropdowns
-    based on which dropdown triggered the change.
-
-    Returns:
-        tuple: (list_of_new_values, list_of_new_options)
-    """
-    # 1. Setup: Identify the trigger and current selections
     trigger_level = triggered_id.get("level", 0) if triggered_id else 0
-
-    # Map current selections {level: value} for easy lookup
     current_selections = {
         id_dict.get("level"): val for id_dict, val in zip(all_ids, all_values)
     }
@@ -59,33 +69,25 @@ def calculate_cascade_state(triggered_id, all_ids, all_values):
     new_values = []
     new_options = []
 
-    # 2. Logic Loop: Determine fate of each component
     for component_id, current_val in zip(all_ids, all_values):
         current_level = component_id.get("level", 0)
 
-        # --- Logic: Am I the "Next Step" in the chain? ---
         if current_level == trigger_level - 1:
             if trigger_value is None:
-                # Parent cleared -> Clear me
                 new_values.append(None)
                 new_options.append([])
             else:
-                # Parent selected -> Populate me
                 opts = fetch_options_for_level(current_level, current_selections)
-                new_values.append(None)  # Reset value
+                new_values.append(None)
                 new_options.append(opts)
 
-        # --- Logic: Am I further downstream? ---
         elif current_level < trigger_level - 1:
-            # If I have data, I must be cleared because my ancestor changed
             if current_val is not None:
                 new_values.append(None)
                 new_options.append([])
             else:
                 new_values.append(no_update)
                 new_options.append(no_update)
-
-        # --- Logic: Am I upstream or the trigger itself? ---
         else:
             new_values.append(no_update)
             new_options.append(no_update)
@@ -94,25 +96,16 @@ def calculate_cascade_state(triggered_id, all_ids, all_values):
 
 
 def fetch_options_for_level(target_level, upstream_selections):
-    """
-    name: one of "date", "direction", "event"
-    target_level: Which dropdown was changed
-    upstream_selection: dict object with {level: value} for lookup
-    returns a list of {label, value} dicts
-    """
     participant = upstream_selections.get(4)
     datestr = upstream_selections.get(3)
     direction = upstream_selections.get(2)
 
     if target_level == 3 and participant:
         return fetch_dates(participant)
-
     elif target_level == 2 and datestr:
         return fetch_directions(participant, datestr)
-
     elif target_level == 1 and direction:
         return fetch_events(participant, datestr, direction)
-
     return []
 
 
@@ -121,8 +114,7 @@ def fetch_dates(participant):
     data = fetch_json(
         f"{API_BASE}/api/participants/{participant}/dates", context="getDates"
     )
-    dates = [{"label": str(d), "value": str(d)} for d in data["items"]]
-    return dates
+    return [{"label": str(d), "value": str(d)} for d in data["items"]]
 
 
 def fetch_directions(participant, datestr):
@@ -148,30 +140,13 @@ def fetch_events(participant, datestr, direction):
     return [{"label": str(e), "value": e} for e in data["items"]]
 
 
-API_BASE = "http://127.0.0.1:8000"
-CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
-
-# IMPORTANT: allow callbacks that reference components added later (like p100-graph)
-app = Dash(__name__, suppress_callback_exceptions=True)
-
-
-def fetch_json(url, *, timeout=5, context="API request"):
-    """Fetch JSON from the API and log readable errors"""
-    try:
-        resp = requests.get(url, timeout=timeout)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.RequestException as exc:
-        message = f"[{context}] Failed to fetch {url}: {exc}"
-        app.logger.error(message)
-        raise PreventUpdate
-
+# ----------------- Layout -----------------
 
 app.layout = Div(
     id="page",
     style={
         "height": "100vh",
-        "overflowY": "auto",        # vertical scrollbar when needed
+        "overflowY": "auto",
         "display": "flex",
         "flexDirection": "column",
         "alignItems": "center",
@@ -200,11 +175,7 @@ app.layout = Div(
             },
             children=[
                 Dropdown(
-                    id={
-                        "type": "dropdown",
-                        "name": "participant",
-                        "level": 4,
-                    },
+                    id={"type": "dropdown", "name": "participant", "level": 4},
                     style=CONTROL_STYLE,
                     clearable=True,
                 ),
@@ -237,6 +208,8 @@ app.layout = Div(
 )
 
 
+# ----------------- Callbacks -----------------
+
 @callback(
     Output({"type": "dropdown", "name": "participant", "level": 4}, "options"),
     Output({"type": "dropdown", "name": "participant", "level": 4}, "value"),
@@ -263,11 +236,8 @@ def fetch_participants(_):
     prevent_initial_call=True,
 )
 def manage_dropdown_cascade(values, ids):
-    # Guard clause for safety
     if not ctx.triggered_id:
         return no_update, no_update
-
-    # Delegate to the pure Python function
     return calculate_cascade_state(
         triggered_id=ctx.triggered_id, all_ids=ids, all_values=values
     )
@@ -312,30 +282,25 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     prevent_initial_call=True,
 )
 def display_summary_graph(store_data):
-    trigger = ctx.triggered_id or "<no trigger>"
-    app.logger.warning(
-        "Update Graph - triggered=%s; inputs=%s",
-        ctx.triggered,
-        ctx.inputs,
-    )
-    require_values(
-        context=f"Update Graph - Trigger: {trigger}",
-        store_data=store_data,
-    )
+    # Don’t run until we have an event_id
+    if not store_data or not store_data.get("event_id"):
+        raise PreventUpdate
 
     event_id = store_data["event_id"]
 
     # Fetch P100
-    p100 = fetch_json(
+    p100_resp = fetch_json(
         f"{API_BASE}/api/events/{event_id}/p100", context="getEventP100"
-    ).get("p100", [])
+    )
+    p100 = p100_resp.get("p100", [])
 
-    # Fetch GRF
-    grf = fetch_json(
+    # Fetch trial GRF
+    grf_resp = fetch_json(
         f"{API_BASE}/api/events/{event_id}/grf", context="getEventGRF"
-    ).get("grf", [])
+    )
+    grf = grf_resp.get("grf", [])
 
-    # Fetch footsteps (list of bounding boxes)
+    # Fetch footsteps metadata (list of boxes)
     footsteps = fetch_json(
         f"{API_BASE}/api/events/{event_id}/footsteps/data",
         context="getFootsteps",
@@ -345,45 +310,94 @@ def display_summary_graph(store_data):
     return view, footsteps
 
 
+
 @app.callback(
     Output("p100-graph", "figure"),
+    Output("selected-p100-graph", "figure"),
+    Output("selected-grf-graph", "figure"),
     Input("p100-graph", "clickData"),
     State("p100-graph", "figure"),
     State("footsteps-store", "data"),
+    State("event-id-store", "data"),
     prevent_initial_call=True,
 )
-def highlight_footstep(clickData, figure, footsteps):
-    # No click or no footsteps data → nothing to do
-    if not clickData or not footsteps:
+def show_selected_step(clickData, figure, footsteps, event_store):
+    # ---- Debug prints ----
+    print("---- show_selected_step called ----")
+    print("clickData:", clickData)
+    print("event_store:", event_store)
+    print("footsteps (first 3):", footsteps[:3] if footsteps else footsteps)
+
+    if not clickData or not footsteps or not event_store:
         raise PreventUpdate
 
-    # Extract clicked coordinates from Plotly clickData
-    point = clickData["points"][0]
-    x = point["x"]
-    y = point["y"]
+    event_id = event_store.get("event_id")
+    if not event_id:
+        raise PreventUpdate
 
-    # Find the first bounding box that contains this point
+    # Clicked coordinates on the P100 heatmap
+    point = clickData["points"][0]
+    x = float(point["x"])
+    y = float(point["y"])
+    print(f"clicked at x={x}, y={y}")
+
     selected = None
+    mapping_used = None
+
+    # Try to find which step's bounding box contains this point
     for box in footsteps:
         # Expect keys: x_min, x_max, y_min, y_max
-        if (
-            box["x_min"] <= x <= box["x_max"]
-            and box["y_min"] <= y <= box["y_max"]
-        ):
-            selected = box
+        xm, xM = box["x_min"], box["x_max"]
+        ym, yM = box["y_min"], box["y_max"]
+
+        # Mapping A: (x_min/x_max) are true x (columns), (y_min/y_max) are true y (rows)
+        if xm <= x <= xM and ym <= y <= yM:
+            selected = {
+                "id": box["id"],
+                "x_min": xm,
+                "x_max": xM,
+                "y_min": ym,
+                "y_max": yM,
+            }
+            mapping_used = "xy"
             break
 
+        # Mapping B: swapped (just in case metadata is flipped)
+        if ym <= x <= yM and xm <= y <= xM:
+            selected = {
+                "id": box["id"],
+                "x_min": ym,
+                "x_max": yM,
+                "y_min": xm,
+                "y_max": xM,
+            }
+            mapping_used = "yx_swapped"
+            break
+
+    print("selected box:", selected, "mapping_used:", mapping_used)
+
     if selected is None:
-        # Click outside any box → do nothing
+        # Click outside any box → nothing to update
         raise PreventUpdate
 
-    # Work on a copy of the figure
+    step_id = selected["id"]
+
+    # ---- Call backend for per-step P100 + GRF ----
+    url = f"{API_BASE}/api/events/{event_id}/footsteps/{step_id}"
+    data = fetch_json(url, context="getFootstepDetail")
+
+    step_p100 = data.get("p100", [])
+    step_grf = data.get("grf", [])
+
+    # ---- 1) Highlight bounding box on main P100 ----
     fig = figure.copy()
+    fig.setdefault("layout", {})
+    # Ensure shapes list exists
+    if "shapes" not in fig["layout"]:
+        fig["layout"]["shapes"] = []
+    else:
+        fig["layout"]["shapes"] = []
 
-    # Only one highlighted box at a time
-    fig["layout"]["shapes"] = []
-
-    # Add rectangle shape for selected bounding box
     fig["layout"]["shapes"].append(
         {
             "type": "rect",
@@ -391,13 +405,67 @@ def highlight_footstep(clickData, figure, footsteps):
             "y0": selected["y_min"],
             "x1": selected["x_max"],
             "y1": selected["y_max"],
-            "line": {"width": 3},
+            "line": {"width": 3, "color": "cyan"},
             "fillcolor": "rgba(0,0,0,0)",
         }
     )
 
-    return fig
+    # ---- 2) step P100 ----
+    if step_p100:
+        step_p100_fig = px.imshow(step_p100, color_continuous_scale=cmap)
+        step_p100_fig.update_layout(
+            margin=dict(l=20, r=10, t=10, b=40),
+            coloraxis_showscale=False,
+            height=520,
+            width=480,
+        )
+    else:
+        step_p100_fig = go.Figure()
+        step_p100_fig.update_layout(
+            height=520,
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            annotations=[
+                dict(
+                    text="Step P100 not available.",
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                    showarrow=False,
+                )
+            ],
+        )
 
+    # ---- 3) step GRF ----
+    if step_grf:
+        grf_arr = np.array(step_grf)
+        x_step = np.linspace(0, 100, len(grf_arr))
+        step_grf_fig = px.line(
+            x=x_step,
+            y=grf_arr,
+            labels={"x": "Percentage of Step (%)", "y": "Force"},
+            title=f"GRF for Step {step_id}",
+        )
+    else:
+        step_grf_fig = go.Figure()
+        step_grf_fig.update_layout(
+            height=300,
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            annotations=[
+                dict(
+                    text="Step GRF not available.",
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                    showarrow=False,
+                )
+            ],
+        )
+
+    return fig, step_p100_fig, step_grf_fig
 
 def runDash():
     app.run(host="127.0.0.1", port=8050, debug=False)

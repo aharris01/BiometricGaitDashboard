@@ -228,6 +228,19 @@ def api_event_footsteps(event_id: str):
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
+@server.get("/api/events/<event_id>/footsteps/<int:step_id>")
+def api_footstep_detail(event_id: str, step_id: int):
+    try:
+        p100, grf, err = get_sal().getFootstepData(event_id, step_id)
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+        if err == "missing_file":
+            return make_error(404, "not_found", "footstep data not available")
+        return jsonify({"p100": p100, "grf": grf})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
 # --------------- dev runner ---------------
 def runBackend():
     server.run(host="127.0.0.1", port=8000, debug=False)
