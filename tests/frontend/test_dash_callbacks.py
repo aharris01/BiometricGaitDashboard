@@ -199,9 +199,7 @@ class TestGetSwipeEventId:
         event = 4
 
         # n_clicks arg is unused
-        result = app_mod.getSwipeEventId(
-            None, participant, datestr, direction, event
-        )
+        result = app_mod.getSwipeEventId(None, participant, datestr, direction, event)
 
         # Callback returns the store data dict
         assert result == {"event_id": "123_2024-01-09_out_4"}
@@ -284,9 +282,7 @@ class TestDisplaySummaryGraph:
             if url.endswith("/grf"):
                 return {"grf": [0.1, 0.2, 0.3]}
             if url.endswith("/footsteps/data"):
-                return [
-                    {"id": 0, "x_min": 0, "x_max": 1, "y_min": 0, "y_max": 1}
-                ]
+                return [{"id": 0, "x_min": 0, "x_max": 1, "y_min": 0, "y_max": 1}]
             raise AssertionError(f"Unexpected URL: {url}")
 
         monkeypatch.setattr(app_mod, "fetch_json", fake_fetch_json)

@@ -12,6 +12,7 @@ from .db import DB
 from . import validators as v
 import atexit
 
+
 def uri_to_path(uri: str) -> Path:
     """
     Convert a file:// URI (stored in the DB) to a real filesystem Path,
@@ -86,7 +87,9 @@ class SAL:
         v.getSwipeEventId_check(participant, dt, event, direction, result)
         return result
 
-    def getBothDirectionEvents(self, participant: int, dt: date) -> Dict[str, List[int]]:
+    def getBothDirectionEvents(
+        self, participant: int, dt: date
+    ) -> Dict[str, List[int]]:
         result: Dict[str, List[int]] = {}
         directions = self.db.getDirections(participant, dt)
         for d in directions:
@@ -229,7 +232,6 @@ class SAL:
 
         return steps, None
 
-
     def getFootstepData(self, event_id: str, step_id: int):
         """
         Load a single footstep volume from steps.npz and return:
@@ -268,4 +270,3 @@ class SAL:
         step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
 
         return step_p100.tolist(), step_grf.tolist(), None
-

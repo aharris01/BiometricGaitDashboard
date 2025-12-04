@@ -210,6 +210,7 @@ app.layout = Div(
 
 # ----------------- Callbacks -----------------
 
+
 @callback(
     Output({"type": "dropdown", "name": "participant", "level": 4}, "options"),
     Output({"type": "dropdown", "name": "participant", "level": 4}, "value"),
@@ -283,7 +284,6 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     return {"event_id": event_id}
 
 
-
 @callback(
     Output("summary-container", "children"),
     Output("footsteps-store", "data"),
@@ -317,7 +317,6 @@ def display_summary_graph(store_data):
 
     view = SummaryView(event_id, cmap, p100, grf).render()
     return view, footsteps
-
 
 
 @app.callback(
@@ -475,6 +474,7 @@ def show_selected_step(clickData, figure, footsteps, event_store):
         )
 
     return fig, step_p100_fig, step_grf_fig
+
 
 def runDash():
     app.run(host="127.0.0.1", port=8050, debug=False)

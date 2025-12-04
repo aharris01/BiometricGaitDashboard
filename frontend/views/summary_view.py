@@ -48,9 +48,7 @@ class SummaryView:
             p100_figure.update_xaxes(constrain="domain", scaleanchor="y")
             p100_figure.update_yaxes(autorange="reversed", constrain="domain")
         else:
-            p100_figure = self._placeholder_figure(
-                "P100 not available for this event."
-            )
+            p100_figure = self._placeholder_figure("P100 not available for this event.")
 
         # ---- GRF line plot (full trial) ----
         grf_figure = None

@@ -9,7 +9,9 @@ from frontend.views.summary_view import SummaryView
 
 @pytest.mark.unit
 def test_placeholder_figure_basic():
-    view = SummaryView(event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None)
+    view = SummaryView(
+        event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None
+    )
 
     fig = view._placeholder_figure("Hello placeholder", height=300)
 
@@ -85,7 +87,9 @@ def test_render_with_p100_and_grf():
 def test_render_without_p100_uses_placeholder():
     cmap = px.colors.sequential.Jet
     # No P100, but GRF available
-    view = SummaryView(event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3])
+    view = SummaryView(
+        event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3]
+    )
     root = view.render()
 
     top_row = root.children[0]
@@ -105,7 +109,9 @@ def test_render_without_p100_uses_placeholder():
 def test_render_without_grf_shows_text_placeholder():
     cmap = px.colors.sequential.Jet
     # P100 available, but no GRF data
-    view = SummaryView(event_id="evt-no-grf", cmap=cmap, p100_data=[[1, 2], [3, 4]], grf_data=None)
+    view = SummaryView(
+        event_id="evt-no-grf", cmap=cmap, p100_data=[[1, 2], [3, 4]], grf_data=None
+    )
     root = view.render()
 
     bottom_row = root.children[1]

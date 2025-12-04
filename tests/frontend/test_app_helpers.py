@@ -36,10 +36,10 @@ class TestCalculateCascadeState:
             {"level": 1},
         ]
         all_values = [
-            1001,             # participant
-            "2024-10-01",     # date (trigger)
-            None,             # direction
-            None,             # event
+            1001,  # participant
+            "2024-10-01",  # date (trigger)
+            None,  # direction
+            None,  # event
         ]
 
         triggered_id = {"level": 3}
@@ -90,9 +90,9 @@ class TestCalculateCascadeState:
             {"level": 2},
         ]
         all_values = [
-            1001,     # participant
-            None,     # date: trigger value is None
-            "in",     # direction (should be reset)
+            1001,  # participant
+            None,  # date: trigger value is None
+            "in",  # direction (should be reset)
         ]
         triggered_id = {"level": 3}
 
@@ -132,7 +132,9 @@ class TestFetchOptionsForLevel:
         monkeypatch.setattr(app_mod, "fetch_dates", fake_fetch_dates)
 
         upstream = {4: 1001}  # level 4 -> participant
-        out = app_mod.fetch_options_for_level(target_level=3, upstream_selections=upstream)
+        out = app_mod.fetch_options_for_level(
+            target_level=3, upstream_selections=upstream
+        )
 
         assert out == ["d1", "d2"]
         assert captured["participant"] == 1001
@@ -149,7 +151,9 @@ class TestFetchOptionsForLevel:
         monkeypatch.setattr(app_mod, "fetch_directions", fake_fetch_directions)
 
         upstream = {4: 1001, 3: "2024-10-01"}  # participant + date
-        out = app_mod.fetch_options_for_level(target_level=2, upstream_selections=upstream)
+        out = app_mod.fetch_options_for_level(
+            target_level=2, upstream_selections=upstream
+        )
 
         assert out == ["in", "out"]
         assert captured["participant"] == 1001
@@ -172,7 +176,9 @@ class TestFetchOptionsForLevel:
             3: "2024-10-01",
             2: "in",
         }
-        out = app_mod.fetch_options_for_level(target_level=1, upstream_selections=upstream)
+        out = app_mod.fetch_options_for_level(
+            target_level=1, upstream_selections=upstream
+        )
 
         assert out == [1, 2, 3]
         assert captured["participant"] == 1001
@@ -183,7 +189,9 @@ class TestFetchOptionsForLevel:
     def test_fetch_options_for_level_default_empty(self):
         # No matching branch -> should return []
         upstream = {}
-        out = app_mod.fetch_options_for_level(target_level=99, upstream_selections=upstream)
+        out = app_mod.fetch_options_for_level(
+            target_level=99, upstream_selections=upstream
+        )
         assert out == []
 
 
