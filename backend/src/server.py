@@ -100,6 +100,7 @@ def api_directions(participant: int, date: str):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     try:
         items = get_sal().getDirections(participant, dt)
         if not items:
@@ -117,6 +118,7 @@ def api_events(participant: int, date: str, direction: str):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     derr = validate_direction(direction)
     if derr:
         return derr
@@ -137,6 +139,7 @@ def api_events_by_direction(participant: int, date: str):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     try:
         s = get_sal()
         dirs = s.getDirections(participant, dt)  # subset of {"in","out"}
@@ -159,6 +162,7 @@ def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     derr = validate_direction(direction)
     if derr:
         return derr

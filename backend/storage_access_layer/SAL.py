@@ -93,7 +93,8 @@ class SAL:
         result: Dict[str, List[int]] = {}
         directions = self.db.getDirections(participant, dt)
         for d in directions:
-            result[d] = self.db.getEvents(participant, dt, d)
+            events = cast(List[int], list(self.db.getEvents(participant, dt, d)))
+            result[d] = events
         v.getBothDirectionEvents_check(participant, dt, result)
         return result
 
