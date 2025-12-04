@@ -10,7 +10,7 @@ from dash import (
 )
 from dash.dcc import Dropdown, Interval, Store
 from dash.html import Div, Button
-from dash.exceptions import PreventUpdate
+from dash.exceptions import PreventUpdate, MissingCallbackContextException
 import requests
 import plotly.express as px
 import plotly.graph_objects as go
@@ -253,12 +253,20 @@ def manage_dropdown_cascade(values, ids):
     prevent_initial_call=True,
 )
 def getSwipeEventId(_, participant, datestr, direction, event):
-    trigger = ctx.triggered_id or "<no trigger>"
-    app.logger.warning(
-        "Get Swipe Event ID - triggered=%s; inputs=%s",
-        ctx.triggered,
-        ctx.inputs,
-    )
+    try:
+        trigger = ctx.triggered_id or "<no trigger>"
+        app.logger.warning(
+            "Get Swipe Event ID - triggered=%s; inputs=%s",
+            ctx.triggered,
+            ctx.inputs,
+        )
+    except MissingCallbackContextException:
+        trigger = "<no trigger>"
+        app.logger.warning(
+            "Get Swipe Event ID called outside callback context; trigger=%s",
+            trigger,
+        )
+
     require_values(
         context=f"Get Swipe Event - Trigger: {trigger}",
         participant=participant,
@@ -273,6 +281,7 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     event_id = data["id"]
     app.logger.warning(f"Swipe Event ID: {event_id}")
     return {"event_id": event_id}
+
 
 
 @callback(
