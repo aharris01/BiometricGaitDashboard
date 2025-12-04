@@ -142,7 +142,6 @@ def api_events_by_direction(participant: int, date: str):
     assert dt is not None
     try:
         s = get_sal()
-        dirs = s.getDirections(participant, dt)  # subset of {"in","out"}
         by_dir = s.getBothDirectionEvents(participant, dt)  # {"in":[...], "out":[...]}
 
         out = {
