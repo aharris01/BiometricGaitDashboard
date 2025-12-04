@@ -449,11 +449,20 @@ def show_selected_step(clickData, figure, footsteps, event_store):
     if step_grf:
         grf_arr = np.array(step_grf)
         x_step = np.linspace(0, 100, len(grf_arr))
-        step_grf_fig = px.line(
-            x=x_step,
-            y=grf_arr,
-            labels={"x": "Percentage of Step (%)", "y": "Force"},
+
+        step_grf_fig = go.Figure()
+        step_grf_fig.add_trace(
+            go.Scatter(
+                x=x_step,
+                y=grf_arr,
+                mode="lines",
+                name=f"Step {step_id} GRF",
+            )
+        )
+        step_grf_fig.update_layout(
             title=f"GRF for Step {step_id}",
+            xaxis_title="Percentage of Step (%)",
+            yaxis_title="Force",
         )
     else:
         step_grf_fig = go.Figure()

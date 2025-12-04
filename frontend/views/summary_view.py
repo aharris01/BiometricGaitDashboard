@@ -55,11 +55,20 @@ class SummaryView:
         if self.grf_data:
             y = self.grf_data
             x = list(range(len(y)))
-            grf_figure = px.line(
-                x=x,
-                y=y,
-                labels={"x": "Frame", "y": "Force"},
+
+            grf_figure = go.Figure()
+            grf_figure.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=y,
+                    mode="lines",
+                    name="GRF",
+                )
+            )
+            grf_figure.update_layout(
                 title="Ground Reaction Force (GRF)",
+                xaxis_title="Frame",
+                yaxis_title="Force",
             )
 
         # ---- Layout: 2x2 grid ----
