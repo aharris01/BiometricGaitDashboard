@@ -1,12 +1,12 @@
 # tests/backend/storage_access_layer/test_sal.py
 
+import csv
 import datetime as dt
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import numpy as np
-import pandas as pd
 import pytest
-from unittest.mock import MagicMock
 
 from backend.storage_access_layer.SAL import SAL, uri_to_path
 
@@ -239,20 +239,31 @@ def test_getFootsteps_ok(tmp_path, sal, fake_db):
 
     # metadata.csv next to trial
     meta_path = trial_path.with_name("metadata.csv")
-    df = pd.DataFrame(
-        [
+    with meta_path.open("w", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "FootstepID",
+                "StartFrame",
+                "EndFrame",
+                "XMin",
+                "XMax",
+                "YMin",
+                "YMax",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
             {
                 "FootstepID": 0,
-                "StartFrame": 0,
-                "EndFrame": 10,
-                "XMin": 5,
-                "XMax": 15,
-                "YMin": 20,
-                "YMax": 30,
+                "StartFrame": 10,
+                "EndFrame": 20,
+                "XMin": 1,
+                "XMax": 5,
+                "YMin": 2,
+                "YMax": 6,
             }
-        ]
-    )
-    df.to_csv(meta_path, index=False)
+        )
 
     fake_db.getSwipeEvent.return_value = SimpleNamespace(
         trial_npz_uri=f"file://{trial_path}"
@@ -261,9 +272,15 @@ def test_getFootsteps_ok(tmp_path, sal, fake_db):
     steps, err = sal.getFootsteps("evt-1")
     assert err is None
     assert isinstance(steps, list)
-    assert steps[0]["id"] == 0
-    assert steps[0]["x_min"] == 5
-    assert steps[0]["y_max"] == 30
+
+    step0 = steps[0]
+    assert step0["id"] == 0
+    assert step0["start_frame"] == 10
+    assert step0["end_frame"] == 20
+    assert step0["x_min"] == 1
+    assert step0["x_max"] == 5
+    assert step0["y_min"] == 2
+    assert step0["y_max"] == 6
 
 
 @pytest.mark.unit

@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 
+import csv
 import numpy as np
-import pandas as pd
 
 from .db import DB
 from . import validators as v
@@ -213,23 +213,29 @@ class SAL:
             return None, "missing_file"
 
         try:
-            df = pd.read_csv(meta_path)
+            with meta_path.open(newline="") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
         except Exception:
             return None, "missing_file"
 
-        steps = []
-        for _, row in df.iterrows():
-            steps.append(
-                {
-                    "id": int(row["FootstepID"]),
-                    "start_frame": int(row["StartFrame"]),
-                    "end_frame": int(row["EndFrame"]),
-                    "x_min": int(row["XMin"]),
-                    "x_max": int(row["XMax"]),
-                    "y_min": int(row["YMin"]),
-                    "y_max": int(row["YMax"]),
-                }
-            )
+        steps: list[dict] = []
+        try:
+            for row in rows:
+                steps.append(
+                    {
+                        "id": int(row["FootstepID"]),
+                        "start_frame": int(row["StartFrame"]),
+                        "end_frame": int(row["EndFrame"]),
+                        "x_min": int(row["XMin"]),
+                        "x_max": int(row["XMax"]),
+                        "y_min": int(row["YMin"]),
+                        "y_max": int(row["YMax"]),
+                    }
+                )
+        except (KeyError, ValueError):
+            # Bad or missing columns / values
+            return None, "missing_file"
 
         return steps, None
 
