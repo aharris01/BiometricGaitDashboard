@@ -82,16 +82,21 @@ class FakeSAL:
 
     def getP100(self, event_id: str):
         """
-        Return (data, err) where:
-        - err is None, "missing_event", or "missing_file"
+        Match real SAL.getP100 semantics:
+        - returns a 2D list on success
+        - returns None if event/file is missing
+        server.py turns None into {"p100": []} with status 200.
         """
-        if event_id == "missing":
-            return None, "missing_event"
-        if event_id == "nofile_p100":
-            return None, "missing_file"
-        return [[1.0, 2.0], [3.0, 4.0]], None
+        if event_id in ("missing", "nofile_p100"):
+            return None
+        return [[1.0, 2.0], [3.0, 4.0]]
 
     def getGRF(self, event_id: str):
+        """
+        Match real SAL.getGRF semantics:
+        - returns (data_list, None) on success
+        - returns (None, "missing_event" | "missing_file") on failure
+        """
         if event_id == "missing":
             return None, "missing_event"
         if event_id == "nofile_grf":
@@ -99,20 +104,47 @@ class FakeSAL:
         return [0.1, 0.2, 0.3], None
 
     def getFootsteps(self, event_id: str):
+        """
+        Match real SAL.getFootsteps semantics:
+        - returns (steps, None) where steps is a list of bounding-box dicts
+        - returns (None, "missing_event" | "missing_file") on failure
+        """
         if event_id == "missing":
             return None, "missing_event"
         if event_id == "nofile_steps":
             return None, "missing_file"
-        return (
-            [
-                {
-                    "footstep_id": 0,
-                    "p100": [[1.0, 2.0]],
-                    "grf": [0.5, 0.6],
-                }
-            ],
-            None,
-        )
+
+        steps = [
+            {
+                "id": 0,
+                "start_frame": 0,
+                "end_frame": 10,
+                "x_min": 5,
+                "x_max": 15,
+                "y_min": 20,
+                "y_max": 30,
+            }
+        ]
+        return steps, None
+
+    def getFootstepData(self, event_id: str, step_id: int):
+        """
+        Match real SAL.getFootstepData semantics:
+        - returns (step_p100, step_grf, None) on success
+        - returns (..., ..., "missing_event" | "missing_file") on failure
+        """
+        if event_id == "missing":
+            return None, None, "missing_event"
+        if event_id == "nofile_stepdetail":
+            return None, None, "missing_file"
+
+        if step_id != 0:
+            # treat unknown step as missing file for simplicity
+            return None, None, "missing_file"
+
+        step_p100 = [[1.0, 2.0], [3.0, 4.0]]
+        step_grf = [0.5, 0.6, 0.7]
+        return step_p100, step_grf, None
 
 
 @pytest.fixture
@@ -262,20 +294,19 @@ def test_event_p100_ok(client):
 
 
 @pytest.mark.unit
-def test_event_p100_missing_event(client):
+def test_event_p100_missing_returns_empty_list(client):
     resp = client.get("/api/events/missing/p100")
-    assert resp.status_code == 404
+    assert resp.status_code == 200
     data = json.loads(resp.data)
-    assert data["code"] == "not_found"
+    assert data["p100"] == []
 
 
 @pytest.mark.unit
-def test_event_p100_missing_file(client):
+def test_event_p100_missing_file_returns_empty_list(client):
     resp = client.get("/api/events/nofile_p100/p100")
-    assert resp.status_code == 404
+    assert resp.status_code == 200
     data = json.loads(resp.data)
-    assert data["code"] == "not_found"
-    assert "p100 not available" in data["message"]
+    assert data["p100"] == []
 
 
 @pytest.mark.unit
@@ -310,9 +341,10 @@ def test_event_footsteps_ok(client):
     assert resp.status_code == 200
     data = json.loads(resp.data)
     assert isinstance(data, list)
-    assert data[0]["footstep_id"] == 0
-    assert "p100" in data[0]
-    assert "grf" in data[0]
+    step = data[0]
+    assert step["id"] == 0
+    assert "x_min" in step and "x_max" in step
+    assert "y_min" in step and "y_max" in step
 
 
 @pytest.mark.unit
@@ -330,3 +362,34 @@ def test_event_footsteps_missing_file_returns_empty_list(client):
     assert resp.status_code == 200
     data = json.loads(resp.data)
     assert data == []
+
+
+# -------------------- per-footstep detail --------------------
+
+
+@pytest.mark.unit
+def test_footstep_detail_ok(client):
+    resp = client.get("/api/events/evt-in-1/footsteps/0")
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert "p100" in data
+    assert "grf" in data
+    assert isinstance(data["p100"], list)
+    assert isinstance(data["grf"], list)
+
+
+@pytest.mark.unit
+def test_footstep_detail_missing_event(client):
+    resp = client.get("/api/events/missing/footsteps/0")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+
+
+@pytest.mark.unit
+def test_footstep_detail_missing_file(client):
+    resp = client.get("/api/events/nofile_stepdetail/footsteps/0")
+    assert resp.status_code == 404
+    data = json.loads(resp.data)
+    assert data["code"] == "not_found"
+    assert "footstep data not available" in data["message"]

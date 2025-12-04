@@ -100,6 +100,7 @@ def api_directions(participant: int, date: str):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     try:
         items = get_sal().getDirections(participant, dt)
         if not items:
@@ -117,6 +118,7 @@ def api_events(participant: int, date: str, direction: str):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     derr = validate_direction(direction)
     if derr:
         return derr
@@ -137,13 +139,15 @@ def api_events_by_direction(participant: int, date: str):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     try:
         s = get_sal()
-        dirs = s.getDirections(participant, dt)  # subset of {"in","out"}
-        by_dir_lists = s.getBothDirectionEvents(participant, dt)
-        out = {"in": [], "out": []}
-        for d, events in zip(dirs, by_dir_lists.values()):
-            out[d] = events
+        by_dir = s.getBothDirectionEvents(participant, dt)  # {"in":[...], "out":[...]}
+
+        out = {
+            "in": by_dir.get("in", []),
+            "out": by_dir.get("out", []),
+        }
         if not out["in"] and not out["out"]:
             return make_error(404, "not_found", "no events for participant/date")
         return jsonify(out)
@@ -157,6 +161,7 @@ def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
     dt, err = parse_date_str(date)
     if err:
         return err
+    assert dt is not None
     derr = validate_direction(direction)
     if derr:
         return derr
@@ -189,13 +194,13 @@ def api_event_summary(event_id: str):
 @server.get("/api/events/<event_id>/p100")
 def api_event_p100(event_id: str):
     try:
-        data, err = get_sal().getP100(event_id)
-        if err == "missing_event":
-            return make_error(404, "not_found", "event not found")
-        if err == "missing_file":
-            return make_error(404, "not_found", "p100 not available")
+        data = get_sal().getP100(event_id)
+        # None → treat as "no data" and return empty list
+        if data is None:
+            return jsonify({"p100": []})
         return jsonify({"p100": data})
     except Exception as e:
+        # Any unexpected error → 500
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
@@ -226,6 +231,23 @@ def api_event_footsteps(event_id: str):
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
+@server.get("/api/events/<event_id>/footsteps/<int:step_id>")
+def api_footstep_detail(event_id: str, step_id: int):
+    try:
+        p100, grf, err = get_sal().getFootstepData(event_id, step_id)
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+        if err == "missing_file":
+            return make_error(404, "not_found", "footstep data not available")
+        return jsonify({"p100": p100, "grf": grf})
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
 # --------------- dev runner ---------------
 def runBackend():
     server.run(host="127.0.0.1", port=8000, debug=False)
+
+
+if __name__ == "__main__":
+    runBackend()
