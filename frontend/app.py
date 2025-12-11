@@ -16,7 +16,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime
-
 from frontend.views.summary_view import SummaryView
 
 # Define the color map to be used in the graphs
@@ -283,7 +282,6 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     app.logger.warning(f"Swipe Event ID: {event_id}")
     return {"event_id": event_id}
 
-
 @callback(
     Output("summary-container", "children"),
     Output("footsteps-store", "data"),
@@ -315,7 +313,7 @@ def display_summary_graph(store_data):
         context="getFootsteps",
     )
 
-    view = SummaryView(event_id, cmap, p100, grf).render()
+    view = SummaryView(event_id, cmap, p100, grf, footsteps).render()
     return view, footsteps
 
 

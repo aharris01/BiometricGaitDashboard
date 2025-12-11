@@ -5,11 +5,12 @@ import plotly.graph_objects as go
 
 
 class SummaryView:
-    def __init__(self, event_id, cmap, p100_data, grf_data=None):
+    def __init__(self, event_id, cmap, p100_data, grf_data=None, footsteps=None):
         self.event_id = event_id
         self.cmap = cmap
         self.p100_data = p100_data or []
         self.grf_data = grf_data or []
+        self.footsteps = footsteps or []
 
     def _placeholder_figure(self, text, height=520):
         fig = go.Figure()
@@ -71,7 +72,66 @@ class SummaryView:
                 yaxis_title="Force",
             )
 
-        # ---- Layout: 2x2 grid ----
+        # ---- Dotplot ----
+        if self.footsteps:
+            sum_box_size = 0
+            box_sizes = []
+            for footstep in self.footsteps:
+                box_x = abs(footstep["x_max"] - footstep["x_min"])
+                box_y = abs(footstep["y_max"] - footstep["y_min"])
+                box_size = box_x * box_y
+                box_sizes.append(box_size)
+                sum_box_size += box_size
+            avg_box_size = []
+            for box in box_sizes:
+                avg_box_size.append(sum_box_size / len(self.footsteps))
+
+            y = avg_box_size
+            x = box_sizes
+
+            dotplot = go.Figure()
+            dotplot.update_yaxes(visible=False)
+            dotplot.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=y,
+                    name="Box sizes",
+                )
+            )
+        else:
+            dotplot = self._placeholder_figure("Box size dotplot not available for this event.")
+
+        # ---- Layout: 2x3 grid ----
+        # Above top row: box size dotplot
+        above_top_row = html.Div(
+            style={
+                "display": "flex",
+                "flexDirection": "row",
+                "justifyContent": "space-between",
+                "alignItems": "flex-start",
+                "gap": "32px",
+                "width": "100%",
+            },
+            children=[
+                html.Div(
+                    children=[
+                        html.H3(
+                            f"Bounding box size dotplot",
+                            style={"marginBottom": "4px", "marginTop": "4px"},
+                        ),
+                        Graph(
+                            id="box-size-dotplot",
+                            figure=dotplot,
+                            style={
+                                "maxWidth": "700px",
+                                "height": "210px",
+                            },
+                        ),
+                    ],
+                    style={"flex": "1"},
+                ),
+            ],
+        )
         # Top row: full P100 | selected step P100
         top_row = html.Div(
             style={
@@ -177,7 +237,7 @@ class SummaryView:
         )
 
         return html.Div(
-            children=[top_row, bottom_row],
+            children=[above_top_row, top_row, bottom_row],
             style={
                 "width": "100%",
                 "maxWidth": "1100px",
