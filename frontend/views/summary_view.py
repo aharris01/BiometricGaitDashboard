@@ -83,7 +83,7 @@ class SummaryView:
                 box_sizes.append(box_size)
                 sum_box_size += box_size
             avg_box_size = []
-            for box in box_sizes:
+            for _box in box_sizes:
                 avg_box_size.append(sum_box_size / len(self.footsteps))
 
             y = avg_box_size
@@ -116,7 +116,7 @@ class SummaryView:
                 html.Div(
                     children=[
                         html.H3(
-                            f"Bounding box size dotplot",
+                            "Bounding box size dotplot",
                             style={"marginBottom": "4px", "marginTop": "4px"},
                         ),
                         Graph(

@@ -41,7 +41,7 @@ def test_placeholder_figure_basic():
 
 
 @pytest.mark.unit
-def test_render_with_p100_and_grf():
+def test_render_with_p100_and_grf_and_dotplot():
     cmap = px.colors.sequential.Jet
     p100 = [[1, 2], [3, 4]]
     grf = [0.1, 0.2, 0.3]
@@ -51,12 +51,14 @@ def test_render_with_p100_and_grf():
 
     assert isinstance(root, html.Div)
     root_children = children_list(root)
-    assert len(root_children) == 2
+    assert len(root_children) == 3
 
     top_row = root_children[0]
     bottom_row = root_children[1]
+    above_top_row = root_children[2]
     assert isinstance(top_row, html.Div)
     assert isinstance(bottom_row, html.Div)
+    assert isinstance(above_top_row, html.Div)
 
     # ---- Top row ----
     top_children = children_list(top_row)
@@ -99,6 +101,19 @@ def test_render_with_p100_and_grf():
     assert isinstance(selected_grf_graph_any, Graph)
     assert selected_grf_graph_any.id == "selected-grf-graph"
     assert isinstance(selected_grf_graph_any.figure, go.Figure)
+
+    # ---- Above top row ----
+    above_top_children = children_list(above_top_row)
+    dotplot_container = above_top_children[0]
+
+    dotplot_children = children_list(dotplot_container)
+    assert isinstance(dotplot_children[0], html.H3)
+
+    dotplot_graph_any: Any = dotplot_children[1]
+    assert isinstance(dotplot_graph_any, Graph)
+    assert dotplot_graph_any.id == "dotplot"
+    assert isinstance(dotplot_graph_any.figure, go.Figure)
+
 
 
 @pytest.mark.unit
