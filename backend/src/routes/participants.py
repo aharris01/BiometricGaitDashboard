@@ -10,6 +10,7 @@ participants_bp = Blueprint("participants", __name__)
 @participants_bp.get("/api/participants")
 def api_participants():
     from backend.src.server import get_sal  # local import to avoid circular
+
     try:
         return jsonify({"items": get_sal().getParticipants()})
     except Exception as e:
@@ -19,6 +20,7 @@ def api_participants():
 @participants_bp.get("/api/participants/<int:participant>/dates")
 def api_dates(participant: int):
     from backend.src.server import get_sal
+
     try:
         items = [d.isoformat() for d in get_sal().getDates(participant)]
         if not items:
@@ -31,6 +33,7 @@ def api_dates(participant: int):
 @participants_bp.get("/api/participants/<int:participant>/dates/<date>/directions")
 def api_directions(participant: int, date: str):
     from backend.src.server import get_sal
+
     dt, err = parse_date_str(date)
     if err:
         return err
@@ -49,6 +52,7 @@ def api_directions(participant: int, date: str):
 )
 def api_events(participant: int, date: str, direction: str):
     from backend.src.server import get_sal
+
     dt, err = parse_date_str(date)
     if err:
         return err
@@ -69,9 +73,12 @@ def api_events(participant: int, date: str, direction: str):
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
-@participants_bp.get("/api/participants/<int:participant>/dates/<date>/eventsByDirection")
+@participants_bp.get(
+    "/api/participants/<int:participant>/dates/<date>/eventsByDirection"
+)
 def api_events_by_direction(participant: int, date: str):
     from backend.src.server import get_sal
+
     dt, err = parse_date_str(date)
     if err:
         return err

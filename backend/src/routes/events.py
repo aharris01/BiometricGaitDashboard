@@ -8,6 +8,7 @@ events_bp = Blueprint("events", __name__)
 @events_bp.get("/api/events/<event_id>/summary")
 def api_event_summary(event_id: str):
     from backend.src.server import get_sal
+
     try:
         result = get_sal().getEventSummary(event_id)
         if not result:
@@ -21,6 +22,7 @@ def api_event_summary(event_id: str):
 @events_bp.get("/api/events/<event_id>/p100")
 def api_event_p100(event_id: str):
     from backend.src.server import get_sal
+
     try:
         data = get_sal().getP100(event_id)
         if data is None:
@@ -33,6 +35,7 @@ def api_event_p100(event_id: str):
 @events_bp.get("/api/events/<event_id>/grf")
 def api_event_grf(event_id: str):
     from backend.src.server import get_sal
+
     try:
         data, err = get_sal().getGRF(event_id)
         if err == "missing_event":
@@ -47,6 +50,7 @@ def api_event_grf(event_id: str):
 @events_bp.get("/api/events/<event_id>/footsteps/data")
 def api_event_footsteps(event_id: str):
     from backend.src.server import get_sal
+
     try:
         data, err = get_sal().getFootsteps(event_id)
         if err == "missing_event":
@@ -61,6 +65,7 @@ def api_event_footsteps(event_id: str):
 @events_bp.get("/api/events/<event_id>/footsteps/<int:step_id>")
 def api_footstep_detail(event_id: str, step_id: int):
     from backend.src.server import get_sal
+
     try:
         p100, grf, err = get_sal().getFootstepData(event_id, step_id)
         if err == "missing_event":

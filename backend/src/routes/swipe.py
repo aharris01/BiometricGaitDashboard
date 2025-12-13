@@ -10,6 +10,7 @@ swipe_bp = Blueprint("swipe", __name__)
 @swipe_bp.get("/api/swipe/<int:participant>/<date>/<direction>/<int:event>")
 def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
     from backend.src.server import get_sal
+
     dt, err = parse_date_str(date)
     if err:
         return err
