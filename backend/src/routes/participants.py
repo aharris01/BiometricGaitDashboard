@@ -87,7 +87,9 @@ def api_events_by_direction(participant: int, date: str):
 
     try:
         sal = get_sal()
-        by_dir = sal.getBothDirectionEvents(participant, dt)  # {"in":[...], "out":[...]}
+        by_dir = sal.getBothDirectionEvents(
+            participant, dt
+        )  # {"in":[...], "out":[...]}
 
         out = {
             "in": by_dir.get("in", []),
