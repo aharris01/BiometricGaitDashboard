@@ -85,21 +85,18 @@ class SummaryView:
                 sum_box_size += box_size
             random_count = []
             for _box in box_sizes:
-                random_count.append(randrange(1,11,1))
+                random_count.append(randrange(1, 11, 1))
             y = random_count
             x = box_sizes
 
             scatter_plot = go.Figure()
             scatter_plot.add_trace(
-                go.Scatter(
-                    x=x,
-                    y=y,
-                    name="Box sizes",
-                    mode="markers"
-                )
+                go.Scatter(x=x, y=y, name="Box sizes", mode="markers")
             )
         else:
-            scatter_plot = self._placeholder_figure("Box size scatter not available for this event.")
+            scatter_plot = self._placeholder_figure(
+                "Box size scatter not available for this event."
+            )
 
         # ---- Layout: 2x3 grid ----
         # Above top row: box size scatter_plot

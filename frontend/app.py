@@ -282,6 +282,7 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     app.logger.warning(f"Swipe Event ID: {event_id}")
     return {"event_id": event_id}
 
+
 @callback(
     Output("summary-container", "children"),
     Output("footsteps-store", "data"),

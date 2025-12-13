@@ -115,7 +115,6 @@ def test_render_with_p100_and_grf_and_scatter():
     assert isinstance(dotplot_graph_any.figure, go.Figure)
 
 
-
 @pytest.mark.unit
 def test_render_without_p100_uses_placeholder():
     cmap = px.colors.sequential.Jet
