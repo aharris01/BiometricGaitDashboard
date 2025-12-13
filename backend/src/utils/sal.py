@@ -4,23 +4,21 @@ from typing import TYPE_CHECKING, cast
 from flask import current_app
 
 if TYPE_CHECKING:
-    from backend.storage_access_layer.SAL import SAL  # for type hints only
+    from backend.storage_access_layer.SAL import SAL
 
 
 def get_sal():
     """Return the SAL instance for the current app.
 
     - Prefer the Flask app extension: current_app.extensions["sal"]
-    - If it's missing, fall back to backend.src.server.get_sal(), and
-      also store that on the app so future calls use the extension.
+    - If it's missing, fall back to backend.src.server.get_sal(), then
+      store it on the app for future calls.
     """
-    app = current_app._get_current_object()
-
-    sal_obj = app.extensions.get("sal")
+    sal_obj = current_app.extensions.get("sal")
     if sal_obj is None:
         from backend.src import server as server_mod  # local import to avoid cycles
 
         sal_obj = server_mod.get_sal()
-        app.extensions["sal"] = sal_obj
+        current_app.extensions["sal"] = sal_obj
 
     return cast("SAL", sal_obj)

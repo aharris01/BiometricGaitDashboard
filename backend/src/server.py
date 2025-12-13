@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 from flask import Flask
 from flask_cors import CORS
@@ -37,30 +37,25 @@ def get_sal() -> SAL:
     return sal
 
 
-def create_app(sal: Optional[SAL] = None) -> Flask:
+def create_app(sal: Any | None = None) -> Flask:
     """Create and configure the Flask app.
 
-    If a SAL instance is passed in, use it (tests do this with FakeSAL).
-    Otherwise, SAL will be created lazily on first use via utils.sal.get_sal().
+    If a SAL-like instance is passed in (e.g. FakeSAL in tests), use it.
+    Otherwise, SAL will be created lazily via backend.src.server.get_sal().
     """
     app = Flask(__name__)
 
-    # CORS for /api/*
     CORS(
         app,
         supports_credentials=True,
         resources={r"/api/*": {"origins": ALLOWED_ORIGIN}},
     )
 
-    # If tests pass a custom SAL, hook it up here and sync the global
     if sal is not None:
-        from typing import cast as _cast  # just to keep type checkers happy
+        # store on the module-global and as an app extension
+        globals()["sal"] = sal  # type: ignore[assignment]
+        app.extensions["sal"] = sal
 
-        global_sal = _cast(SAL, sal)
-        globals()["sal"] = global_sal
-        app.extensions["sal"] = global_sal
-
-    # Register blueprints
     from backend.src.routes.health import health_bp
     from backend.src.routes.participants import participants_bp
     from backend.src.routes.events import events_bp
