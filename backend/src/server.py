@@ -17,15 +17,11 @@ load_dotenv(ROOT / ".env")
 
 # ---- Config ----
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://127.0.0.1:8050")
-
-# API host/port from env → part of API base URL configuration
 API_HOST = os.getenv("API_HOST", "127.0.0.1")
 API_PORT = int(os.getenv("API_PORT", "8000"))
+ENABLE_AUTH = os.getenv("ENABLE_AUTH", "false").lower() == "true"  # reserved
 
-# reserved for future
-ENABLE_AUTH = os.getenv("ENABLE_AUTH", "false").lower() == "true"
-
-# ---- SAL (shared dependency) ----
+# ---- Global SAL, same idea as original code ----
 sal: Optional[SAL] = None
 
 
@@ -41,8 +37,12 @@ def get_sal() -> SAL:
     return sal
 
 
-# ---- App factory ----
-def create_app() -> Flask:
+def create_app(sal: Optional[SAL] = None) -> Flask:
+    """Create and configure the Flask app.
+
+    If a SAL instance is passed in, use it (tests do this with FakeSAL).
+    Otherwise, SAL will be created lazily on first use via utils.sal.get_sal().
+    """
     app = Flask(__name__)
 
     # CORS for /api/*
@@ -51,6 +51,14 @@ def create_app() -> Flask:
         supports_credentials=True,
         resources={r"/api/*": {"origins": ALLOWED_ORIGIN}},
     )
+
+    # If tests pass a custom SAL, hook it up here and sync the global
+    if sal is not None:
+        from typing import cast as _cast  # just to keep type checkers happy
+
+        global_sal = _cast(SAL, sal)
+        globals()["sal"] = global_sal
+        app.extensions["sal"] = global_sal
 
     # Register blueprints
     from backend.src.routes.health import health_bp
@@ -66,12 +74,11 @@ def create_app() -> Flask:
     return app
 
 
-# This is what Dash / tests will import
+# Default app used by Dash & tests that import `server`
 server = create_app()
 
 
-# --------------- dev runner ---------------
-def runBackend():
+def runBackend() -> None:
     server.run(host=API_HOST, port=API_PORT, debug=False)
 
 
