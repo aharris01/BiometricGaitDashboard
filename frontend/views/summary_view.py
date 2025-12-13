@@ -1,6 +1,5 @@
 from dash import html
 from dash.dcc import Graph
-from random import randrange
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -72,63 +71,6 @@ class SummaryView:
                 xaxis_title="Frame",
                 yaxis_title="Force",
             )
-
-        # ---- Scatter plot ----
-        if self.footsteps:
-            sum_box_size = 0
-            box_sizes = []
-            for footstep in self.footsteps:
-                box_x = abs(footstep["x_max"] - footstep["x_min"])
-                box_y = abs(footstep["y_max"] - footstep["y_min"])
-                box_size = box_x * box_y
-                box_sizes.append(box_size)
-                sum_box_size += box_size
-            random_count = []
-            for _box in box_sizes:
-                random_count.append(randrange(1, 11, 1))
-            y = random_count
-            x = box_sizes
-
-            scatter_plot = go.Figure()
-            scatter_plot.add_trace(
-                go.Scatter(x=x, y=y, name="Box sizes", mode="markers")
-            )
-        else:
-            scatter_plot = self._placeholder_figure(
-                "Box size scatter not available for this event."
-            )
-
-        # ---- Layout: 2x3 grid ----
-        # Above top row: box size scatter_plot
-        above_top_row = html.Div(
-            style={
-                "display": "flex",
-                "flexDirection": "row",
-                "justifyContent": "space-between",
-                "alignItems": "flex-start",
-                "gap": "32px",
-                "width": "100%",
-            },
-            children=[
-                html.Div(
-                    children=[
-                        html.H3(
-                            "Bounding box size scatter plot",
-                            style={"marginBottom": "4px", "marginTop": "4px"},
-                        ),
-                        Graph(
-                            id="box-size-scatter-plot",
-                            figure=scatter_plot,
-                            style={
-                                "maxWidth": "700px",
-                                "height": "400px",
-                            },
-                        ),
-                    ],
-                    style={"flex": "1"},
-                ),
-            ],
-        )
         # Top row: full P100 | selected step P100
         top_row = html.Div(
             style={
@@ -234,7 +176,7 @@ class SummaryView:
         )
 
         return html.Div(
-            children=[above_top_row, top_row, bottom_row],
+            children=[top_row, bottom_row],
             style={
                 "width": "100%",
                 "maxWidth": "1100px",
@@ -242,6 +184,6 @@ class SummaryView:
                 "flexDirection": "column",
                 "alignItems": "flex-start",
                 "margin": "0 auto",
-                "paddingBottom": "32px",
+                "paddingBottom": "16px",
             },
         )

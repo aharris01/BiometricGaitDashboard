@@ -16,6 +16,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime
+
+from frontend.views.metrics_graph import MetricsGraph
 from frontend.views.summary_view import SummaryView
 
 # Define the color map to be used in the graphs
@@ -202,6 +204,7 @@ app.layout = Div(
                 Div(id="button-pressed"),
             ],
         ),
+        Div(id="metrics-graph-container", style={"marginTop": "0"}),
         Div(id="summary-container", style={"marginTop": "0"}),
     ],
 )
@@ -281,6 +284,29 @@ def getSwipeEventId(_, participant, datestr, direction, event):
     event_id = data["id"]
     app.logger.warning(f"Swipe Event ID: {event_id}")
     return {"event_id": event_id}
+
+
+@callback(
+    Output(component_id="metrics-graph-container", component_property="children"),
+    Input(component_id="event-id-store", component_property="data"),
+    prevent_initial_call=True,
+)
+def display_metrics_graph(store_data):
+    # Don’t run until we have an event_id
+    if not store_data or not store_data.get("event_id"):
+        print(
+            "display_metrics_graph(): no store of event_id found, preventing page update..."
+        )
+        raise PreventUpdate
+    event_id = store_data["event_id"]
+    # Fetch footsteps metadata (list of boxes)
+    footsteps = fetch_json(
+        f"{API_BASE}/api/events/{event_id}/footsteps/data",
+        context="getFootsteps",
+    )
+
+    graph_view = MetricsGraph(event_id, footsteps).render()
+    return graph_view
 
 
 @callback(
