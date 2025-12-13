@@ -1,5 +1,6 @@
 from dash import html
 from dash.dcc import Graph
+from random import randrange
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -72,7 +73,7 @@ class SummaryView:
                 yaxis_title="Force",
             )
 
-        # ---- Dotplot ----
+        # ---- Scatter plot ----
         if self.footsteps:
             sum_box_size = 0
             box_sizes = []
@@ -82,27 +83,26 @@ class SummaryView:
                 box_size = box_x * box_y
                 box_sizes.append(box_size)
                 sum_box_size += box_size
-            avg_box_size = []
+            random_count = []
             for _box in box_sizes:
-                avg_box_size.append(sum_box_size / len(self.footsteps))
-
-            y = avg_box_size
+                random_count.append(randrange(1,11,1))
+            y = random_count
             x = box_sizes
 
-            dotplot = go.Figure()
-            dotplot.update_yaxes(visible=False)
-            dotplot.add_trace(
+            scatter_plot = go.Figure()
+            scatter_plot.add_trace(
                 go.Scatter(
                     x=x,
                     y=y,
                     name="Box sizes",
+                    mode="markers"
                 )
             )
         else:
-            dotplot = self._placeholder_figure("Box size dotplot not available for this event.")
+            scatter_plot = self._placeholder_figure("Box size scatter not available for this event.")
 
         # ---- Layout: 2x3 grid ----
-        # Above top row: box size dotplot
+        # Above top row: box size scatter_plot
         above_top_row = html.Div(
             style={
                 "display": "flex",
@@ -116,15 +116,15 @@ class SummaryView:
                 html.Div(
                     children=[
                         html.H3(
-                            "Bounding box size dotplot",
+                            "Bounding box size scatter plot",
                             style={"marginBottom": "4px", "marginTop": "4px"},
                         ),
                         Graph(
-                            id="box-size-dotplot",
-                            figure=dotplot,
+                            id="box-size-scatter-plot",
+                            figure=scatter_plot,
                             style={
                                 "maxWidth": "700px",
-                                "height": "210px",
+                                "height": "400px",
                             },
                         ),
                     ],

@@ -41,7 +41,7 @@ def test_placeholder_figure_basic():
 
 
 @pytest.mark.unit
-def test_render_with_p100_and_grf_and_dotplot():
+def test_render_with_p100_and_grf_and_scatter():
     cmap = px.colors.sequential.Jet
     p100 = [[1, 2], [3, 4]]
     grf = [0.1, 0.2, 0.3]

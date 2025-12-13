@@ -5,7 +5,7 @@ import pytest
 def test_backend_imports():
     import backend
 
-    backend  # type: ignore
+    # backend  # type: ignore
 
 
 @pytest.mark.unit
