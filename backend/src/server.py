@@ -73,9 +73,9 @@ def create_app(sal: Any | None = None) -> Flask:
 server = create_app()
 
 
-def runBackend() -> None:
+def run_backend() -> None:
     server.run(host=API_HOST, port=API_PORT, debug=False)
 
 
 if __name__ == "__main__":
-    runBackend()
+    run_backend()
