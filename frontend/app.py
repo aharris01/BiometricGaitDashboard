@@ -14,7 +14,7 @@ app.layout = build_layout()
 
 register_all(app, cmap=cmap)
 
-def runDash():
+def run_dash():
     app.run(host="127.0.0.1", port=8050, debug=False)
 
 if __name__ == "__main__":
