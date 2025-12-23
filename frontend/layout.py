@@ -1,51 +1,99 @@
 # frontend/layout.py
 from dash.dcc import Dropdown, Interval, Store
-from dash.html import Div, Button
+from dash.html import Div, Button, H2, Span
 
 CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
+
 
 def build_layout():
     return Div(
         id="page",
-        style={
-            "height": "100vh",
-            "overflowY": "auto",
-            "display": "flex",
-            "flexDirection": "column",
-            "alignItems": "center",
-            "justifyContent": "flex-start",
-            "padding": "16px",
-            "boxSizing": "border-box",
-            "gap": "4px",
-        },
+        className="page",
         children=[
+            # ---------- Header ----------
             Div(
-                id={"type": "dropdown-log-sink", "name": "participant", "level": 4},
-                style={"display": "none"},
-            ),
-            Store(id="event-id-store", data={"event_id": None}, storage_type="session"),
-            Store(id="footsteps-store", data=None, storage_type="session"),
-            Interval(id="page-load", max_intervals=1),
-            Div(
-                id="dropdown-container",
-                style={
-                    "width": "100%",
-                    "maxWidth": "900px",
-                    "display": "flex",
-                    "alignItems": "center",
-                    "justifyContent": "center",
-                    "gap": "8px",
-                },
+                id="header",
+                className="header",
                 children=[
-                    Dropdown(id={"type": "dropdown", "name": "participant", "level": 4}, style=CONTROL_STYLE, clearable=True),
-                    Dropdown(id={"type": "dropdown", "name": "date", "level": 3}, style=CONTROL_STYLE, clearable=True),
-                    Dropdown(id={"type": "dropdown", "name": "direction", "level": 2}, style=CONTROL_STYLE, clearable=True),
-                    Dropdown(id={"type": "dropdown", "name": "event", "level": 1}, style=CONTROL_STYLE, clearable=True),
-                    Button(id="submit-button", n_clicks=0, children="Submit", style={"height": "38px", "padding": "0 24px"}),
-                    Div(id="button-pressed"),
+                    Div(
+                        children=[
+                            H2("Swipe Summary"),
+                            Span(
+                                "Footstep extraction QA",
+                                className="subtitle",
+                            ),
+                        ],
+                    ),
+                    Span(
+                        "Local API: 127.0.0.1:8000",
+                        className="subtitle",
+                    ),
                 ],
             ),
-            Div(id="metrics-graph-container", style={"marginTop": "0"}),
-            Div(id="summary-container", style={"marginTop": "0"}),
+
+            # ---------- Main Content ----------
+            Div(
+                id="content",
+                className="content",
+                children=[
+                    # hidden sink (unchanged)
+                    Div(
+                        id={"type": "dropdown-log-sink", "name": "participant", "level": 4},
+                        className="hidden",
+                    ),
+
+                    # stores
+                    Store(
+                        id="event-id-store",
+                        data={"event_id": None},
+                        storage_type="session",
+                    ),
+                    Store(
+                        id="footsteps-store",
+                        data=None,
+                        storage_type="session",
+                    ),
+
+                    # page load trigger
+                    Interval(id="page-load", max_intervals=1),
+
+                    # ---------- Dropdown Row ----------
+                    Div(
+                        id="dropdown-container",
+                        className="dropdown-container",
+                        children=[
+                            Dropdown(
+                                id={"type": "dropdown", "name": "participant", "level": 4},
+                                style=CONTROL_STYLE,
+                                clearable=True,
+                            ),
+                            Dropdown(
+                                id={"type": "dropdown", "name": "date", "level": 3},
+                                style=CONTROL_STYLE,
+                                clearable=True,
+                            ),
+                            Dropdown(
+                                id={"type": "dropdown", "name": "direction", "level": 2},
+                                style=CONTROL_STYLE,
+                                clearable=True,
+                            ),
+                            Dropdown(
+                                id={"type": "dropdown", "name": "event", "level": 1},
+                                style=CONTROL_STYLE,
+                                clearable=True,
+                            ),
+                            Button(
+                                "Submit",
+                                id="submit-button",
+                            ),
+                        ],
+                    ),
+
+                    # ---------- Views ----------
+                    Div(id="metrics-graph-container"),
+                    Div(id="summary-container"),
+                ],
+            ),
         ],
     )
+
