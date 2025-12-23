@@ -5,11 +5,12 @@ import plotly.graph_objects as go
 
 
 class SummaryView:
-    def __init__(self, event_id, cmap, p100_data, grf_data=None):
+    def __init__(self, event_id, cmap, p100_data, grf_data=None, footsteps=None):
         self.event_id = event_id
         self.cmap = cmap
         self.p100_data = p100_data or []
         self.grf_data = grf_data or []
+        self.footsteps = footsteps or []
 
     def _placeholder_figure(self, text, height=520):
         fig = go.Figure()
@@ -70,8 +71,6 @@ class SummaryView:
                 xaxis_title="Frame",
                 yaxis_title="Force",
             )
-
-        # ---- Layout: 2x2 grid ----
         # Top row: full P100 | selected step P100
         top_row = html.Div(
             style={
@@ -185,6 +184,6 @@ class SummaryView:
                 "flexDirection": "column",
                 "alignItems": "flex-start",
                 "margin": "0 auto",
-                "paddingBottom": "32px",
+                "paddingBottom": "16px",
             },
         )
