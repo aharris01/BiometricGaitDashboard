@@ -2,9 +2,10 @@
 from dash import Input, Output, callback
 from dash.exceptions import PreventUpdate
 
-from frontend.api import API_BASE, fetch_json
+from frontend.api import get_event_full, get_event_footstep_p100s
 from frontend.views.metrics_graph import MetricsGraph
 from frontend.views.summary_view import SummaryView
+
 
 def register(app, *, cmap):
     @callback(
@@ -17,11 +18,8 @@ def register(app, *, cmap):
             raise PreventUpdate
 
         event_id = store_data["event_id"]
-        footsteps = fetch_json(
-            f"{API_BASE}/api/events/{event_id}/footsteps/data",
-            context="getFootsteps",
-            logger=app.logger,
-        )
+        full = get_event_full(event_id, logger=app.logger)
+        footsteps = full.get("footsteps", [])
         return MetricsGraph(event_id, footsteps).render()
 
     @callback(
@@ -36,17 +34,21 @@ def register(app, *, cmap):
 
         event_id = store_data["event_id"]
 
-        p100_resp = fetch_json(f"{API_BASE}/api/events/{event_id}/p100", context="getEventP100", logger=app.logger)
-        p100 = p100_resp.get("p100", [])
+        full = get_event_full(event_id, logger=app.logger)
+        p100 = full.get("p100", [])
+        grf = full.get("grf", [])
+        footsteps = full.get("footsteps", [])
 
-        grf_resp = fetch_json(f"{API_BASE}/api/events/{event_id}/grf", context="getEventGRF", logger=app.logger)
-        grf = grf_resp.get("grf", [])
+        steps_resp = get_event_footstep_p100s(event_id, logger=app.logger)
+        step_p100s = steps_resp.get("items", [])
 
-        footsteps = fetch_json(
-            f"{API_BASE}/api/events/{event_id}/footsteps/data",
-            context="getFootsteps",
-            logger=app.logger,
-        )
+        view = SummaryView(
+            event_id,
+            cmap,
+            p100,
+            grf,
+            footsteps,
+            step_p100s=step_p100s,
+        ).render()
 
-        view = SummaryView(event_id, cmap, p100, grf, footsteps).render()
         return view, footsteps

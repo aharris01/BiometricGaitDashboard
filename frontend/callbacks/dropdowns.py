@@ -1,9 +1,17 @@
 # frontend/callbacks/dropdowns.py
 from dash import ALL, Input, Output, State, callback, ctx, no_update
-from dash.exceptions import PreventUpdate, MissingCallbackContextException
+from dash.exceptions import MissingCallbackContextException
 
-from frontend.api import API_BASE, fetch_json, get_participants, get_dates, get_directions, get_events
+from frontend.api import (
+    API_BASE_URL,
+    fetch_json,
+    get_participants,
+    get_dates,
+    get_directions,
+    get_events,
+)
 from frontend.utils import require_values
+
 
 def _fetch_options_for_level(target_level, upstream, logger):
     participant = upstream.get(4)
@@ -18,9 +26,12 @@ def _fetch_options_for_level(target_level, upstream, logger):
         return get_events(participant, datestr, direction, logger=logger)
     return []
 
+
 def _calculate_cascade_state(triggered_id, all_ids, all_values, logger):
     trigger_level = triggered_id.get("level", 0) if triggered_id else 0
-    current_selections = {id_dict.get("level"): val for id_dict, val in zip(all_ids, all_values)}
+    current_selections = {
+        id_dict.get("level"): val for id_dict, val in zip(all_ids, all_values)
+    }
     trigger_value = current_selections.get(trigger_level)
 
     new_values = []
@@ -50,6 +61,7 @@ def _calculate_cascade_state(triggered_id, all_ids, all_values, logger):
             new_options.append(no_update)
 
     return new_values, new_options
+
 
 def register(app):
     @callback(
@@ -85,13 +97,20 @@ def register(app):
         State({"type": "dropdown", "name": "event", "level": 1}, "value"),
         prevent_initial_call=True,
     )
-    def getSwipeEventId(_, participant, datestr, direction, event):
+    def get_swipe_event_id(_, participant, datestr, direction, event):
         try:
             trigger = ctx.triggered_id or "<no trigger>"
-            app.logger.warning("Get Swipe Event ID - triggered=%s; inputs=%s", ctx.triggered, ctx.inputs)
+            app.logger.warning(
+                "Get Swipe Event ID - triggered=%s; inputs=%s",
+                ctx.triggered,
+                ctx.inputs,
+            )
         except MissingCallbackContextException:
             trigger = "<no trigger>"
-            app.logger.warning("Get Swipe Event ID called outside callback context; trigger=%s", trigger)
+            app.logger.warning(
+                "Get Swipe Event ID called outside callback context; trigger=%s",
+                trigger,
+            )
 
         require_values(
             context=f"Get Swipe Event - Trigger: {trigger}",
@@ -102,10 +121,10 @@ def register(app):
         )
 
         data = fetch_json(
-            f"{API_BASE}/api/swipe/{participant}/{datestr}/{direction}/{event}",
-            context="getSwipeEventId",
+            f"{API_BASE_URL}/api/swipe/{participant}/{datestr}/{direction}/{event}",
+            context="get_swipe_event_id",
             logger=app.logger,
         )
         event_id = data["id"]
-        app.logger.warning(f"Swipe Event ID: {event_id}")
+        app.logger.warning("Swipe Event ID: %s", event_id)
         return {"event_id": event_id}

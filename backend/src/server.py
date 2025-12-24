@@ -9,7 +9,7 @@ from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-from backend.storage_access_layer.SAL import SAL
+from backend.storage_access_layer.sal import SAL
 
 # ---- Load root .env ----
 ROOT = Path(__file__).resolve().parents[2]

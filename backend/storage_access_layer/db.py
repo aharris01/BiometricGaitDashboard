@@ -1,19 +1,10 @@
+# backend/storage_access_layer/db.py
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
-
-# from sqlalchemy import ForeignKey
-from sqlalchemy import String
-from sqlalchemy import Text
-from sqlalchemy import Date
-from sqlalchemy import Integer
-from sqlalchemy import TIMESTAMP
-from sqlalchemy import text
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import String, Text, Date, Integer, TIMESTAMP, text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from contextlib import contextmanager
 import datetime
 
@@ -33,44 +24,39 @@ class SwipeEvent(Base):
     __tablename__ = "swipe_event"
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
-
     participant: Mapped[int] = mapped_column(Integer, nullable=False)
-
     date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-
     direction: Mapped[str] = mapped_column(String, nullable=False)
-
     event_number: Mapped[int] = mapped_column(Integer, nullable=False)
-
     state: Mapped[str] = mapped_column(String, nullable=False)
 
     trial_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
-
     trial_p100_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
-
     trial_grf_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=datetime.datetime.now(),  # <--- Python-side default (portable)
+        default=datetime.datetime.now,
     )
 
 
-# adding a db class here that holds db engine and access functions
 class DB:
     def __init__(self, engine: Engine | None = None):
         self._owns_engine = engine is None
 
         if self._owns_engine:
-            self.engine, created_new = _initDB()
+            self.engine, created_new = _init_db()
         else:
             assert engine is not None
             self.engine = engine
             created_new = False
 
         self.SessionLocal = sessionmaker(
-            bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False
+            bind=self.engine,
+            autoflush=False,
+            autocommit=False,
+            expire_on_commit=False,
         )
 
         if self._owns_engine and created_new:
@@ -82,9 +68,7 @@ class DB:
         try:
             yield session
             session.commit()
-        except Exception as e:
-            print("Session exception occurred: ", str(e))
-            print("Rolling back...")
+        except Exception as exc:
             session.rollback()
             raise
         finally:
@@ -94,20 +78,21 @@ class DB:
         if self.engine:
             self.engine.dispose()
 
-    # New addSwipeEvent function that accepts a SwipeEvent object
+    # -------------------------------------------------
+    # CamelCase DB API (existing, unchanged)
+    # -------------------------------------------------
+
     def addSwipeEvent(self, swipe_event: SwipeEvent):
         with self._get_session() as session:
             try:
                 session.add(swipe_event)
-            except Exception as e:
-                print(f"{e}: Duplicate found")
+            except Exception:
+                pass
 
-    # identical logic to previous version of accessfunctions.py
     def getParticipants(self):
         query = select(distinct(SwipeEvent.participant)).order_by(
             SwipeEvent.participant
         )
-
         with self._get_session() as session:
             return session.scalars(query).all()
 
@@ -117,14 +102,16 @@ class DB:
             .where(SwipeEvent.participant == participant)
             .order_by(SwipeEvent.date)
         )
-
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def getDirections(self, participant, date):
         query = (
             select(distinct(SwipeEvent.direction))
-            .where(SwipeEvent.participant == participant, SwipeEvent.date == date)
+            .where(
+                SwipeEvent.participant == participant,
+                SwipeEvent.date == date,
+            )
             .order_by(SwipeEvent.direction)
         )
         with self._get_session() as session:
@@ -140,7 +127,6 @@ class DB:
             )
             .order_by(SwipeEvent.event_number)
         )
-
         with self._get_session() as session:
             return session.scalars(query).all()
 
@@ -151,36 +137,56 @@ class DB:
             SwipeEvent.event_number == event,
             SwipeEvent.direction == direction,
         )
-
         with self._get_session() as session:
             return session.scalars(query).first()
 
     def getSwipeEvent(self, event_id):
         query = select(SwipeEvent).where(SwipeEvent.event_id == event_id)
-
         with self._get_session() as session:
             return session.scalars(query).first()
 
+    # -------------------------------------------------
+    # ✅ snake_case wrappers (NEW – required by SAL)
+    # -------------------------------------------------
 
-def _initDB():  # added function as required
-    engine = create_engine(
-        f"sqlite:///{dataroot}/metadata.db",
-        # echo=True # enables logging to (stdout?)
-    )
-    created_new = False
-    # check existing tables
+    def add_swipe_event(self, swipe_event: SwipeEvent):
+        return self.addSwipeEvent(swipe_event)
+
+    def get_participants(self):
+        return self.getParticipants()
+
+    def get_dates(self, participant):
+        return self.getDates(participant)
+
+    def get_directions(self, participant, date):
+        return self.getDirections(participant, date)
+
+    def get_events(self, participant, date, direction):
+        return self.getEvents(participant, date, direction)
+
+    def get_swipe_event_id(self, participant, date, event, direction):
+        return self.getSwipeEventId(participant, date, event, direction)
+
+    def get_swipe_event(self, event_id):
+        return self.getSwipeEvent(event_id)
+
+
+# -------------------------------------------------
+# DB initialisation helpers
+# -------------------------------------------------
+
+def _init_db():
+    engine = create_engine(f"sqlite:///{dataroot}/metadata.db")
+
     with engine.connect() as conn:
         rows = conn.execute(
-            text(
-                "SELECT name FROM sqlite_master WHERE type='table';"
-            )  # added logic for table search
+            text("SELECT name FROM sqlite_master WHERE type='table';")
         ).fetchall()
 
-    print("len(rows)=", len(rows))  # print to stdout for debugging
-    if len(rows) == 0:
+    created_new = False
+    if not rows:
         Base.metadata.create_all(engine)
         created_new = True
-    print("created_new=", created_new)  # print to stdout for debugging
 
     return engine, created_new
 
