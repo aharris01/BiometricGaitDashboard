@@ -30,7 +30,6 @@ def build_layout():
                     ),
                 ],
             ),
-
             # ---------- Main Content ----------
             Div(
                 id="content",
@@ -41,7 +40,6 @@ def build_layout():
                         id={"type": "dropdown-log-sink", "name": "participant", "level": 4},
                         className="hidden",
                     ),
-
                     # stores
                     Store(
                         id="event-id-store",
@@ -53,10 +51,14 @@ def build_layout():
                         data=None,
                         storage_type="session",
                     ),
-
+                    # selected step id from thumbnail click
+                    Store(
+                        id="selected-step-store",
+                        data={"step_id": None},
+                        storage_type="session",
+                    ),
                     # page load trigger
                     Interval(id="page-load", max_intervals=1),
-
                     # ---------- Dropdown Row ----------
                     Div(
                         id="dropdown-container",
@@ -88,7 +90,6 @@ def build_layout():
                             ),
                         ],
                     ),
-
                     # ---------- Views ----------
                     Div(id="metrics-graph-container"),
                     Div(id="summary-container"),
@@ -96,4 +97,3 @@ def build_layout():
             ),
         ],
     )
-

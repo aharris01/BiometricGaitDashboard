@@ -1,3 +1,4 @@
+# frontend/views/summary_view.py
 from dash import html
 from dash.dcc import Graph
 import plotly.express as px
@@ -106,8 +107,9 @@ class SummaryView:
                         Graph(
                             id={"type": "step-p100", "step_id": step_id},
                             figure=fig,
-                            config={"displayModeBar": False, "staticPlot": True},
-                            style={"height": "240px"},
+                            # clickable thumbnails
+                            config={"displayModeBar": False},
+                            style={"height": "240px", "cursor": "pointer"},
                         ),
                     ],
                     style={
