@@ -1,5 +1,5 @@
 # backend/src/utils/sal.py
-from typing import cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from flask import current_app
 
 if TYPE_CHECKING:
@@ -7,10 +7,8 @@ if TYPE_CHECKING:
 
 
 def get_sal():
-    """Get the SAL instance from the current Flask app."""
-    sal_obj = current_app.extensions.get("sal")
-    if sal_obj is None:
-        raise RuntimeError(
-            "SAL is not initialized. Ensure create_app() stores it in app.extensions['sal']."
-        )
-    return cast("SAL", sal_obj)
+    """
+    Routes should always read SAL from current_app.extensions["sal"].
+    server.create_app() is responsible for putting it there.
+    """
+    return cast("SAL", current_app.extensions["sal"])

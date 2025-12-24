@@ -11,22 +11,20 @@ from dotenv import load_dotenv
 
 from backend.storage_access_layer.sal import SAL
 
-# ---- Load root .env ----
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
 
-# ---- Config ----
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://127.0.0.1:8050")
 API_HOST = os.getenv("API_HOST", "127.0.0.1")
 API_PORT = int(os.getenv("API_PORT", "8000"))
-ENABLE_AUTH = os.getenv("ENABLE_AUTH", "false").lower() == "true"  # reserved
 
 
 def create_app(sal: Any | None = None) -> Flask:
-    """Create and configure the Flask app.
+    """
+    Create app and ALWAYS attach a SAL instance to app.extensions["sal"].
 
-    If `sal` is provided (e.g., FakeSAL in tests), use it.
-    Otherwise create a real SAL() here.
+    If tests pass a FakeSAL, we use it.
+    Otherwise we create the real SAL once here.
     """
     app = Flask(__name__)
 
@@ -36,9 +34,8 @@ def create_app(sal: Any | None = None) -> Flask:
         resources={r"/api/*": {"origins": ALLOWED_ORIGIN}},
     )
 
-    # Create SAL ON APP CREATION (single source of truth)
-    sal_instance = sal if sal is not None else SAL()
-    app.extensions["sal"] = sal_instance
+    # ✅ Always set SAL on app
+    app.extensions["sal"] = sal if sal is not None else SAL()
 
     from backend.src.routes.health import health_bp
     from backend.src.routes.participants import participants_bp
@@ -53,7 +50,7 @@ def create_app(sal: Any | None = None) -> Flask:
     return app
 
 
-# Default app used by Dash & tests that import `server`
+# Default app
 server = create_app()
 
 

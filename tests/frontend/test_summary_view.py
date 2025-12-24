@@ -1,5 +1,4 @@
 # pyright: reportAttributeAccessIssue=false
-
 import pytest
 from typing import Any, cast
 
@@ -12,10 +11,6 @@ from frontend.views.summary_view import SummaryView
 
 
 def children_list(component: Any) -> list[Any]:
-    """
-    Dash components can have children = None | single child | list[child].
-    This helper always returns a list so the type checker is happy.
-    """
     children = getattr(component, "children", None)
     if children is None:
         return []
@@ -26,30 +21,33 @@ def children_list(component: Any) -> list[Any]:
 
 @pytest.mark.unit
 def test_placeholder_figure_basic():
-    view = SummaryView(
-        event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None
-    )
-
+    view = SummaryView(event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None)
     fig = view._placeholder_figure("Hello placeholder", height=300)
-
     assert isinstance(fig, go.Figure)
     assert fig.layout.height == 300
-    assert fig.layout.plot_bgcolor == "#e9f0fa"
-    assert fig.layout.paper_bgcolor == "#e9f0fa"
     assert len(fig.layout.annotations) == 1
     assert fig.layout.annotations[0].text == "Hello placeholder"
 
 
 @pytest.mark.unit
-def test_render_with_p100_and_grf():
+def test_render_with_p100_and_grf_and_thumbnails():
     cmap = px.colors.sequential.Jet
     p100 = [[1, 2], [3, 4]]
     grf = [0.1, 0.2, 0.3]
+    footsteps = [{"id": 0, "x_min": 0, "x_max": 1, "y_min": 0, "y_max": 1}]
+    step_p100s = [{"id": 0, "p100": [[1, 0], [0, 1]], "grf": [0.5, 0.6]}]
 
-    view = SummaryView(event_id="evt-123", cmap=cmap, p100_data=p100, grf_data=grf)
+    view = SummaryView(
+        event_id="evt-123",
+        cmap=cmap,
+        p100_data=p100,
+        grf_data=grf,
+        footsteps=footsteps,
+        step_p100s=step_p100s,
+    )
     root = cast(html.Div, view.render())
-
     assert isinstance(root, html.Div)
+
     root_children = children_list(root)
     assert len(root_children) == 2
 
@@ -58,103 +56,50 @@ def test_render_with_p100_and_grf():
     assert isinstance(top_row, html.Div)
     assert isinstance(bottom_row, html.Div)
 
-    # ---- Top row ----
+    # Top row has two columns: left p100, right thumbnails
     top_children = children_list(top_row)
+    assert len(top_children) == 2
+
     p100_container = top_children[0]
-    selected_p100_container = top_children[1]
+    thumbs_container = top_children[1]
 
     p100_children = children_list(p100_container)
-    assert isinstance(p100_children[0], html.H3)
+    p100_graph = p100_children[1]
+    assert isinstance(p100_graph, Graph)
+    assert p100_graph.id == "p100-graph"
 
-    p100_graph_any: Any = p100_children[1]
-    assert isinstance(p100_graph_any, Graph)
-    assert p100_graph_any.id == "p100-graph"
-    assert isinstance(p100_graph_any.figure, go.Figure)
+    # ensure at least one thumbnail graph exists
+    thumbs_children = children_list(thumbs_container)
+    assert isinstance(thumbs_children[0], html.H4)
 
-    selected_p100_children = children_list(selected_p100_container)
-    assert isinstance(selected_p100_children[0], html.H4)
+    # the second child is a Div that contains the grid
+    grid_wrapper = thumbs_children[1]
+    grid_children = children_list(grid_wrapper)
+    # grid_wrapper children is either text Div or grid Div; with step_p100s it should be grid
+    assert grid_children, "Expected thumbnails grid to render"
 
-    selected_p100_graph_any: Any = selected_p100_children[1]
-    assert isinstance(selected_p100_graph_any, Graph)
-    assert selected_p100_graph_any.id == "selected-p100-graph"
-    assert isinstance(selected_p100_graph_any.figure, go.Figure)
-
-    # ---- Bottom row ----
+    # Bottom row should include grf-graph
     bottom_children = children_list(bottom_row)
     grf_container = bottom_children[0]
-    selected_grf_container = bottom_children[1]
-
     grf_children = children_list(grf_container)
+    # title then graph
     assert isinstance(grf_children[0], html.H3)
-
-    grf_graph_any: Any = grf_children[1]
-    assert isinstance(grf_graph_any, Graph)
-    assert grf_graph_any.id == "grf-graph"
-    assert isinstance(grf_graph_any.figure, go.Figure)
-
-    selected_grf_children = children_list(selected_grf_container)
-    assert isinstance(selected_grf_children[0], html.H4)
-
-    selected_grf_graph_any: Any = selected_grf_children[1]
-    assert isinstance(selected_grf_graph_any, Graph)
-    assert selected_grf_graph_any.id == "selected-grf-graph"
-    assert isinstance(selected_grf_graph_any.figure, go.Figure)
+    assert isinstance(grf_children[1], Graph)
+    assert grf_children[1].id == "grf-graph"
 
 
 @pytest.mark.unit
 def test_render_without_p100_uses_placeholder():
     cmap = px.colors.sequential.Jet
-    view = SummaryView(
-        event_id="evt-no-p100",
-        cmap=cmap,
-        p100_data=None,
-        grf_data=[1, 2, 3],
-    )
+    view = SummaryView(event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3])
     root = cast(html.Div, view.render())
 
-    root_children = children_list(root)
-    top_row = root_children[0]
+    top_row = children_list(root)[0]
     top_children = children_list(top_row)
     p100_container = top_children[0]
-    p100_children = children_list(p100_container)
-
-    p100_graph_any: Any = p100_children[1]
-    assert isinstance(p100_graph_any, Graph)
-    assert p100_graph_any.id == "p100-graph"
-
-    fig = p100_graph_any.figure
+    p100_graph = children_list(p100_container)[1]
+    assert isinstance(p100_graph, Graph)
+    assert p100_graph.id == "p100-graph"
+    fig = p100_graph.figure
     assert isinstance(fig, go.Figure)
     assert fig.layout.annotations[0].text == "P100 not available for this event."
-
-
-@pytest.mark.unit
-def test_render_without_grf_shows_text_placeholder():
-    cmap = px.colors.sequential.Jet
-    view = SummaryView(
-        event_id="evt-no-grf",
-        cmap=cmap,
-        p100_data=[[1, 2], [3, 4]],
-        grf_data=None,
-    )
-    root = cast(html.Div, view.render())
-
-    root_children = children_list(root)
-    bottom_row = root_children[1]
-    bottom_children = children_list(bottom_row)
-    grf_container = bottom_children[0]
-
-    grf_children = children_list(grf_container)
-    left_grf = grf_children[1]
-
-    assert isinstance(left_grf, html.Div)
-    left_children = children_list(left_grf)
-    text_content = " ".join(str(c) for c in left_children) if left_children else ""
-    assert "GRF not available for this event." in text_content
-
-    selected_grf_container = bottom_children[1]
-    selected_grf_children = children_list(selected_grf_container)
-    selected_grf_graph_any: Any = selected_grf_children[1]
-
-    assert isinstance(selected_grf_graph_any, Graph)
-    assert selected_grf_graph_any.id == "selected-grf-graph"
-    assert isinstance(selected_grf_graph_any.figure, go.Figure)

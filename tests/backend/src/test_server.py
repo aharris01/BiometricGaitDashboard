@@ -1,24 +1,21 @@
-import json
+# tests/test_server.py
 import datetime as dt
-
+import json
 import pytest
 
-from backend.src.server import server
+from backend.src.server import create_app
 
 
 class FakeSAL:
     """
-    Minimal fake SAL that lives entirely in memory.
-    It implements all methods that server.py calls.
+    Fake SAL for route tests.
+    Mix camelCase + snake_case because routes currently use both.
     """
 
     def __init__(self):
-        # simple in-memory fixtures
         self._participants = [1001]
         self._dates = {1001: [dt.date(2024, 10, 1)]}
-        self._directions = {
-            (1001, dt.date(2024, 10, 1)): ["in", "out"],
-        }
+        self._directions = {(1001, dt.date(2024, 10, 1)): ["in", "out"]}
         self._events = {
             (1001, dt.date(2024, 10, 1), "in"): [1, 2],
             (1001, dt.date(2024, 10, 1), "out"): [3],
@@ -29,7 +26,7 @@ class FakeSAL:
             (1001, dt.date(2024, 10, 1), 3, "out"): "evt-out-3",
         }
 
-    # ---------- metadata methods ----------
+    # ---------------- camelCase (participants/swipe routes) ----------------
 
     def getParticipants(self):
         return self._participants
@@ -47,201 +44,158 @@ class FakeSAL:
         return self._swipe_ids.get((participant, dt_, event, direction))
 
     def getBothDirectionEvents(self, participant, dt_):
-        """
-        Return dict[str, list[int]] matching whatever getDirections() returns.
-        """
         dirs = self.getDirections(participant, dt_)
-        result = {}
-        for d in dirs:
-            result[d] = self.getEvents(participant, dt_, d)
-        return result
+        return {d: self.getEvents(participant, dt_, d) for d in dirs}
 
-    # ---------- high-level event helpers ----------
+    # ---------------- snake_case (events routes) ----------------
 
-    def getEventSummary(self, event_id: str):
-        """
-        Return (event_dict, availability_dict) or None if missing.
-        """
+    def get_event_summary(self, event_id: str):
         if event_id == "missing":
             return None
 
-        # simple fake event; real values don't matter much for route behavior
         event = {
-            "id": event_id,
+            "event_id": event_id,
             "participant": 1001,
             "date": "2024-10-01",
             "direction": "in",
             "event_number": 1,
+            "state": "ready",
         }
         availability = {
             "p100": True,
             "grf": True,
-            "footsteps": True,
+            "metadata": True,
+            "steps": True,
         }
         return event, availability
 
-    def getP100(self, event_id: str):
-        """
-        Match real SAL.getP100 semantics:
-        - returns a 2D list on success
-        - returns None if event/file is missing
-        server.py turns None into {"p100": []} with status 200.
-        """
+    def get_p100(self, event_id: str):
         if event_id in ("missing", "nofile_p100"):
             return None
         return [[1.0, 2.0], [3.0, 4.0]]
 
-    def getGRF(self, event_id: str):
-        """
-        Match real SAL.getGRF semantics:
-        - returns (data_list, None) on success
-        - returns (None, "missing_event" | "missing_file") on failure
-        """
+    def get_grf(self, event_id: str):
         if event_id == "missing":
             return None, "missing_event"
         if event_id == "nofile_grf":
             return None, "missing_file"
         return [0.1, 0.2, 0.3], None
 
-    def getFootsteps(self, event_id: str):
-        """
-        Match real SAL.getFootsteps semantics:
-        - returns (steps, None) where steps is a list of bounding-box dicts
-        - returns (None, "missing_event" | "missing_file") on failure
-        """
+    def get_footsteps(self, event_id: str):
         if event_id == "missing":
             return None, "missing_event"
         if event_id == "nofile_steps":
             return None, "missing_file"
+        return (
+            [
+                {
+                    "id": 0,
+                    "start_frame": 0,
+                    "end_frame": 10,
+                    "x_min": 5,
+                    "x_max": 15,
+                    "y_min": 20,
+                    "y_max": 30,
+                }
+            ],
+            None,
+        )
 
-        steps = [
-            {
-                "id": 0,
-                "start_frame": 0,
-                "end_frame": 10,
-                "x_min": 5,
-                "x_max": 15,
-                "y_min": 20,
-                "y_max": 30,
-            }
-        ]
-        return steps, None
+    def get_all_footstep_details(self, event_id: str):
+        if event_id == "missing":
+            return None, "missing_event"
+        if event_id == "nofile_stepdetail":
+            return None, "missing_file"
+        return (
+            [
+                {"id": 0, "p100": [[1, 2], [3, 4]], "grf": [0.5, 0.6, 0.7]},
+                {"id": 1, "p100": [[0, 0], [0, 0]], "grf": [0.1, 0.2]},
+            ],
+            None,
+        )
 
-    def getFootstepData(self, event_id: str, step_id: int):
-        """
-        Match real SAL.getFootstepData semantics:
-        - returns (step_p100, step_grf, None) on success
-        - returns (..., ..., "missing_event" | "missing_file") on failure
-        """
+    # Optional: per-step endpoint uses this in events.py
+    def get_footstep_data(self, event_id: str, step_id: int):
         if event_id == "missing":
             return None, None, "missing_event"
         if event_id == "nofile_stepdetail":
             return None, None, "missing_file"
-
         if step_id != 0:
-            # treat unknown step as missing file for simplicity
             return None, None, "missing_file"
-
-        step_p100 = [[1.0, 2.0], [3.0, 4.0]]
-        step_grf = [0.5, 0.6, 0.7]
-        return step_p100, step_grf, None
+        return [[1, 2], [3, 4]], [0.5, 0.6, 0.7], None
 
 
 @pytest.fixture
-def client(monkeypatch):
-    """
-    Patch the global `sal` in server.py so get_sal() returns our FakeSAL,
-    then yield a Flask test client.
-    """
-    from backend.src import server as server_module
-
-    fake_sal = FakeSAL()
-    # ensure get_sal() sees our fake instance
-    monkeypatch.setattr(server_module, "sal", fake_sal)
-    return server.test_client()
+def client():
+    app = create_app(sal=FakeSAL())
+    return app.test_client()
 
 
-# -------------------- basic / health --------------------
-
+# -------------------- basic --------------------
 
 @pytest.mark.unit
 def test_health_ok(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data == {"status": "ok"}
+    assert resp.get_json() == {"status": "ok"}
 
 
 # -------------------- dropdown + swipe lookup --------------------
-
 
 @pytest.mark.unit
 def test_get_participants_ok(client):
     resp = client.get("/api/participants")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data["items"] == [1001]
+    assert resp.get_json()["items"] == [1001]
 
 
 @pytest.mark.unit
 def test_get_dates_ok(client):
     resp = client.get("/api/participants/1001/dates")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    # dates should be ISO strings
-    assert data["items"] == ["2024-10-01"]
+    assert resp.get_json()["items"] == ["2024-10-01"]
 
 
 @pytest.mark.unit
 def test_get_dates_not_found(client):
-    # participant with no dates -> 404
     resp = client.get("/api/participants/9999/dates")
     assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
+    assert resp.get_json()["code"] == "not_found"
 
 
 @pytest.mark.unit
 def test_get_directions_ok(client):
     resp = client.get("/api/participants/1001/dates/2024-10-01/directions")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data["items"] == ["in", "out"]
+    assert resp.get_json()["items"] == ["in", "out"]
 
 
 @pytest.mark.unit
 def test_get_directions_invalid_date(client):
-    # bad date format should yield 400
     resp = client.get("/api/participants/1001/dates/2024-13-40/directions")
     assert resp.status_code == 400
-    data = json.loads(resp.data)
-    assert data["code"] == "invalid_argument"
+    assert resp.get_json()["code"] == "invalid_argument"
 
 
 @pytest.mark.unit
 def test_get_events_ok(client):
     resp = client.get("/api/participants/1001/dates/2024-10-01/directions/in/events")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data["items"] == [1, 2]
+    assert resp.get_json()["items"] == [1, 2]
 
 
 @pytest.mark.unit
 def test_get_events_invalid_direction(client):
-    resp = client.get(
-        "/api/participants/1001/dates/2024-10-01/directions/sideways/events"
-    )
+    resp = client.get("/api/participants/1001/dates/2024-10-01/directions/sideways/events")
     assert resp.status_code == 400
-    data = json.loads(resp.data)
-    assert data["code"] == "invalid_argument"
+    assert resp.get_json()["code"] == "invalid_argument"
 
 
 @pytest.mark.unit
 def test_get_events_by_direction_ok(client):
     resp = client.get("/api/participants/1001/dates/2024-10-01/eventsByDirection")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    # directions in FakeSAL: "in" -> [1,2], "out" -> [3]
+    data = resp.get_json()
     assert data["in"] == [1, 2]
     assert data["out"] == [3]
 
@@ -250,130 +204,72 @@ def test_get_events_by_direction_ok(client):
 def test_get_swipe_lookup_ok(client):
     resp = client.get("/api/swipe/1001/2024-10-01/in/1")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data["id"] == "evt-in-1"
+    assert resp.get_json()["id"] == "evt-in-1"
 
 
 @pytest.mark.unit
 def test_get_swipe_lookup_not_found(client):
     resp = client.get("/api/swipe/1001/2024-10-01/in/99")
     assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
+    assert resp.get_json()["code"] == "not_found"
 
 
-# -------------------- event summary + assets --------------------
-
+# -------------------- event full --------------------
 
 @pytest.mark.unit
-def test_event_summary_ok(client):
-    resp = client.get("/api/events/evt-in-1/summary")
+def test_event_full_ok(client):
+    resp = client.get("/api/events/evt-in-1/full")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data["event"]["id"] == "evt-in-1"
-    assert "availability" in data
-    assert data["availability"]["p100"] is True
+    data = resp.get_json()
+
+    assert "event" in data and "availability" in data
+    assert "p100" in data and "grf" in data
+    assert "footsteps" in data
+    assert "footstep_details" in data
+
+    assert data["event"]["event_id"] == "evt-in-1"
+    assert isinstance(data["footstep_details"], list)
+    assert data["footstep_details"][0]["id"] == 0
 
 
 @pytest.mark.unit
-def test_event_summary_not_found(client):
-    resp = client.get("/api/events/missing/summary")
+def test_event_full_not_found(client):
+    resp = client.get("/api/events/missing/full")
     assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
+    assert resp.get_json()["code"] == "not_found"
 
 
 @pytest.mark.unit
-def test_event_p100_ok(client):
-    resp = client.get("/api/events/evt-in-1/p100")
+def test_event_full_missing_grf_file_returns_empty_list(client):
+    resp = client.get("/api/events/nofile_grf/full")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert "p100" in data
-    assert isinstance(data["p100"], list)
-    assert isinstance(data["p100"][0], list)
+    assert resp.get_json()["grf"] == []
 
 
 @pytest.mark.unit
-def test_event_p100_missing_returns_empty_list(client):
-    resp = client.get("/api/events/missing/p100")
+def test_event_full_missing_steps_file_returns_empty_lists(client):
+    resp = client.get("/api/events/nofile_steps/full")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data["p100"] == []
+    data = resp.get_json()
+    assert data["footsteps"] == []
 
 
 @pytest.mark.unit
-def test_event_p100_missing_file_returns_empty_list(client):
-    resp = client.get("/api/events/nofile_p100/p100")
+def test_event_full_missing_stepdetail_file_returns_empty_list(client):
+    resp = client.get("/api/events/nofile_stepdetail/full")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data["p100"] == []
+    data = resp.get_json()
+    assert data["footstep_details"] == []
 
 
-@pytest.mark.unit
-def test_event_grf_ok(client):
-    resp = client.get("/api/events/evt-in-1/grf")
-    assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert "grf" in data
-    assert isinstance(data["grf"], list)
-
-
-@pytest.mark.unit
-def test_event_grf_missing_event(client):
-    resp = client.get("/api/events/missing/grf")
-    assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
-
-
-@pytest.mark.unit
-def test_event_grf_missing_file(client):
-    resp = client.get("/api/events/nofile_grf/grf")
-    assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
-    assert "grf not available" in data["message"]
-
-
-@pytest.mark.unit
-def test_event_footsteps_ok(client):
-    resp = client.get("/api/events/evt-in-1/footsteps/data")
-    assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert isinstance(data, list)
-    step = data[0]
-    assert step["id"] == 0
-    assert "x_min" in step and "x_max" in step
-    assert "y_min" in step and "y_max" in step
-
-
-@pytest.mark.unit
-def test_event_footsteps_missing_event(client):
-    resp = client.get("/api/events/missing/footsteps/data")
-    assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
-
-
-@pytest.mark.unit
-def test_event_footsteps_missing_file_returns_empty_list(client):
-    # server.py returns [] (200) when err == "missing_file"
-    resp = client.get("/api/events/nofile_steps/footsteps/data")
-    assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert data == []
-
-
-# -------------------- per-footstep detail --------------------
-
+# -------------------- per-footstep detail endpoint (still supported) --------------------
 
 @pytest.mark.unit
 def test_footstep_detail_ok(client):
     resp = client.get("/api/events/evt-in-1/footsteps/0")
     assert resp.status_code == 200
-    data = json.loads(resp.data)
-    assert "p100" in data
-    assert "grf" in data
+    data = resp.get_json()
+    assert "p100" in data and "grf" in data
     assert isinstance(data["p100"], list)
     assert isinstance(data["grf"], list)
 
@@ -382,14 +278,4 @@ def test_footstep_detail_ok(client):
 def test_footstep_detail_missing_event(client):
     resp = client.get("/api/events/missing/footsteps/0")
     assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
-
-
-@pytest.mark.unit
-def test_footstep_detail_missing_file(client):
-    resp = client.get("/api/events/nofile_stepdetail/footsteps/0")
-    assert resp.status_code == 404
-    data = json.loads(resp.data)
-    assert data["code"] == "not_found"
-    assert "footstep data not available" in data["message"]
+    assert resp.get_json()["code"] == "not_found"

@@ -5,8 +5,9 @@ from backend.src.server import create_app
 
 
 class FakeSAL:
+    # participants route expects list[int]
     def getParticipants(self):
-        return [{"id": 1, "name": "Alice"}]
+        return [1, 2]
 
 
 @pytest.fixture
@@ -25,4 +26,4 @@ def test_health(client):
 def test_participants(client):
     resp = client.get("/api/participants")
     assert resp.status_code == 200
-    assert resp.get_json() == {"items": [{"id": 1, "name": "Alice"}]}
+    assert resp.get_json() == {"items": [1, 2]}
