@@ -1,5 +1,4 @@
 # backend/src/routes/participants.py
-
 from flask import Blueprint, jsonify
 
 from backend.src.utils.dates import parse_date_str
@@ -10,20 +9,18 @@ from backend.src.utils.sal import get_sal
 participants_bp = Blueprint("participants", __name__)
 
 
-# Get participants → { "items": [participant] }
 @participants_bp.get("/api/participants")
 def api_participants():
     try:
-        return jsonify({"items": get_sal().getParticipants()})
+        return jsonify({"items": get_sal().get_participants()})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
-# Get dates → { "items": [date] }
 @participants_bp.get("/api/participants/<int:participant>/dates")
 def api_dates(participant: int):
     try:
-        items = [d.isoformat() for d in get_sal().getDates(participant)]
+        items = [d.isoformat() for d in get_sal().get_dates(participant)]
         if not items:
             return make_error(404, "not_found", "no dates for participant")
         return jsonify({"items": items})
@@ -31,7 +28,6 @@ def api_dates(participant: int):
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
-# Get directions → { "items": ["in","out"] }
 @participants_bp.get("/api/participants/<int:participant>/dates/<date>/directions")
 def api_directions(participant: int, date: str):
     dt, err = parse_date_str(date)
@@ -40,7 +36,7 @@ def api_directions(participant: int, date: str):
     assert dt is not None
 
     try:
-        items = get_sal().getDirections(participant, dt)
+        items = get_sal().get_directions(participant, dt)
         if not items:
             return make_error(404, "not_found", "no directions for participant/date")
         return jsonify({"items": items})
@@ -48,7 +44,6 @@ def api_directions(participant: int, date: str):
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
-# Get events → { "items": [1,2,3,...] }
 @participants_bp.get(
     "/api/participants/<int:participant>/dates/<date>/directions/<direction>/events"
 )
@@ -63,22 +58,15 @@ def api_events(participant: int, date: str, direction: str):
         return derr
 
     try:
-        items = get_sal().getEvents(participant, dt, direction)
+        items = get_sal().get_events(participant, dt, direction)
         if not items:
-            return make_error(
-                404,
-                "not_found",
-                "no events for participant/date/direction",
-            )
+            return make_error(404, "not_found", "no events for participant/date/direction")
         return jsonify({"items": items})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
-# Get events by direction → { "in": [...], "out": [...] }
-@participants_bp.get(
-    "/api/participants/<int:participant>/dates/<date>/eventsByDirection"
-)
+@participants_bp.get("/api/participants/<int:participant>/dates/<date>/eventsByDirection")
 def api_events_by_direction(participant: int, date: str):
     dt, err = parse_date_str(date)
     if err:
@@ -86,15 +74,8 @@ def api_events_by_direction(participant: int, date: str):
     assert dt is not None
 
     try:
-        sal = get_sal()
-        by_dir = sal.getBothDirectionEvents(
-            participant, dt
-        )  # {"in":[...], "out":[...]}
-
-        out = {
-            "in": by_dir.get("in", []),
-            "out": by_dir.get("out", []),
-        }
+        by_dir = get_sal().get_both_direction_events(participant, dt)
+        out = {"in": by_dir.get("in", []), "out": by_dir.get("out", [])}
         if not out["in"] and not out["out"]:
             return make_error(404, "not_found", "no events for participant/date")
         return jsonify(out)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any
 
 from flask import Flask
 from flask_cors import CORS
@@ -21,27 +21,12 @@ API_HOST = os.getenv("API_HOST", "127.0.0.1")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 ENABLE_AUTH = os.getenv("ENABLE_AUTH", "false").lower() == "true"  # reserved
 
-# ---- Global SAL, same idea as original code ----
-sal: Optional[SAL] = None
-
-
-def get_sal() -> SAL:
-    """Return the global SAL instance, creating it on first use.
-
-    Tests are free to monkeypatch backend.src.server.sal before any
-    endpoint is called; in that case this simply returns the patched SAL.
-    """
-    global sal
-    if sal is None:
-        sal = SAL()
-    return sal
-
 
 def create_app(sal: Any | None = None) -> Flask:
     """Create and configure the Flask app.
 
-    If a SAL-like instance is passed in (e.g. FakeSAL in tests), use it.
-    Otherwise, SAL will be created lazily via backend.src.server.get_sal().
+    If `sal` is provided (e.g., FakeSAL in tests), use it.
+    Otherwise create a real SAL() here.
     """
     app = Flask(__name__)
 
@@ -51,10 +36,9 @@ def create_app(sal: Any | None = None) -> Flask:
         resources={r"/api/*": {"origins": ALLOWED_ORIGIN}},
     )
 
-    if sal is not None:
-        # store on the module-global and as an app extension
-        globals()["sal"] = sal  # type: ignore[assignment]
-        app.extensions["sal"] = sal
+    # Create SAL ON APP CREATION (single source of truth)
+    sal_instance = sal if sal is not None else SAL()
+    app.extensions["sal"] = sal_instance
 
     from backend.src.routes.health import health_bp
     from backend.src.routes.participants import participants_bp
