@@ -5,8 +5,6 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-from frontend.api import API_BASE_URL, fetch_json
-
 
 def register(app, *, cmap):
     @app.callback(
@@ -19,13 +17,16 @@ def register(app, *, cmap):
         State("event-id-store", "data"),
         prevent_initial_call=True,
     )
-    def show_selected_step(click_data, figure, footsteps, event_store):
-        if not click_data or not footsteps or not event_store:
+    def show_selected_step(click_data, figure, footsteps_store, event_store):
+        if not click_data or not footsteps_store or not event_store:
             raise PreventUpdate
 
         event_id = event_store.get("event_id")
         if not event_id:
             raise PreventUpdate
+
+        footsteps = footsteps_store.get("footsteps", [])
+        footstep_details = footsteps_store.get("footstep_details", [])
 
         point = click_data["points"][0]
         x = float(point["x"])
@@ -62,13 +63,10 @@ def register(app, *, cmap):
 
         step_id = selected["id"]
 
-        data = fetch_json(
-            f"{API_BASE_URL}/api/events/{event_id}/footsteps/{step_id}",
-            context="get_footstep_detail",
-            logger=app.logger,
-        )
-        step_p100 = data.get("p100", [])
-        step_grf = data.get("grf", [])
+        # ✅ No API call: read from cached /full payload
+        detail = next((d for d in footstep_details if d.get("id") == step_id), None)
+        step_p100 = (detail or {}).get("p100", [])
+        step_grf = (detail or {}).get("grf", [])
 
         # highlight selected box on main p100
         fig = figure.copy()

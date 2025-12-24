@@ -81,7 +81,9 @@ class SAL:
         v.get_swipe_event_id_check(participant, dt, event, direction, result)
         return result
 
-    def get_both_direction_events(self, participant: int, dt: date) -> Dict[str, List[int]]:
+    def get_both_direction_events(
+        self, participant: int, dt: date
+    ) -> Dict[str, List[int]]:
         result: Dict[str, List[int]] = {}
         directions = self.db.get_directions(participant, dt)
         for d in directions:
@@ -322,6 +324,48 @@ class SAL:
         items.sort(key=lambda x: x["id"])
         return items, None
 
+    # return all footstep thumbnails + per-step GRF in one call
+    def get_all_footstep_details(self, event_id: str):
+        """
+        Load ALL footstep details from steps.npz (one disk read).
+        Returns:
+            (items, None) on success where items = [{"id": int, "p100": [[...]], "grf": [...]}, ...]
+            (None, "missing_event") if event missing
+            (None, "missing_file") if steps.npz missing/unreadable
+        """
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        try:
+            trial_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, "missing_file"
+
+        steps_path = trial_path.with_name("steps.npz")
+        if not steps_path.exists():
+            return None, "missing_file"
+
+        try:
+            steps_npz = np.load(steps_path)
+        except Exception:
+            return None, "missing_file"
+
+        items = []
+        try:
+            for key in steps_npz.files:
+                vol = steps_npz[key]  # (T, H, W)
+                step_p100 = vol.max(axis=0)  # (H, W)
+                step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+                items.append(
+                    {"id": int(key), "p100": step_p100.tolist(), "grf": step_grf.tolist()}
+                )
+        except Exception:
+            return None, "missing_file"
+
+        items.sort(key=lambda x: x["id"])
+        return items, None
+
     # =========================================================
     # Backward-compatible wrappers (camelCase)
     # =========================================================
@@ -363,3 +407,6 @@ class SAL:
 
     def getAllFootstepP100(self, event_id: str):
         return self.get_all_footstep_p100(event_id)
+
+    def getAllFootstepDetails(self, event_id: str):
+        return self.get_all_footstep_details(event_id)
