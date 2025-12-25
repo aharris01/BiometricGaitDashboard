@@ -1,4 +1,3 @@
-# backend/src/routes/swipe.py
 from flask import Blueprint, jsonify
 
 from backend.src.utils.dates import parse_date_str

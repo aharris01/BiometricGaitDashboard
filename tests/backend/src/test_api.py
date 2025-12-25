@@ -1,13 +1,13 @@
-# tests/test_api.py
+# tests/backend/src/test_api.py
 import pytest
 
 from backend.src.server import create_app
 
 
 class FakeSAL:
-    # participants route expects list[int]
-    def getParticipants(self):
-        return [1, 2]
+    # ✅ match new routes (snake_case)
+    def get_participants(self):
+        return [1]
 
 
 @pytest.fixture
@@ -26,4 +26,4 @@ def test_health(client):
 def test_participants(client):
     resp = client.get("/api/participants")
     assert resp.status_code == 200
-    assert resp.get_json() == {"items": [1, 2]}
+    assert resp.get_json() == {"items": [1]}

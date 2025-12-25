@@ -7,8 +7,21 @@ if TYPE_CHECKING:
 
 
 def get_sal():
+    """Return the SAL instance attached to the current Flask app.
+
+    In tests, backend.src.server.sal may be monkeypatched after the Flask app
+    instance is created. To support that, we sync app.extensions["sal"] with the
+    module-global server.sal at request time.
     """
-    Routes should always read SAL from current_app.extensions["sal"].
-    server.create_app() is responsible for putting it there.
-    """
-    return cast("SAL", current_app.extensions["sal"])
+    sal_obj = current_app.extensions.get("sal")
+
+    # If tests monkeypatch backend.src.server.sal after app creation,
+    # keep the extension in sync so routes use the fake.
+    from backend.src import server as server_mod  # local import avoids cycles
+
+    patched = getattr(server_mod, "sal", None)
+    if patched is not None and patched is not sal_obj:
+        current_app.extensions["sal"] = patched
+        sal_obj = patched
+
+    return cast("SAL", sal_obj)

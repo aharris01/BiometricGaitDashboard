@@ -1,9 +1,8 @@
-# backend/src/server.py
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Optional, Any
 
 from flask import Flask
 from flask_cors import CORS
@@ -11,20 +10,33 @@ from dotenv import load_dotenv
 
 from backend.storage_access_layer.sal import SAL
 
+# ---- Load root .env ----
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
 
+# ---- Config ----
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://127.0.0.1:8050")
 API_HOST = os.getenv("API_HOST", "127.0.0.1")
 API_PORT = int(os.getenv("API_PORT", "8000"))
+ENABLE_AUTH = os.getenv("ENABLE_AUTH", "false").lower() == "true"  # reserved
+
+# ---- Global SAL (still allowed, but app always stores it too) ----
+sal: Optional[Any] = None
+
+
+def get_sal() -> SAL:
+    """Return the module-global SAL instance, creating it on first use."""
+    global sal
+    if sal is None:
+        sal = SAL()
+    return sal  # type: ignore[return-value]
 
 
 def create_app(sal: Any | None = None) -> Flask:
-    """
-    Create app and ALWAYS attach a SAL instance to app.extensions["sal"].
+    """Create and configure the Flask app.
 
-    If tests pass a FakeSAL, we use it.
-    Otherwise we create the real SAL once here.
+    Always attaches a SAL-like instance to app.extensions["sal"] so routes can
+    reliably read it via current_app.extensions["sal"].
     """
     app = Flask(__name__)
 
@@ -34,8 +46,10 @@ def create_app(sal: Any | None = None) -> Flask:
         resources={r"/api/*": {"origins": ALLOWED_ORIGIN}},
     )
 
-    # ✅ Always set SAL on app
-    app.extensions["sal"] = sal if sal is not None else SAL()
+    # ✅ Guarantee SAL exists on the app
+    sal_instance = sal if sal is not None else get_sal()
+    globals()["sal"] = sal_instance  # keep module-global in sync
+    app.extensions["sal"] = sal_instance
 
     from backend.src.routes.health import health_bp
     from backend.src.routes.participants import participants_bp
@@ -50,7 +64,7 @@ def create_app(sal: Any | None = None) -> Flask:
     return app
 
 
-# Default app
+# Default app used by Dash & imports
 server = create_app()
 
 
