@@ -310,7 +310,7 @@ def test_getFootstepData_ok(tmp_path, sal, fake_db):
 
     vol = np.ones((5, 2, 2))
     steps_path = trial_path.with_name("steps.npz")
-    np.savez(steps_path, **{"0": vol})  # type: ignore[arg-type]
+    np.savez(steps_path, **{"0": vol})  # pyright: ignore[reportArgumentType]
 
     fake_db.get_swipe_event.return_value = SimpleNamespace(
         trial_npz_uri=f"file://{trial_path}"
@@ -363,7 +363,7 @@ def test_getEventSummary_ok(tmp_path, sal, fake_db):
     (trial_path.with_name("metadata.csv")).write_text(
         "FootstepID,StartFrame,EndFrame,XMin,XMax,YMin,YMax\n"
     )
-    np.savez(trial_path.with_name("steps.npz"), **{"0": np.ones((2, 2, 2))})
+    np.savez(trial_path.with_name("steps.npz"), **{"0": np.ones((2, 2, 2))})  # pyright: ignore[reportArgumentType]
 
     fake_db.get_swipe_event.return_value = SimpleNamespace(
         event_id="evt-1",
@@ -394,13 +394,7 @@ def test_getAllFootstepP100_ok(tmp_path, sal, fake_db):
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
 
     steps_path = trial_path.with_name("steps.npz")
-    np.savez(
-        steps_path,
-        **{
-            "2": np.ones((3, 2, 2)),
-            "1": np.ones((4, 2, 2)) * 2,
-        },
-    )
+    np.savez(steps_path, **{"2": np.ones((3, 2, 2)), "1": np.ones((4, 2, 2)) * 2})  # pyright: ignore[reportArgumentType]
 
     fake_db.get_swipe_event.return_value = SimpleNamespace(
         trial_npz_uri=f"file://{trial_path}"
