@@ -21,7 +21,9 @@ def children_list(component: Any) -> list[Any]:
 
 @pytest.mark.unit
 def test_placeholder_figure_basic():
-    view = SummaryView(event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None)
+    view = SummaryView(
+        event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None
+    )
     fig = view._placeholder_figure("Hello placeholder", height=300)
     assert isinstance(fig, go.Figure)
     assert fig.layout.height == 300
@@ -91,7 +93,9 @@ def test_render_with_p100_and_grf_and_thumbnails():
 @pytest.mark.unit
 def test_render_without_p100_uses_placeholder():
     cmap = px.colors.sequential.Jet
-    view = SummaryView(event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3])
+    view = SummaryView(
+        event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3]
+    )
     root = cast(html.Div, view.render())
 
     top_row = children_list(root)[0]

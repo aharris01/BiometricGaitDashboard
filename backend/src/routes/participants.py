@@ -60,13 +60,17 @@ def api_events(participant: int, date: str, direction: str):
     try:
         items = get_sal().get_events(participant, dt, direction)
         if not items:
-            return make_error(404, "not_found", "no events for participant/date/direction")
+            return make_error(
+                404, "not_found", "no events for participant/date/direction"
+            )
         return jsonify({"items": items})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
 
-@participants_bp.get("/api/participants/<int:participant>/dates/<date>/eventsByDirection")
+@participants_bp.get(
+    "/api/participants/<int:participant>/dates/<date>/eventsByDirection"
+)
 def api_events_by_direction(participant: int, date: str):
     dt, err = parse_date_str(date)
     if err:

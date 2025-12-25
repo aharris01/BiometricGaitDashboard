@@ -2,11 +2,13 @@ import pytest
 from dash import html
 from frontend.views.metrics_graph import MetricsGraph
 
+
 @pytest.mark.unit
 def test_metrics_graph_renders_with_no_footsteps():
     g = MetricsGraph("evt-1", footsteps=[])
     out = g.render()
     assert isinstance(out, html.Div)
+
 
 @pytest.mark.unit
 def test_metrics_graph_renders_with_footsteps():

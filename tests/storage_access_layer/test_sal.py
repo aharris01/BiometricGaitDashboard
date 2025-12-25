@@ -34,7 +34,6 @@ def fake_db():
     db.get_events = MagicMock()
     db.get_swipe_event_id = MagicMock()
 
-
     # event lookup (snake_case is what SAL uses now)
     db.get_swipe_event = MagicMock()
 
@@ -66,7 +65,6 @@ def test_sal_getParticipants(sal, fake_db):
     fake_db.get_participants.assert_called_once()
 
 
-
 @pytest.mark.unit
 def test_sal_getDates(sal, fake_db):
     d = dt.date(2025, 1, 1)
@@ -74,7 +72,6 @@ def test_sal_getDates(sal, fake_db):
     out = sal.getDates(11111)
     assert out == [d]
     fake_db.get_dates.assert_called_once_with(11111)
-
 
 
 @pytest.mark.unit
@@ -85,14 +82,12 @@ def test_sal_getDirections(sal, fake_db):
     fake_db.get_directions.assert_called_once()
 
 
-
 @pytest.mark.unit
 def test_sal_getEvents(sal, fake_db):
     fake_db.get_events.return_value = [1, 2, 3]
     out = sal.getEvents(11111, dt.date(2025, 1, 1), "in")
     assert out == [1, 2, 3]
     fake_db.get_events.assert_called_once()
-
 
 
 @pytest.mark.unit
@@ -114,7 +109,6 @@ def test_sal_getBothDirectionEvents(sal, fake_db):
     fake_db.get_directions.assert_called_once()
     assert fake_db.get_events.call_count == 2
     fake_db.get_events.side_effect = None
-
 
 
 # -------------------------------------------------------------------

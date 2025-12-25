@@ -6,7 +6,16 @@ import plotly.graph_objects as go
 
 
 class SummaryView:
-    def __init__(self, event_id, cmap, p100_data, grf_data=None, footsteps=None, *, step_p100s=None):
+    def __init__(
+        self,
+        event_id,
+        cmap,
+        p100_data,
+        grf_data=None,
+        footsteps=None,
+        *,
+        step_p100s=None,
+    ):
         self.event_id = event_id
         self.cmap = cmap
         self.p100_data = p100_data or []
@@ -63,7 +72,7 @@ class SummaryView:
                 dict(
                     x=box["x_min"],
                     y=box["y_min"],
-                    text=f'#{box["id"]} ({area})',
+                    text=f"#{box['id']} ({area})",
                     showarrow=False,
                     xanchor="left",
                     yanchor="bottom",
@@ -232,7 +241,9 @@ class SummaryView:
             children=[
                 html.Div(
                     children=[
-                        html.H3("Ground Reaction Force (GRF)", style={"marginBottom": "4px"}),
+                        html.H3(
+                            "Ground Reaction Force (GRF)", style={"marginBottom": "4px"}
+                        ),
                         left_grf,
                     ],
                     style={"flex": "1"},

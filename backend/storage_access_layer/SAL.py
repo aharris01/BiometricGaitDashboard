@@ -358,7 +358,11 @@ class SAL:
                 step_p100 = vol.max(axis=0)  # (H, W)
                 step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
                 items.append(
-                    {"id": int(key), "p100": step_p100.tolist(), "grf": step_grf.tolist()}
+                    {
+                        "id": int(key),
+                        "p100": step_p100.tolist(),
+                        "grf": step_grf.tolist(),
+                    }
                 )
         except Exception:
             return None, "missing_file"
@@ -387,7 +391,9 @@ class SAL:
     ) -> Optional[str]:
         return self.get_swipe_event_id(participant, dt, event, direction)
 
-    def getBothDirectionEvents(self, participant: int, dt: date) -> Dict[str, List[int]]:
+    def getBothDirectionEvents(
+        self, participant: int, dt: date
+    ) -> Dict[str, List[int]]:
         return self.get_both_direction_events(participant, dt)
 
     def getEventSummary(self, event_id: str):

@@ -68,7 +68,7 @@ class DB:
         try:
             yield session
             session.commit()
-        except Exception as exc:
+        except Exception:
             session.rollback()
             raise
         finally:
@@ -174,6 +174,7 @@ class DB:
 # -------------------------------------------------
 # DB initialisation helpers
 # -------------------------------------------------
+
 
 def _init_db():
     engine = create_engine(f"sqlite:///{dataroot}/metadata.db")

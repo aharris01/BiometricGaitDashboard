@@ -79,7 +79,6 @@ def test_event_full_ok(client):
     assert "footstep_details" in data
 
 
-
 @pytest.mark.unit
 def test_event_footsteps_p100s_ok(client):
     resp = client.get("/api/events/evt-1/footsteps/p100s")

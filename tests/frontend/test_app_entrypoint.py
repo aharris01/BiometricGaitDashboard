@@ -16,7 +16,13 @@ def test_frontend_app_import_smoke():
 def test_run_dash_does_not_start_server(monkeypatch):
     import frontend.app as appmod
 
-    called = {"ok": False, "host": None, "port": None, "debug": None, "hot_reload": None}
+    called = {
+        "ok": False,
+        "host": None,
+        "port": None,
+        "debug": None,
+        "hot_reload": None,
+    }
 
     def fake_run(*, host, port, debug, dev_tools_hot_reload):
         called["ok"] = True

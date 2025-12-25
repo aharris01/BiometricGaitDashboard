@@ -106,14 +106,13 @@ class FakeSAL:
         if step_id != 0:
             return None, None, "missing_file"
         return [[1.0, 2.0], [3.0, 4.0]], [0.5, 0.6, 0.7], None
-    
+
     def get_all_footstep_details(self, event_id: str):
         if event_id == "missing":
             return None, "missing_event"
         if event_id == "nofile_steps":
             return None, "missing_file"
         return ([{"id": 0, "p100": [[1.0]], "grf": [0.5, 0.6]}], None)
-
 
     # --------------------
     # camelCase wrappers (keep old tests / code working)
@@ -151,10 +150,9 @@ class FakeSAL:
 
     def getFootstepData(self, event_id: str, step_id: int):
         return self.get_footstep_data(event_id, step_id)
-    
+
     def getAllFootstepDetails(self, event_id: str):
         return self.get_all_footstep_details(event_id)
-
 
 
 @pytest.fixture

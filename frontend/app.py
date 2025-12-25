@@ -22,7 +22,9 @@ register_all(app, cmap=cmap)
 
 
 def run_dash() -> None:
-    app.run(host=DASH_HOST, port=DASH_PORT, debug=DASH_DEBUG, dev_tools_hot_reload=False)
+    app.run(
+        host=DASH_HOST, port=DASH_PORT, debug=DASH_DEBUG, dev_tools_hot_reload=False
+    )
 
 
 if __name__ == "__main__":

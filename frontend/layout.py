@@ -37,7 +37,11 @@ def build_layout():
                 children=[
                     # hidden sink (unchanged)
                     Div(
-                        id={"type": "dropdown-log-sink", "name": "participant", "level": 4},
+                        id={
+                            "type": "dropdown-log-sink",
+                            "name": "participant",
+                            "level": 4,
+                        },
                         className="hidden",
                     ),
                     # stores
@@ -65,7 +69,11 @@ def build_layout():
                         className="dropdown-container",
                         children=[
                             Dropdown(
-                                id={"type": "dropdown", "name": "participant", "level": 4},
+                                id={
+                                    "type": "dropdown",
+                                    "name": "participant",
+                                    "level": 4,
+                                },
                                 style=CONTROL_STYLE,
                                 clearable=True,
                             ),
@@ -75,7 +83,11 @@ def build_layout():
                                 clearable=True,
                             ),
                             Dropdown(
-                                id={"type": "dropdown", "name": "direction", "level": 2},
+                                id={
+                                    "type": "dropdown",
+                                    "name": "direction",
+                                    "level": 2,
+                                },
                                 style=CONTROL_STYLE,
                                 clearable=True,
                             ),

@@ -45,7 +45,9 @@ def _calculate_cascade_state(triggered_id, all_ids, all_values, logger):
                 new_values.append(None)
                 new_options.append([])
             else:
-                opts = _fetch_options_for_level(current_level, current_selections, logger)
+                opts = _fetch_options_for_level(
+                    current_level, current_selections, logger
+                )
                 new_values.append(None)
                 new_options.append(opts)
 
@@ -77,8 +79,16 @@ def register(app):
         return options, first_value
 
     @callback(
-        Output({"type": "dropdown", "name": ALL, "level": ALL}, "value", allow_duplicate=True),
-        Output({"type": "dropdown", "name": ALL, "level": ALL}, "options", allow_duplicate=True),
+        Output(
+            {"type": "dropdown", "name": ALL, "level": ALL},
+            "value",
+            allow_duplicate=True,
+        ),
+        Output(
+            {"type": "dropdown", "name": ALL, "level": ALL},
+            "options",
+            allow_duplicate=True,
+        ),
         Input({"type": "dropdown", "name": ALL, "level": ALL}, "value"),
         State({"type": "dropdown", "name": ALL, "level": ALL}, "id"),
         prevent_initial_call=True,

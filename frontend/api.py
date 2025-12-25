@@ -6,7 +6,9 @@ from dash.exceptions import PreventUpdate
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
 
-def fetch_json(url: str, *, timeout: int = 5, context: str = "api_request", logger=None):
+def fetch_json(
+    url: str, *, timeout: int = 5, context: str = "api_request", logger=None
+):
     try:
         resp = requests.get(url, timeout=timeout)
         resp.raise_for_status()

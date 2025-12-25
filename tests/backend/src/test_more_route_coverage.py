@@ -6,9 +6,16 @@ from backend.src.server import create_app
 
 class FakeSAL:
     # ---- swipe route needs this ----
-    def getSwipeEventId(self, participant: int, date: dt.date, event: int, direction: str):
+    def getSwipeEventId(
+        self, participant: int, date: dt.date, event: int, direction: str
+    ):
         # only one valid combo; everything else returns None
-        if participant == 1001 and date == dt.date(2024, 10, 1) and event == 1 and direction == "in":
+        if (
+            participant == 1001
+            and date == dt.date(2024, 10, 1)
+            and event == 1
+            and direction == "in"
+        ):
             return "evt-in-1"
         return None
 
@@ -71,6 +78,7 @@ def client():
 # swipe.py route coverage
 # -------------------------
 
+
 @pytest.mark.unit
 def test_swipe_invalid_date_returns_400(client):
     resp = client.get("/api/swipe/1001/2024-99-99/in/1")
@@ -98,6 +106,7 @@ def test_swipe_not_found_returns_404(client):
 # -------------------------
 # events.py route coverage
 # -------------------------
+
 
 @pytest.mark.unit
 def test_event_full_missing_event_returns_404(client):

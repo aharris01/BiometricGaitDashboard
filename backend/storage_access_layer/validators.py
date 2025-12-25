@@ -4,6 +4,7 @@ from datetime import date
 
 # ---------- snake_case validators ----------
 
+
 def get_participants_check(result):
     if not isinstance(result, list):
         raise ValueError("get_participants must return list[int]")
@@ -74,30 +75,40 @@ def get_both_direction_events_check(participant, dt, result):
 
     for key, sub in result.items():
         if not isinstance(key, str):
-            raise ValueError("get_both_direction_events must return dict[str, list[int]]")
+            raise ValueError(
+                "get_both_direction_events must return dict[str, list[int]]"
+            )
         if not isinstance(sub, list):
             raise ValueError("get_both_direction_events must return nested lists")
         for v_ in sub:
             if not isinstance(v_, int):
-                raise ValueError(f"get_both_direction_events returned non-int event: {v_}")
+                raise ValueError(
+                    f"get_both_direction_events returned non-int event: {v_}"
+                )
 
 
 # ---------- camelCase wrappers (keep old code working) ----------
 
+
 def getParticipants_check(result):
     return get_participants_check(result)
+
 
 def getDates_check(participant, result):
     return get_dates_check(participant, result)
 
+
 def getDirections_check(participant, dt, result):
     return get_directions_check(participant, dt, result)
+
 
 def getEvents_check(participant, dt, direction, result):
     return get_events_check(participant, dt, direction, result)
 
+
 def getSwipeEventId_check(participant, dt, event, direction, result):
     return get_swipe_event_id_check(participant, dt, event, direction, result)
+
 
 def getBothDirectionEvents_check(participant, dt, result):
     return get_both_direction_events_check(participant, dt, result)
