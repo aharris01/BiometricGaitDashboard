@@ -24,14 +24,14 @@ def fake_db():
     db = MagicMock()
 
     # meta-lookup methods
-    db.getParticipants = MagicMock()
-    db.getDates = MagicMock()
-    db.getDirections = MagicMock()
-    db.getEvents = MagicMock()
-    db.getSwipeEventId = MagicMock()
+    db.get_participants = MagicMock()
+    db.get_dates = MagicMock()
+    db.get_directions = MagicMock()
+    db.get_events = MagicMock()
+    db.get_swipe_event_id = MagicMock()
 
     # event lookup
-    db.getSwipeEvent = MagicMock()
+    db.get_swipe_event = MagicMock()
 
     # close method so SAL._close_db() is happy
     db.close = MagicMock()
@@ -51,59 +51,59 @@ def sal(fake_db):
 
 
 @pytest.mark.unit
-def test_sal_getParticipants(sal, fake_db):
-    fake_db.getParticipants.return_value = [11111, 22222, 33333]
-    out = sal.getParticipants()
+def test_sal_get_participants(sal, fake_db):
+    fake_db.get_participants.return_value = [11111, 22222, 33333]
+    out = sal.get_participants()
     assert out == [11111, 22222, 33333]
-    fake_db.getParticipants.assert_called_once()
+    fake_db.get_participants.assert_called_once()
 
 
 @pytest.mark.unit
-def test_sal_getDates(sal, fake_db):
+def test_sal_get_dates(sal, fake_db):
     d = dt.date(2025, 1, 1)
-    fake_db.getDates.return_value = [d]
-    out = sal.getDates(11111)
+    fake_db.get_dates.return_value = [d]
+    out = sal.get_dates(11111)
     assert out == [d]
-    fake_db.getDates.assert_called_once_with(11111)
+    fake_db.get_dates.assert_called_once_with(11111)
 
 
 @pytest.mark.unit
-def test_sal_getDirections(sal, fake_db):
-    fake_db.getDirections.return_value = ["in", "out"]
-    out = sal.getDirections(11111, dt.date(2025, 1, 1))
+def test_sal_get_directions(sal, fake_db):
+    fake_db.get_directions.return_value = ["in", "out"]
+    out = sal.get_directions(11111, dt.date(2025, 1, 1))
     assert out == ["in", "out"]
-    fake_db.getDirections.assert_called_once()
+    fake_db.get_directions.assert_called_once()
 
 
 @pytest.mark.unit
-def test_sal_getEvents(sal, fake_db):
+def test_sal_get_events(sal, fake_db):
     # MUST be ints per validators
-    fake_db.getEvents.return_value = [1, 2, 3]
-    out = sal.getEvents(11111, dt.date(2025, 1, 1), "in")
+    fake_db.get_events.return_value = [1, 2, 3]
+    out = sal.get_events(11111, dt.date(2025, 1, 1), "in")
     assert out == [1, 2, 3]
-    fake_db.getEvents.assert_called_once()
+    fake_db.get_events.assert_called_once()
 
 
 @pytest.mark.unit
-def test_sal_getSwipeEventId(sal, fake_db):
-    fake_db.getSwipeEventId.return_value = "EV12345"
-    out = sal.getSwipeEventId(11111, dt.date(2025, 1, 1), 1, "in")
+def test_sal_get_swipe_event_id(sal, fake_db):
+    fake_db.get_swipe_event_id.return_value = "EV12345"
+    out = sal.get_swipe_event_id(11111, dt.date(2025, 1, 1), 1, "in")
     assert out == "EV12345"
-    fake_db.getSwipeEventId.assert_called_once()
+    fake_db.get_swipe_event_id.assert_called_once()
 
 
 @pytest.mark.unit
-def test_sal_getBothDirectionEvents(sal, fake_db):
+def test_sal_get_both_direction_events(sal, fake_db):
     # MUST be dict[str, list[int]]
-    fake_db.getDirections.return_value = ["in", "out"]
-    fake_db.getEvents.side_effect = [[1, 2], [3, 4]]
+    fake_db.get_directions.return_value = ["in", "out"]
+    fake_db.get_events.side_effect = [[1, 2], [3, 4]]
 
-    out = sal.getBothDirectionEvents(11111, dt.date(2025, 1, 1))
+    out = sal.get_both_direction_events(11111, dt.date(2025, 1, 1))
 
     assert out == {"in": [1, 2], "out": [3, 4]}
-    fake_db.getDirections.assert_called_once()
-    assert fake_db.getEvents.call_count == 2
-    fake_db.getEvents.side_effect = None
+    fake_db.get_directions.assert_called_once()
+    assert fake_db.get_events.call_count == 2
+    fake_db.get_events.side_effect = None
 
 
 # -------------------------------------------------------------------
@@ -116,9 +116,9 @@ def test_sal_input_validation_failure(sal, fake_db):
     """
     Validators should reject invalid participant type.
     """
-    fake_db.getDates.return_value = []
+    fake_db.get_dates.return_value = []
     with pytest.raises(ValueError):
-        sal.getDates("not-an-int")  # type: ignore[arg-type]
+        sal.get_dates("not-an-int")  # type: ignore[arg-type]
 
 
 @pytest.mark.unit
@@ -126,9 +126,9 @@ def test_sal_output_validation_failure(sal, fake_db):
     """
     Returning wrong type from DB should trigger validator error.
     """
-    fake_db.getDates.return_value = ["not-a-date"]
+    fake_db.get_dates.return_value = ["not-a-date"]
     with pytest.raises(ValueError):
-        sal.getDates(11111)
+        sal.get_dates(11111)
 
 
 # -------------------------------------------------------------------
@@ -144,95 +144,93 @@ def test_uri_to_path_roundtrip(tmp_path):
     file_path = tmp_path / "test.npz"
     file_path.write_bytes(b"dummy")
 
-    uri = f"file://{file_path}"
+    uri = file_path.as_uri()
     out = uri_to_path(uri)
     assert out == file_path
 
 
 # -------------------------------------------------------------------
-# getP100
+# get_p100
 # -------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_getP100_ok(tmp_path, sal, fake_db):
+def test_get_p100_ok(tmp_path, sal, fake_db):
     arr = np.array([[1, 2], [3, 4]])
     p = tmp_path / "p100.npz"
     np.savez(p, arr_0=arr)
 
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_p100_npz_uri=f"file://{p}"
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_p100_npz_uri=p.as_uri()
     )
 
-    out = sal.getP100("evt-1")
+    out = sal.get_p100("evt-1")
     assert out == arr.tolist()
-    fake_db.getSwipeEvent.assert_called_once_with("evt-1")
+    fake_db.get_swipe_event.assert_called_once_with("evt-1")
 
 
 @pytest.mark.unit
-def test_getP100_missing_event_returns_none(sal, fake_db):
-    fake_db.getSwipeEvent.return_value = None
-    out = sal.getP100("missing")
+def test_get_p100_missing_event_returns_none(sal, fake_db):
+    fake_db.get_swipe_event.return_value = None
+    out = sal.get_p100("missing")
     assert out is None
 
 
 @pytest.mark.unit
-def test_getP100_missing_file_returns_none(tmp_path, sal, fake_db):
+def test_get_p100_missing_file_returns_none(tmp_path, sal, fake_db):
     # Point URI at a non-existent file
     missing_path = tmp_path / "no_such_file.npz"
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_p100_npz_uri=f"file://{missing_path}"
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_p100_npz_uri=missing_path.as_uri()
     )
-    out = sal.getP100("evt-1")
+    out = sal.get_p100("evt-1")
     assert out is None
 
 
 # -------------------------------------------------------------------
-# getGRF
+# get_grf
 # -------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_getGRF_ok(tmp_path, sal, fake_db):
+def test_get_grf_ok(tmp_path, sal, fake_db):
     arr = np.array([0.1, 0.2, 0.3])
     p = tmp_path / "grf.npz"
     np.savez(p, arr_0=arr)
 
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_grf_npz_uri=f"file://{p}"
-    )
+    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_grf_npz_uri=p.as_uri())
 
-    data, err = sal.getGRF("evt-1")
+    data, err = sal.get_grf("evt-1")
     assert err is None
     assert data == arr.tolist()
 
 
 @pytest.mark.unit
-def test_getGRF_missing_event(tmp_path, sal, fake_db):
-    fake_db.getSwipeEvent.return_value = None
-    data, err = sal.getGRF("missing")
+def test_get_grf_missing_event(tmp_path, sal, fake_db):
+    fake_db.get_swipe_event.return_value = None
+    data, err = sal.get_grf("missing")
     assert data is None
     assert err == "missing_event"
 
 
 @pytest.mark.unit
-def test_getGRF_missing_file(tmp_path, sal, fake_db):
+def test_get_grf_missing_file(tmp_path, sal, fake_db):
     missing_path = tmp_path / "no_grf.npz"
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_grf_npz_uri=f"file://{missing_path}"
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_grf_npz_uri=missing_path.as_uri()
     )
-    data, err = sal.getGRF("evt-1")
+    data, err = sal.get_grf("evt-1")
     assert data is None
     assert err == "missing_file"
 
 
 # -------------------------------------------------------------------
-# getFootsteps
+# get_foot_steps
 # -------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_getFootsteps_ok(tmp_path, sal, fake_db):
+def test_get_footsteps_ok(tmp_path, sal, fake_db):
     # trial file
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
@@ -265,11 +263,11 @@ def test_getFootsteps_ok(tmp_path, sal, fake_db):
             }
         )
 
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_npz_uri=f"file://{trial_path}"
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
     )
 
-    steps, err = sal.getFootsteps("evt-1")
+    steps, err = sal.get_foot_steps("evt-1")
     assert err is None
     assert isinstance(steps, list)
 
@@ -284,35 +282,35 @@ def test_getFootsteps_ok(tmp_path, sal, fake_db):
 
 
 @pytest.mark.unit
-def test_getFootsteps_missing_event(sal, fake_db):
-    fake_db.getSwipeEvent.return_value = None
-    steps, err = sal.getFootsteps("missing")
+def test_get_footsteps_missing_event(sal, fake_db):
+    fake_db.get_swipe_event.return_value = None
+    steps, err = sal.get_foot_steps("missing")
     assert steps is None
     assert err == "missing_event"
 
 
 @pytest.mark.unit
-def test_getFootsteps_missing_file(tmp_path, sal, fake_db):
+def test_get_footsteps_missing_file(tmp_path, sal, fake_db):
     # trial npz exists but metadata.csv does not
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
 
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_npz_uri=f"file://{trial_path}"
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
     )
 
-    steps, err = sal.getFootsteps("evt-1")
+    steps, err = sal.get_foot_steps("evt-1")
     assert steps is None
     assert err == "missing_file"
 
 
 # -------------------------------------------------------------------
-# getFootstepData
+# get_footstep_data
 # -------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_getFootstepData_ok(tmp_path, sal, fake_db):
+def test_get_footstep_data_ok(tmp_path, sal, fake_db):
     # trial npz path
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
@@ -323,34 +321,34 @@ def test_getFootstepData_ok(tmp_path, sal, fake_db):
     # IMPORTANT: name the array with a keyword so pyright knows it's data, not allow_pickle
     np.savez(steps_path, **{"0": vol})  # type: ignore[arg-type]
 
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_npz_uri=f"file://{trial_path}"
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
     )
 
-    p100, grf, err = sal.getFootstepData("evt-1", 0)
+    p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert err is None
     assert p100 == np.max(vol, axis=0).tolist()
     assert grf == vol.reshape(vol.shape[0], -1).sum(axis=1).tolist()
 
 
 @pytest.mark.unit
-def test_getFootstepData_missing_event(sal, fake_db):
-    fake_db.getSwipeEvent.return_value = None
-    p100, grf, err = sal.getFootstepData("missing", 0)
+def test_get_footstep_data_missing_event(sal, fake_db):
+    fake_db.get_swipe_event.return_value = None
+    p100, grf, err = sal.get_footstep_data("missing", 0)
     assert p100 is None and grf is None
     assert err == "missing_event"
 
 
 @pytest.mark.unit
-def test_getFootstepData_missing_file(tmp_path, sal, fake_db):
+def test_get_footstep_data_missing_file(tmp_path, sal, fake_db):
     # trial npz exists but steps.npz does not
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
 
-    fake_db.getSwipeEvent.return_value = SimpleNamespace(
-        trial_npz_uri=f"file://{trial_path}"
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
     )
 
-    p100, grf, err = sal.getFootstepData("evt-1", 0)
+    p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert p100 is None and grf is None
     assert err == "missing_file"

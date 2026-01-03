@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 # DB imports
 from backend.storage_access_layer.db import Base
-from backend.storage_access_layer.db import SwipeEvent
+from backend.storage_access_layer.db import swipe_event
 from backend.storage_access_layer.db import DB
 
 
@@ -30,10 +30,9 @@ def test_db(tmp_path_factory):
     np.savez(grf_file, grf=g)
     np.savez(trial_file, footstep_0_p100=np.ones((2, 2)), footstep_0_grf=np.arange(5))
 
-    # use filesystem paths, uri's break for some reason
-    p100_path = str(p100_file.resolve())
-    grf_path = str(grf_file.resolve())
-    trial_path = str(trial_file.resolve())
+    p100_path = p100_file.resolve().as_uri()
+    grf_path = grf_file.resolve().as_uri()
+    trial_path = trial_file.resolve().as_uri()
 
     # setup SQLite test DB
     os.environ["DATABASE_URL"] = "sqlite:///test_temp.db"
@@ -46,7 +45,7 @@ def test_db(tmp_path_factory):
 
     # insert rows
     rows = [
-        SwipeEvent(
+        swipe_event(
             event_id="test_11111_2025-01-01_in_1_complete",
             participant=11111,
             date=datetime.date(2025, 1, 1),
@@ -57,7 +56,7 @@ def test_db(tmp_path_factory):
             trial_p100_npz_uri=p100_path,
             trial_grf_npz_uri=grf_path,
         ),
-        SwipeEvent(
+        swipe_event(
             event_id="test_22222_2025-01-02_out_2_complete",
             participant=22222,
             date=datetime.date(2025, 1, 2),
@@ -68,7 +67,7 @@ def test_db(tmp_path_factory):
             trial_p100_npz_uri=p100_path,
             trial_grf_npz_uri=grf_path,
         ),
-        SwipeEvent(
+        swipe_event(
             event_id="test_33333_2025-01-03_in_3_complete",
             participant=33333,
             date=datetime.date(2025, 1, 3),

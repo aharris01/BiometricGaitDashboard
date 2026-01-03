@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 import pytest
 
-from backend.storage_access_layer.db import SwipeEvent
+from backend.storage_access_layer.db import swipe_event
 
 
 # Basic insert + fetch test
@@ -13,7 +13,7 @@ from backend.storage_access_layer.db import SwipeEvent
 
 @pytest.mark.unit
 def test_add_and_query_swipe_event(test_db):
-    swipe_event = SwipeEvent(
+    swipe_event_obj = swipe_event(
         event_id="EV1",
         participant=123,
         date=datetime.date(2025, 1, 1),
@@ -25,10 +25,10 @@ def test_add_and_query_swipe_event(test_db):
         trial_grf_npz_uri="test_grf.npz",
     )
 
-    test_db.addSwipeEvent(swipe_event)
+    test_db.add_swipe_event(swipe_event_obj)
 
     with test_db._get_session() as s:
-        row = s.get(SwipeEvent, "EV1")
+        row = s.get(swipe_event, "EV1")
         assert row is not None
         assert row.participant == 123
         assert row.direction == "in"
@@ -49,7 +49,7 @@ def test_swipe_event_full_paths(tmp_path, test_db):
     np.savez(fp_grf, arr=[3])
 
     with test_db._get_session() as s:
-        ev = SwipeEvent(
+        ev = swipe_event(
             event_id="EV_FULL",
             participant=111,
             date=datetime.date(2025, 1, 1),
@@ -64,7 +64,7 @@ def test_swipe_event_full_paths(tmp_path, test_db):
         s.commit()
 
     with test_db._get_session() as s:
-        row = s.get(SwipeEvent, "EV_FULL")
+        row = s.get(swipe_event, "EV_FULL")
         assert Path(row.trial_npz_uri).exists()
         assert Path(row.trial_p100_npz_uri).exists()
         assert Path(row.trial_grf_npz_uri).exists()
@@ -78,10 +78,10 @@ def test_db_empty_queries(empty_db):
     db = empty_db
 
     # Create raw session manually because get_session didn't work here for some reason
-    assert db.getParticipants() == []
-    assert db.getDates(99999) == []
-    assert db.getDirections(99999, datetime.date(2020, 1, 1)) == []
-    assert db.getEvents(99999, datetime.date(2020, 1, 1), "in") == []
+    assert db.get_participants() == []
+    assert db.get_dates(99999) == []
+    assert db.get_directions(99999, datetime.date(2020, 1, 1)) == []
+    assert db.get_events(99999, datetime.date(2020, 1, 1), "in") == []
 
 
 # SwipeEventId not found
@@ -90,7 +90,7 @@ def test_db_empty_queries(empty_db):
 @pytest.mark.unit
 def test_swipe_eventid_not_found(empty_db):
     db = empty_db
-    out = db.getSwipeEventId(
+    out = db.get_swipe_event_id(
         participant=99999,
         date=datetime.date(2025, 1, 1),
         event=10,

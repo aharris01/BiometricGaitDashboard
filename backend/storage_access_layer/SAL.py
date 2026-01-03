@@ -51,64 +51,64 @@ class SAL:
 
     # -------------------- Meta lookups -------------------- #
 
-    def getParticipants(self) -> List[int]:
-        raw = self.db.getParticipants()
+    def get_participants(self) -> List[int]:
+        raw = self.db.get_participants()
         result = cast(List[int], raw)
-        v.getParticipants_check(result)
+        v.get_participants_check(result)
         return result
 
-    def getDates(self, participant: int) -> List[date]:
-        raw = self.db.getDates(participant)
+    def get_dates(self, participant: int) -> List[date]:
+        raw = self.db.get_dates(participant)
         result = cast(List[date], raw)
-        v.getDates_check(participant, result)
+        v.get_dates_check(participant, result)
         return result
 
-    def getDirections(self, participant: int, dt: date) -> List[Literal["in", "out"]]:
-        raw = self.db.getDirections(participant, dt)
+    def get_directions(self, participant: int, dt: date) -> List[Literal["in", "out"]]:
+        raw = self.db.get_directions(participant, dt)
         result = cast(List[Literal["in", "out"]], raw)
-        v.getDirections_check(participant, dt, result)
+        v.get_directions_check(participant, dt, result)
         return result
 
-    def getEvents(self, participant: int, dt: date, direction: str) -> List[int]:
-        raw = self.db.getEvents(participant, dt, direction)
+    def get_events(self, participant: int, dt: date, direction: str) -> List[int]:
+        raw = self.db.get_events(participant, dt, direction)
         result = list(raw)
-        v.getEvents_check(participant, dt, direction, result)
+        v.get_events_check(participant, dt, direction, result)
         return result
 
-    def getSwipeEventId(
+    def get_swipe_event_id(
         self, participant: int, dt: date, event: int, direction: str
     ) -> Optional[str]:
         """
         Return the event_id string for a given swipe, or None if not found.
         """
-        raw = self.db.getSwipeEventId(participant, dt, event, direction)
+        raw = self.db.get_swipe_event_id(participant, dt, event, direction)
         # Keep None as None instead of turning it into the string "None"
         result: Optional[str] = None if raw is None else str(raw)
-        v.getSwipeEventId_check(participant, dt, event, direction, result)
+        v.get_swipe_event_id_check(participant, dt, event, direction, result)
         return result
 
-    def getBothDirectionEvents(
+    def get_both_direction_events(
         self, participant: int, dt: date
     ) -> Dict[str, List[int]]:
         result: Dict[str, List[int]] = {}
-        directions = self.db.getDirections(participant, dt)
+        directions = self.db.get_directions(participant, dt)
         for d in directions:
-            events = cast(List[int], list(self.db.getEvents(participant, dt, d)))
+            events = cast(List[int], list(self.db.get_events(participant, dt, d)))
             result[d] = events
-        v.getBothDirectionEvents_check(participant, dt, result)
+        v.get_both_direction_events_check(participant, dt, result)
         return result
 
     # -------------------- Event data -------------------- #
 
-    def getEventSummary(self, event_id: str):
+    def get_event_summary(self, event_id: str):
         raise NotImplementedError
 
-    def getP100(self, event_id: str):
+    def get_p100(self, event_id: str):
         """
         Return P100 as a JSON-serialisable list (2D array), or None if
         event/file is missing. server.py treats None as "no data".
         """
-        event = self.db.getSwipeEvent(event_id)
+        event = self.db.get_swipe_event(event_id)
         if event is None:
             return None
 
@@ -126,7 +126,7 @@ class SAL:
         array = loaded_file["arr_0"]
         return array.tolist()
 
-    def getGRF(self, event_id: str):
+    def get_grf(self, event_id: str):
         """
         Load GRF data for a given event.
 
@@ -135,7 +135,7 @@ class SAL:
             (None, "missing_event") if event not in DB
             (None, "missing_file")  if GRF file missing or unreadable
         """
-        event = self.db.getSwipeEvent(event_id)
+        event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
 
@@ -178,7 +178,7 @@ class SAL:
 
         return data_list, None
 
-    def getFootsteps(self, event_id):
+    def get_foot_steps(self, event_id):
         """
         Load per-footstep metadata for this trial.
 
@@ -197,7 +197,7 @@ class SAL:
             (None, "missing_event") if the DB record is missing
             (None, "missing_file")  if the metadata file is missing/unreadable
         """
-        event = self.db.getSwipeEvent(event_id)
+        event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
 
@@ -239,13 +239,13 @@ class SAL:
 
         return steps, None
 
-    def getFootstepData(self, event_id: str, step_id: int):
+    def get_footstep_data(self, event_id: str, step_id: int):
         """
         Load a single footstep volume from steps.npz and return:
           - step_p100: 2D image (P100-style) for this step
           - step_grf:  1D GRF curve for this step
         """
-        event = self.db.getSwipeEvent(event_id)
+        event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, None, "missing_event"
 

@@ -146,6 +146,41 @@ class FakeSAL:
         step_grf = [0.5, 0.6, 0.7]
         return step_p100, step_grf, None
 
+        # ---- snake_case API expected by server.py ----
+
+    def get_participants(self):
+        return self.getParticipants()
+
+    def get_dates(self, participant):
+        return self.getDates(participant)
+
+    def get_directions(self, participant, dt_):
+        return self.getDirections(participant, dt_)
+
+    def get_events(self, participant, dt_, direction):
+        return self.getEvents(participant, dt_, direction)
+
+    def get_both_direction_events(self, participant, dt_):
+        return self.getBothDirectionEvents(participant, dt_)
+
+    def get_swipe_event_id(self, participant, dt_, event, direction):
+        return self.getSwipeEventId(participant, dt_, event, direction)
+
+    def get_event_summary(self, event_id):
+        return self.getEventSummary(event_id)
+
+    def get_p100(self, event_id):
+        return self.getP100(event_id)
+
+    def get_grf(self, event_id):
+        return self.getGRF(event_id)
+
+    def get_foot_steps(self, event_id):
+        return self.getFootsteps(event_id)
+
+    def get_footstep_data(self, event_id, step_id):
+        return self.getFootstepData(event_id, step_id)
+
 
 @pytest.fixture
 def client(monkeypatch):
