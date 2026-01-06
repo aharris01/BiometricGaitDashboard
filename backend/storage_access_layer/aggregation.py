@@ -9,7 +9,7 @@ for file in list(Path(data_path).rglob('metadata.csv')):
         with file.open(newline="") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
-    except:
+    except Exception:
         print(f"{file}: Error occurred while opening file")
         continue
     box_sizes = []
@@ -20,7 +20,7 @@ for file in list(Path(data_path).rglob('metadata.csv')):
             x_max = int(float(row["XMax"]))
             y_min = int(float(row["YMin"]))
             y_max = int(float(row["YMax"]))
-        except:
+        except Exception:
             print("Missing data, skipping this footstep...")
             continue
         bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
