@@ -20,7 +20,7 @@ def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
         return derr
 
     try:
-        event_id = get_sal().getSwipeEventId(participant, dt, event, direction)
+        event_id = get_sal().get_swipe_event_id(participant, dt, event, direction)
         if not event_id:
             return make_error(404, "not_found", "swipe not found")
         return jsonify({"id": event_id})
