@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 data_path = "..\..\data"
-for file in list(Path(data_path).rglob('metadata.csv')):
+for file in list(Path(data_path).rglob("metadata.csv")):
     try:
         with file.open(newline="") as f:
             reader = csv.DictReader(f)
@@ -29,4 +29,3 @@ for file in list(Path(data_path).rglob('metadata.csv')):
     avg_box_size = box_sizes_sum / len(box_sizes)
     footstep_count = len(box_sizes)
     print(f"{file}: {int(avg_box_size)}, {footstep_count}")
-
