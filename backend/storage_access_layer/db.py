@@ -29,8 +29,8 @@ class Base(DeclarativeBase):
     pass
 
 
-class swipe_event(Base):
-    __tablename__ = "swipe_event"
+class SwipeEvent(Base):
+    __tablename__ = "SwipeEvent"
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
 
@@ -94,8 +94,8 @@ class DB:
         if self.engine:
             self.engine.dispose()
 
-    # New add_swipe_event function that accepts a swipe_event object
-    def add_swipe_event(self, swipe_event_obj: swipe_event):
+    # New add_swipe_event function that accepts a SwipeEvent object
+    def add_swipe_event(self, swipe_event_obj: SwipeEvent):
         with self._get_session() as session:
             try:
                 session.add(swipe_event_obj)
@@ -104,8 +104,8 @@ class DB:
 
     # identical logic to previous version of accessfunctions.py
     def get_participants(self):
-        query = select(distinct(swipe_event.participant)).order_by(
-            swipe_event.participant
+        query = select(distinct(SwipeEvent.participant)).order_by(
+            SwipeEvent.participant
         )
 
         with self._get_session() as session:
@@ -113,9 +113,9 @@ class DB:
 
     def get_dates(self, participant):
         query = (
-            select(distinct(swipe_event.date))
-            .where(swipe_event.participant == participant)
-            .order_by(swipe_event.date)
+            select(distinct(SwipeEvent.date))
+            .where(SwipeEvent.participant == participant)
+            .order_by(SwipeEvent.date)
         )
 
         with self._get_session() as session:
@@ -123,40 +123,40 @@ class DB:
 
     def get_directions(self, participant, date):
         query = (
-            select(distinct(swipe_event.direction))
-            .where(swipe_event.participant == participant, swipe_event.date == date)
-            .order_by(swipe_event.direction)
+            select(distinct(SwipeEvent.direction))
+            .where(SwipeEvent.participant == participant, SwipeEvent.date == date)
+            .order_by(SwipeEvent.direction)
         )
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_events(self, participant, date, direction):
         query = (
-            select(distinct(swipe_event.event_number))
+            select(distinct(SwipeEvent.event_number))
             .where(
-                swipe_event.participant == participant,
-                swipe_event.date == date,
-                swipe_event.direction == direction,
+                SwipeEvent.participant == participant,
+                SwipeEvent.date == date,
+                SwipeEvent.direction == direction,
             )
-            .order_by(swipe_event.event_number)
+            .order_by(SwipeEvent.event_number)
         )
 
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_swipe_event_id(self, participant, date, event, direction):
-        query = select(swipe_event.event_id).where(
-            swipe_event.participant == participant,
-            swipe_event.date == date,
-            swipe_event.event_number == event,
-            swipe_event.direction == direction,
+        query = select(SwipeEvent.event_id).where(
+            SwipeEvent.participant == participant,
+            SwipeEvent.date == date,
+            SwipeEvent.event_number == event,
+            SwipeEvent.direction == direction,
         )
 
         with self._get_session() as session:
             return session.scalars(query).first()
 
     def get_swipe_event(self, event_id):
-        query = select(swipe_event).where(swipe_event.event_id == event_id)
+        query = select(SwipeEvent).where(SwipeEvent.event_id == event_id)
 
         with self._get_session() as session:
             return session.scalars(query).first()
@@ -187,5 +187,5 @@ def _initDB():  # added function as required
 
 def _seed_db(db: DB):
     for swipe_data in iter_swipes(Path(dataroot)):
-        swipe_event_obj = swipe_event(**swipe_data)
+        swipe_event_obj = SwipeEvent(**swipe_data)
         db.add_swipe_event(swipe_event_obj)

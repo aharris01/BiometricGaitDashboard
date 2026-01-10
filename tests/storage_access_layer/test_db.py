@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 import pytest
 
-from backend.storage_access_layer.db import swipe_event
+from backend.storage_access_layer.db import SwipeEvent
 
 
 # Basic insert + fetch test
@@ -13,7 +13,7 @@ from backend.storage_access_layer.db import swipe_event
 
 @pytest.mark.unit
 def test_add_and_query_swipe_event(test_db):
-    swipe_event_obj = swipe_event(
+    swipe_event_obj = SwipeEvent(
         event_id="EV1",
         participant=123,
         date=datetime.date(2025, 1, 1),
@@ -28,7 +28,7 @@ def test_add_and_query_swipe_event(test_db):
     test_db.add_swipe_event(swipe_event_obj)
 
     with test_db._get_session() as s:
-        row = s.get(swipe_event, "EV1")
+        row = s.get(SwipeEvent, "EV1")
         assert row is not None
         assert row.participant == 123
         assert row.direction == "in"
@@ -49,7 +49,7 @@ def test_swipe_event_full_paths(tmp_path, test_db):
     np.savez(fp_grf, arr=[3])
 
     with test_db._get_session() as s:
-        ev = swipe_event(
+        ev = SwipeEvent(
             event_id="EV_FULL",
             participant=111,
             date=datetime.date(2025, 1, 1),
@@ -64,7 +64,7 @@ def test_swipe_event_full_paths(tmp_path, test_db):
         s.commit()
 
     with test_db._get_session() as s:
-        row = s.get(swipe_event, "EV_FULL")
+        row = s.get(SwipeEvent, "EV_FULL")
         assert Path(row.trial_npz_uri).exists()
         assert Path(row.trial_p100_npz_uri).exists()
         assert Path(row.trial_grf_npz_uri).exists()

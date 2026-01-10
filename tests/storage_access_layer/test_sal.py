@@ -225,7 +225,7 @@ def test_get_grf_missing_file(tmp_path, sal, fake_db):
 
 
 # -------------------------------------------------------------------
-# get_foot_steps
+# get_footsteps
 # -------------------------------------------------------------------
 
 
@@ -267,7 +267,7 @@ def test_get_footsteps_ok(tmp_path, sal, fake_db):
         trial_npz_uri=trial_path.as_uri()
     )
 
-    steps, err = sal.get_foot_steps("evt-1")
+    steps, err = sal.get_footsteps("evt-1")
     assert err is None
     assert isinstance(steps, list)
 
@@ -284,7 +284,7 @@ def test_get_footsteps_ok(tmp_path, sal, fake_db):
 @pytest.mark.unit
 def test_get_footsteps_missing_event(sal, fake_db):
     fake_db.get_swipe_event.return_value = None
-    steps, err = sal.get_foot_steps("missing")
+    steps, err = sal.get_footsteps("missing")
     assert steps is None
     assert err == "missing_event"
 
@@ -299,7 +299,7 @@ def test_get_footsteps_missing_file(tmp_path, sal, fake_db):
         trial_npz_uri=trial_path.as_uri()
     )
 
-    steps, err = sal.get_foot_steps("evt-1")
+    steps, err = sal.get_footsteps("evt-1")
     assert steps is None
     assert err == "missing_file"
 

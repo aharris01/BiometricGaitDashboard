@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 # DB imports
 from backend.storage_access_layer.db import Base
-from backend.storage_access_layer.db import swipe_event
+from backend.storage_access_layer.db import SwipeEvent
 from backend.storage_access_layer.db import DB
 
 
@@ -45,7 +45,7 @@ def test_db(tmp_path_factory):
 
     # insert rows
     rows = [
-        swipe_event(
+        SwipeEvent(
             event_id="test_11111_2025-01-01_in_1_complete",
             participant=11111,
             date=datetime.date(2025, 1, 1),
@@ -56,7 +56,7 @@ def test_db(tmp_path_factory):
             trial_p100_npz_uri=p100_path,
             trial_grf_npz_uri=grf_path,
         ),
-        swipe_event(
+        SwipeEvent(
             event_id="test_22222_2025-01-02_out_2_complete",
             participant=22222,
             date=datetime.date(2025, 1, 2),
@@ -67,7 +67,7 @@ def test_db(tmp_path_factory):
             trial_p100_npz_uri=p100_path,
             trial_grf_npz_uri=grf_path,
         ),
-        swipe_event(
+        SwipeEvent(
             event_id="test_33333_2025-01-03_in_3_complete",
             participant=33333,
             date=datetime.date(2025, 1, 3),

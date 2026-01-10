@@ -222,7 +222,7 @@ def api_event_grf(event_id: str):
 @server.get("/api/events/<event_id>/footsteps/data")
 def api_event_footsteps(event_id: str):
     try:
-        data, err = get_sal().get_foot_steps(event_id)
+        data, err = get_sal().get_footsteps(event_id)
         if err == "missing_event":
             return make_error(404, "not_found", "event not found")
         if err == "missing_file":
@@ -247,9 +247,9 @@ def api_footstep_detail(event_id: str, step_id: int):
 
 
 # --------------- dev runner ---------------
-def runBackend():
+def run_backend():
     server.run(host="127.0.0.1", port=8000, debug=False)
 
 
 if __name__ == "__main__":
-    runBackend()
+    run_backend()

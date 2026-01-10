@@ -178,7 +178,7 @@ class SAL:
 
         return data_list, None
 
-    def get_foot_steps(self, event_id):
+    def get_footsteps(self, event_id):
         """
         Load per-footstep metadata for this trial.
 

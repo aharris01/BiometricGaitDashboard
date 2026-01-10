@@ -175,7 +175,7 @@ class FakeSAL:
     def get_grf(self, event_id):
         return self.getGRF(event_id)
 
-    def get_foot_steps(self, event_id):
+    def get_footsteps(self, event_id):
         return self.getFootsteps(event_id)
 
     def get_footstep_data(self, event_id, step_id):
