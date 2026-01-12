@@ -30,7 +30,7 @@ class Base(DeclarativeBase):
 
 
 class SwipeEvent(Base):
-    __tablename__ = "SwipeEvent"
+    __tablename__ = "swipe_event"
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
 
