@@ -5,10 +5,10 @@ import signal
 
 def main():
     from frontend.app import runDash
-    from backend.src.server import runBackend
+    from backend.src.server import run_backend
 
     stopEvent = Event()
-    processBackend = Process(target=runBackend, daemon=True)
+    processBackend = Process(target=run_backend, daemon=True)
     processFrontend = Process(target=runDash, daemon=True)
 
     processBackend.start()
