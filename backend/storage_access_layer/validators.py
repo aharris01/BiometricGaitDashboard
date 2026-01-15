@@ -3,7 +3,7 @@ from datetime import date
 
 
 # getParticipants()
-def getParticipants_check(result):
+def get_participants_check(result):
     if not isinstance(result, list):
         raise ValueError("getParticipants must return list[int]")
     for p in result:
@@ -12,7 +12,7 @@ def getParticipants_check(result):
 
 
 # getDates(participant)
-def getDates_check(participant, result):
+def get_dates_check(participant, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in getDates")
     if not isinstance(result, list):
@@ -23,7 +23,7 @@ def getDates_check(participant, result):
 
 
 # getDirections(participant, date)
-def getDirections_check(participant, dt, result):
+def get_directions_check(participant, dt, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in getDirections")
     if not isinstance(dt, date):
@@ -36,7 +36,7 @@ def getDirections_check(participant, dt, result):
 
 
 # getEvents(participant, date, direction)
-def getEvents_check(participant, dt, direction, result):
+def get_events_check(participant, dt, direction, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in getEvents")
     if not isinstance(dt, date):
@@ -52,7 +52,7 @@ def getEvents_check(participant, dt, direction, result):
 
 
 # getSwipeEventId(participant, date, event, direction)
-def getSwipeEventId_check(participant, dt, event, direction, result):
+def get_swipe_event_id_check(participant, dt, event, direction, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in getSwipeEventId")
     if not isinstance(dt, date):
@@ -67,7 +67,7 @@ def getSwipeEventId_check(participant, dt, event, direction, result):
 
 
 # getBothDirectionEvents(participant, date)
-def getBothDirectionEvents_check(participant, dt, result):
+def get_both_direction_events_check(participant, dt, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in getBothDirectionEvents")
     if not isinstance(dt, date):

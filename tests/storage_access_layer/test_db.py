@@ -13,7 +13,7 @@ from backend.storage_access_layer.db import SwipeEvent
 
 @pytest.mark.unit
 def test_add_and_query_swipe_event(test_db):
-    swipe_event = SwipeEvent(
+    swipe_event_obj = SwipeEvent(
         event_id="EV1",
         participant=123,
         date=datetime.date(2025, 1, 1),
@@ -25,7 +25,7 @@ def test_add_and_query_swipe_event(test_db):
         trial_grf_npz_uri="test_grf.npz",
     )
 
-    test_db.addSwipeEvent(swipe_event)
+    test_db.add_swipe_event(swipe_event_obj)
 
     with test_db._get_session() as s:
         row = s.get(SwipeEvent, "EV1")
@@ -78,10 +78,10 @@ def test_db_empty_queries(empty_db):
     db = empty_db
 
     # Create raw session manually because get_session didn't work here for some reason
-    assert db.getParticipants() == []
-    assert db.getDates(99999) == []
-    assert db.getDirections(99999, datetime.date(2020, 1, 1)) == []
-    assert db.getEvents(99999, datetime.date(2020, 1, 1), "in") == []
+    assert db.get_participants() == []
+    assert db.get_dates(99999) == []
+    assert db.get_directions(99999, datetime.date(2020, 1, 1)) == []
+    assert db.get_events(99999, datetime.date(2020, 1, 1), "in") == []
 
 
 # SwipeEventId not found
@@ -90,7 +90,7 @@ def test_db_empty_queries(empty_db):
 @pytest.mark.unit
 def test_swipe_eventid_not_found(empty_db):
     db = empty_db
-    out = db.getSwipeEventId(
+    out = db.get_swipe_event_id(
         participant=99999,
         date=datetime.date(2025, 1, 1),
         event=10,
