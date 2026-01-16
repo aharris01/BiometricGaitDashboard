@@ -55,6 +55,31 @@ def sal(fake_db):
 
 
 # -------------------------------------------------------------------
+# DB Operation tests
+# -------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_close_db_calls_close(sal, fake_db):
+    fake_db.close.reset_mock()
+    sal._close_db()
+    fake_db.close.assert_called_once()
+
+
+@pytest.mark.unit
+def test_close_db_no_db_noop(sal, fake_db):
+    sal.db = None
+    sal._close_db()
+    fake_db.close.assert_not_called()
+
+
+@pytest.mark.unit
+def test_close_db_no_close_attr_noop(sal):
+    sal.db = SimpleNamespace()  # no close attr
+    sal._close_db()  # should not raise
+
+
+# -------------------------------------------------------------------
 # Meta lookup tests
 # -------------------------------------------------------------------
 
@@ -355,3 +380,158 @@ def test_get_footstep_data_missing_file(tmp_path, sal, fake_db):
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert p100 is None and grf is None
     assert err == "missing_file"
+
+
+@pytest.mark.unit
+def test_get_all_footstep_p100_missing_event(sal, fake_db):
+    fake_db.get_swipe_event.return_value = None
+    items, err = sal.get_all_footstep_p100("missing")
+    assert items is None and err == "missing_event"
+
+
+@pytest.mark.unit
+def test_get_all_footstep_p100_missing_file(tmp_path, sal, fake_db):
+    trial = tmp_path / "trial.npz"
+    np.savez(trial, arr_0=np.zeros((1, 1)))
+    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
+
+    items, err = sal.get_all_footstep_p100("evt-1")
+    assert items is None and err == "missing_file"
+
+
+@pytest.mark.unit
+def test_get_all_footstep_p100_ok(tmp_path, sal, fake_db):
+    trial = tmp_path / "trial.npz"
+    np.savez(trial, arr_0=np.zeros((1, 1)))
+    steps_path = trial.with_name("steps.npz")
+    np.savez(
+        steps_path,
+        allow_pickle=False,
+        **{
+            "2": np.array([[[1, 2]], [[3, 4]]]),  # max -> [[3,4]]
+            "0": np.array([[[5, 6]]]),  # max -> [[5,6]]
+        },
+    )
+    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
+
+    items, err = sal.get_all_footstep_p100("evt-1")
+    assert err is None
+    assert items == [
+        {"id": 0, "p100": [[5, 6]]},
+        {"id": 2, "p100": [[3, 4]]},
+    ]  # sorted by id
+
+
+@pytest.mark.unit
+def test_get_all_footstep_p100_invalid_key(tmp_path, sal, fake_db):
+    trial = tmp_path / "trial.npz"
+    np.savez(trial, arr_0=np.zeros((1, 1)))
+    steps_path = trial.with_name("steps.npz")
+    np.savez(
+        steps_path, allow_pickle=False, **{"abc": np.zeros((1, 1, 1))}
+    )  # int("abc") fails
+    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
+
+    items, err = sal.get_all_footstep_p100("evt-1")
+    assert items is None and err == "missing_file"
+
+
+# -------------------------------------------------------------------
+# Get Event Summary
+# -------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_get_event_summary_missing_event(sal, fake_db):
+    fake_db.get_swipe_event.return_value = None
+    assert sal.get_event_summary("missing") is None
+    fake_db.get_swipe_event.assert_called_once_with("missing")
+
+
+@pytest.mark.unit
+def test_get_event_summary_ok(tmp_path, sal, fake_db):
+    p100 = tmp_path / "p100.npz"
+    np.savez(p100, arr_0=np.zeros((1, 1)))
+    grf = tmp_path / "grf.npz"
+    np.savez(grf, arr_0=np.zeros((1,)))
+    trial = tmp_path / "trial.npz"
+    np.savez(trial, arr_0=np.zeros((1, 1)))
+    (trial.with_name("metadata.csv")).write_text(
+        "FootstepID,StartFrame,EndFrame,XMin,XMax,YMin,YMax\n"
+    )
+    (trial.with_name("steps.npz")).write_bytes(b"")  # existence check only
+
+    event = SimpleNamespace(
+        event_id="e1",
+        participant=123,
+        date=dt.date(2024, 1, 1),
+        direction="in",
+        event_number=1,
+        state="ready",
+        trial_p100_npz_uri=p100.as_uri(),
+        trial_grf_npz_uri=grf.as_uri(),
+        trial_npz_uri=trial.as_uri(),
+    )
+    fake_db.get_swipe_event.return_value = event
+
+    event_dict, availability = sal.get_event_summary("e1")
+    assert event_dict == {
+        "event_id": "e1",
+        "participant": 123,
+        "date": "2024-01-01",
+        "direction": "in",
+        "event_number": 1,
+        "state": "ready",
+    }
+    assert availability == {"p100": True, "grf": True, "metadata": True, "steps": True}
+
+
+@pytest.mark.unit
+def test_get_event_summary_missing_files(tmp_path, sal, fake_db):
+    # Only create trial.npz; omit p100/grf/metadata/steps
+    trial = tmp_path / "trial.npz"
+    np.savez(trial, arr_0=np.zeros((1, 1)))
+    event = SimpleNamespace(
+        event_id="e2",
+        participant=999,
+        date=None,
+        direction="out",
+        event_number=2,
+        state="done",
+        trial_p100_npz_uri=(tmp_path / "no_p100.npz").as_uri(),
+        trial_grf_npz_uri="file:///definitely/invalid/path",  # exists() False
+        trial_npz_uri=trial.as_uri(),
+    )
+    fake_db.get_swipe_event.return_value = event
+
+    event_dict, availability = sal.get_event_summary("e2")
+    assert event_dict["date"] is None
+    assert availability == {
+        "p100": False,
+        "grf": False,
+        "metadata": False,
+        "steps": False,
+    }
+
+
+@pytest.mark.unit
+def test_get_event_summary_invalid_uri(sal, fake_db):
+    event = SimpleNamespace(
+        event_id="e3",
+        participant=1,
+        date=None,
+        direction="in",
+        event_number=3,
+        state="bad",
+        trial_p100_npz_uri="http://not-file",
+        trial_grf_npz_uri="http://not-file",
+        trial_npz_uri="http://not-file",
+    )
+    fake_db.get_swipe_event.return_value = event
+    _, availability = sal.get_event_summary("e3")
+    assert availability == {
+        "p100": False,
+        "grf": False,
+        "metadata": False,
+        "steps": False,
+    }
