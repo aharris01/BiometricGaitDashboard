@@ -143,9 +143,11 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).first()
 
+
 # -------------------------------------------------
 # DB initialisation helpers
 # -------------------------------------------------
+
 
 def _init_db():
     engine = create_engine(f"sqlite:///{dataroot}/metadata.db")
