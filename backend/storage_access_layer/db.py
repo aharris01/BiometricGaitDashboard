@@ -78,25 +78,23 @@ class DB:
         if self.engine:
             self.engine.dispose()
 
-    # -------------------------------------------------
-    # CamelCase DB API (existing, unchanged)
-    # -------------------------------------------------
-
-    def addSwipeEvent(self, swipe_event: SwipeEvent):
+    # New add_swipe_event function that accepts a SwipeEvent object
+    def add_swipe_event(self, swipe_event_obj: SwipeEvent):
         with self._get_session() as session:
             try:
-                session.add(swipe_event)
-            except Exception:
-                pass
+                session.add(swipe_event_obj)
+            except Exception as e:
+                print(f"{e}: Duplicate found")
 
-    def getParticipants(self):
+    # identical logic to previous version of accessfunctions.py
+    def get_participants(self):
         query = select(distinct(SwipeEvent.participant)).order_by(
             SwipeEvent.participant
         )
         with self._get_session() as session:
             return session.scalars(query).all()
 
-    def getDates(self, participant):
+    def get_dates(self, participant):
         query = (
             select(distinct(SwipeEvent.date))
             .where(SwipeEvent.participant == participant)
@@ -105,7 +103,7 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).all()
 
-    def getDirections(self, participant, date):
+    def get_directions(self, participant, date):
         query = (
             select(distinct(SwipeEvent.direction))
             .where(
@@ -117,7 +115,7 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).all()
 
-    def getEvents(self, participant, date, direction):
+    def get_events(self, participant, date, direction):
         query = (
             select(distinct(SwipeEvent.event_number))
             .where(
@@ -130,7 +128,7 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).all()
 
-    def getSwipeEventId(self, participant, date, event, direction):
+    def get_swipe_event_id(self, participant, date, event, direction):
         query = select(SwipeEvent.event_id).where(
             SwipeEvent.participant == participant,
             SwipeEvent.date == date,
@@ -140,41 +138,14 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).first()
 
-    def getSwipeEvent(self, event_id):
+    def get_swipe_event(self, event_id):
         query = select(SwipeEvent).where(SwipeEvent.event_id == event_id)
         with self._get_session() as session:
             return session.scalars(query).first()
 
-    # -------------------------------------------------
-    # ✅ snake_case wrappers (NEW – required by SAL)
-    # -------------------------------------------------
-
-    def add_swipe_event(self, swipe_event: SwipeEvent):
-        return self.addSwipeEvent(swipe_event)
-
-    def get_participants(self):
-        return self.getParticipants()
-
-    def get_dates(self, participant):
-        return self.getDates(participant)
-
-    def get_directions(self, participant, date):
-        return self.getDirections(participant, date)
-
-    def get_events(self, participant, date, direction):
-        return self.getEvents(participant, date, direction)
-
-    def get_swipe_event_id(self, participant, date, event, direction):
-        return self.getSwipeEventId(participant, date, event, direction)
-
-    def get_swipe_event(self, event_id):
-        return self.getSwipeEvent(event_id)
-
-
 # -------------------------------------------------
 # DB initialisation helpers
 # -------------------------------------------------
-
 
 def _init_db():
     engine = create_engine(f"sqlite:///{dataroot}/metadata.db")
@@ -194,5 +165,5 @@ def _init_db():
 
 def _seed_db(db: DB):
     for swipe_data in iter_swipes(Path(dataroot)):
-        swipe_event = SwipeEvent(**swipe_data)
-        db.addSwipeEvent(swipe_event)
+        swipe_event_obj = SwipeEvent(**swipe_data)
+        db.add_swipe_event(swipe_event_obj)

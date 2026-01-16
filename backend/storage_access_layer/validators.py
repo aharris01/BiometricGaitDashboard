@@ -2,9 +2,7 @@
 from datetime import date
 
 
-# ---------- snake_case validators ----------
-
-
+# getParticipants()
 def get_participants_check(result):
     if not isinstance(result, list):
         raise ValueError("get_participants must return list[int]")
@@ -13,6 +11,7 @@ def get_participants_check(result):
             raise ValueError(f"get_participants returned non-int value: {p}")
 
 
+# getDates(participant)
 def get_dates_check(participant, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in get_dates")
@@ -23,6 +22,7 @@ def get_dates_check(participant, result):
             raise ValueError(f"get_dates returned non-date value: {d}")
 
 
+# getDirections(participant, date)
 def get_directions_check(participant, dt, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in get_directions")
@@ -35,6 +35,7 @@ def get_directions_check(participant, dt, result):
             raise ValueError(f"get_directions returned invalid direction: {direction}")
 
 
+# getEvents(participant, date, direction)
 def get_events_check(participant, dt, direction, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in get_events")
@@ -50,6 +51,7 @@ def get_events_check(participant, dt, direction, result):
             raise ValueError(f"get_events returned non-int event: {e}")
 
 
+# getSwipeEventId(participant, date, event, direction)
 def get_swipe_event_id_check(participant, dt, event, direction, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in get_swipe_event_id")
@@ -64,6 +66,7 @@ def get_swipe_event_id_check(participant, dt, event, direction, result):
         raise ValueError("get_swipe_event_id must return str or None")
 
 
+# getBothDirectionEvents(participant, date)
 def get_both_direction_events_check(participant, dt, result):
     if not isinstance(participant, int):
         raise ValueError("participant must be int in get_both_direction_events")
@@ -85,30 +88,3 @@ def get_both_direction_events_check(participant, dt, result):
                 raise ValueError(
                     f"get_both_direction_events returned non-int event: {v_}"
                 )
-
-
-# ---------- camelCase wrappers (keep old code working) ----------
-
-
-def getParticipants_check(result):
-    return get_participants_check(result)
-
-
-def getDates_check(participant, result):
-    return get_dates_check(participant, result)
-
-
-def getDirections_check(participant, dt, result):
-    return get_directions_check(participant, dt, result)
-
-
-def getEvents_check(participant, dt, direction, result):
-    return get_events_check(participant, dt, direction, result)
-
-
-def getSwipeEventId_check(participant, dt, event, direction, result):
-    return get_swipe_event_id_check(participant, dt, event, direction, result)
-
-
-def getBothDirectionEvents_check(participant, dt, result):
-    return get_both_direction_events_check(participant, dt, result)
