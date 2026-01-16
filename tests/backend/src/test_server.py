@@ -10,8 +10,8 @@ class FakeSAL:
     """
     Minimal fake SAL that lives entirely in memory.
 
-    ✅ IMPORTANT: routes now call snake_case methods, so this FakeSAL must
-    provide snake_case methods (and can keep camelCase for compatibility).
+    Routes use snake_case, but we also provide camelCase wrappers for compatibility.
+    IMPORTANT: Do NOT redefine snake_case methods twice (will overwrite + can recurse).
     """
 
     def __init__(self):
@@ -31,7 +31,7 @@ class FakeSAL:
         }
 
     # --------------------
-    # snake_case API (new routes)
+    # snake_case API (used by routes)
     # --------------------
 
     def get_participants(self):
@@ -56,6 +56,7 @@ class FakeSAL:
     def get_event_summary(self, event_id: str):
         if event_id == "missing":
             return None
+
         event = {
             "event_id": event_id,
             "participant": 1001,
@@ -64,7 +65,6 @@ class FakeSAL:
             "event_number": 1,
             "state": "ready",
         }
-
         availability = {"p100": True, "grf": True, "metadata": True, "steps": True}
         return event, availability
 
@@ -112,10 +112,11 @@ class FakeSAL:
             return None, "missing_event"
         if event_id == "nofile_steps":
             return None, "missing_file"
-        return ([{"id": 0, "p100": [[1.0]], "grf": [0.5, 0.6]}], None)
+        # Must return: (items, None) on success
+        return [{"id": 0, "p100": [[1.0]], "grf": [0.5, 0.6]}], None
 
     # --------------------
-    # camelCase wrappers (keep old tests / code working)
+    # camelCase wrappers (compat)
     # --------------------
 
     def getParticipants(self):
@@ -153,41 +154,6 @@ class FakeSAL:
 
     def getAllFootstepDetails(self, event_id: str):
         return self.get_all_footstep_details(event_id)
-
-        # ---- snake_case API expected by server.py ----
-
-    def get_participants(self):
-        return self.getParticipants()
-
-    def get_dates(self, participant):
-        return self.getDates(participant)
-
-    def get_directions(self, participant, dt_):
-        return self.getDirections(participant, dt_)
-
-    def get_events(self, participant, dt_, direction):
-        return self.getEvents(participant, dt_, direction)
-
-    def get_both_direction_events(self, participant, dt_):
-        return self.getBothDirectionEvents(participant, dt_)
-
-    def get_swipe_event_id(self, participant, dt_, event, direction):
-        return self.getSwipeEventId(participant, dt_, event, direction)
-
-    def get_event_summary(self, event_id):
-        return self.getEventSummary(event_id)
-
-    def get_p100(self, event_id):
-        return self.getP100(event_id)
-
-    def get_grf(self, event_id):
-        return self.getGRF(event_id)
-
-    def get_footsteps(self, event_id):
-        return self.getFootsteps(event_id)
-
-    def get_footstep_data(self, event_id, step_id):
-        return self.getFootstepData(event_id, step_id)
 
 
 @pytest.fixture

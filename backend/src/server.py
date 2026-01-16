@@ -74,4 +74,3 @@ def run_backend() -> None:
 
 if __name__ == "__main__":
     run_backend()
-    run_backend()
