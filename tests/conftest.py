@@ -30,10 +30,9 @@ def test_db(tmp_path_factory):
     np.savez(grf_file, grf=g)
     np.savez(trial_file, footstep_0_p100=np.ones((2, 2)), footstep_0_grf=np.arange(5))
 
-    # use filesystem paths, uri's break for some reason
-    p100_path = str(p100_file.resolve())
-    grf_path = str(grf_file.resolve())
-    trial_path = str(trial_file.resolve())
+    p100_path = p100_file.resolve().as_uri()
+    grf_path = grf_file.resolve().as_uri()
+    trial_path = trial_file.resolve().as_uri()
 
     # setup SQLite test DB
     os.environ["DATABASE_URL"] = "sqlite:///test_temp.db"
