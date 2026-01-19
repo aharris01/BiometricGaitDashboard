@@ -2,13 +2,14 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from sqlalchemy import Engine, create_engine
-from sqlalchemy import String, Text, Date, Integer, TIMESTAMP, text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
-from contextlib import contextmanager
-import datetime
 
+from sqlalchemy import Engine, create_engine
+from sqlalchemy import text
+from sqlalchemy.orm import sessionmaker
+from contextlib import contextmanager
 from sqlalchemy import select, distinct
+from .schema import Base, SwipeEvent
+
 from ...scripts.ingest import iter_swipes
 
 load_dotenv()
@@ -17,21 +18,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "manifest.db"
 
 dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-class SwipeEvent(Base):
-    __tablename__ = "swipe_event"
-
-    event_id: Mapped[str] = mapped_column(String, primary_key=True)
-    participant: Mapped[int] = mapped_column(Integer, nullable=False)
-    date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    direction: Mapped[str] = mapped_column(String, nullable=False)
-    event_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    local: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class DB:
