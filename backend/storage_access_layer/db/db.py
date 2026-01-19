@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy import select, distinct
-from .schema import Base, SwipeEvent
+from .schema import ManifestBase, SwipeEvent
 
 from ...scripts.ingest import iter_swipes
 
@@ -142,7 +142,7 @@ def _init_db():
     created_new = False
     # No tables returned means the file has just been created and needs to be initialized with tables
     if not rows:
-        Base.metadata.create_all(engine)
+        ManifestBase.metadata.create_all(engine)
         created_new = True
 
     return engine, created_new

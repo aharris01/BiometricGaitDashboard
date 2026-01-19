@@ -1,13 +1,13 @@
-from sqlalchemy import String, Text, Date, Integer, TIMESTAMP, text
+from sqlalchemy import String, Text, Date, Integer, TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 import datetime
 
 
-class Base(DeclarativeBase):
+class ManifestBase(DeclarativeBase):
     pass
 
 
-class SwipeEvent(Base):
+class SwipeEvent(ManifestBase):
     __tablename__ = "swipe_event"
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
