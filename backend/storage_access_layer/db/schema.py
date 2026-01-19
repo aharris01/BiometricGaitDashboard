@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text, Date, Integer, TIMESTAMP, Boolean
+from sqlalchemy import String, Text, Date, Integer, TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 import datetime
 
@@ -29,5 +29,5 @@ class LocalSwipeEvent(LocalBase):
     root_path: Mapped[str] = mapped_column(String, nullable=False)
 
     # These columns are to determine if there are any changes to the available data
-    present: Mapped[int] = mapped_column(Boolean, nullable=False)
+    present: Mapped[int] = mapped_column(Integer, nullable=False)
     last_seen: Mapped[datetime.datetime] = mapped_column(TIMESTAMP, nullable=False)

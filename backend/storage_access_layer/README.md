@@ -56,7 +56,7 @@ Column | Type | Description
 ---| --- | --- |
 event_id | String (PK) | Unique event identifier matching an entry in the manifest database
 root_path | String | The absolute path to the swipe event files on the local filesystem
-present | Boolean | A boolean value to determine if the event is still available locally
+present | Integer | A boolean value to determine if the event is still available locally
 last_seen | TIMESTAMP | When the event was last found in a filesystem scan
 
 ## Access Functions (accessfunctions.py)
