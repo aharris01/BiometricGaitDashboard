@@ -7,8 +7,9 @@ class ManifestBase(DeclarativeBase):
     pass
 
 
-class SwipeEvent(ManifestBase):
+class ManifestSwipeEvent(ManifestBase):
     __tablename__ = "swipe_event"
+    __table_args__ = {"schema": "manifest"}
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
     participant: Mapped[int] = mapped_column(Integer, nullable=False)

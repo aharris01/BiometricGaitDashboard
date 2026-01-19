@@ -3,12 +3,12 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy import select, distinct
-from .schema import ManifestBase, SwipeEvent
+from .schema import LocalBase, LocalSwipeEvent, ManifestSwipeEvent
 
 from ...scripts.ingest import iter_swipes
 
@@ -131,9 +131,24 @@ class DB:
 
 
 def _init_db():
-    engine = create_engine(f"sqlite:///{MANIFEST_PATH}")
+    # Local database is writable
+    local_uri = f"sqlite:///{dataroot}/local.db"
 
-    # Check if the database file is being created for the first time by querying which tables exist
+    # Manifest database is read-only mode
+    manifest_uri = f"file:{MANIFEST_PATH.as_posix()}?mode=ro"
+
+    engine = create_engine(
+        local_uri, connect_args={"check_same_thread": False, "uri": True}
+    )
+
+    @event.listens_for(engine, "connect")
+    def _attach_manifest(dbapi_conn, _):
+        cur = dbapi_conn.cursor()
+
+        cur.execute("ATTACH DATABASE ? AS manifest;", (manifest_uri,))
+
+        cur.close()
+
     with engine.connect() as conn:
         rows = conn.execute(
             text("SELECT name FROM sqlite_master WHERE type='table';")
@@ -142,7 +157,7 @@ def _init_db():
     created_new = False
     # No tables returned means the file has just been created and needs to be initialized with tables
     if not rows:
-        ManifestBase.metadata.create_all(engine)
+        LocalBase.metadata.create_all(engine)
         created_new = True
 
     return engine, created_new
