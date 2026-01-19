@@ -33,11 +33,12 @@ class SwipeEvent(Base):
 
 class DB:
     def __init__(self, engine: Engine | None = None):
+        # Engine can be provided for testing
         self._owns_engine = engine is None
 
         if self._owns_engine:
             self.engine, created_new = _init_db()
-        else:
+        else:  # Engine has been provided for testing
             assert engine is not None
             self.engine = engine
             created_new = False
@@ -49,6 +50,7 @@ class DB:
             expire_on_commit=False,
         )
 
+        # Database needs to be populated with local data if it was just created
         if self._owns_engine and created_new:
             _seed_db(self)
 
@@ -142,12 +144,14 @@ class DB:
 def _init_db():
     engine = create_engine(f"sqlite:///{dataroot}/metadata.db")
 
+    # Check if the database file is being created for the first time by querying which tables exist
     with engine.connect() as conn:
         rows = conn.execute(
             text("SELECT name FROM sqlite_master WHERE type='table';")
         ).fetchall()
 
     created_new = False
+    # No tables returned means the file has just been created and needs to be initialized with tables
     if not rows:
         Base.metadata.create_all(engine)
         created_new = True
