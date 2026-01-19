@@ -59,8 +59,8 @@ class DB:
         if self.engine:
             self.engine.dispose()
 
-    # New add_swipe_event function that accepts a SwipeEvent object
-    def add_swipe_event(self, swipe_event_obj: SwipeEvent):
+    # New add_swipe_event function that accepts a LocalSwipeEvent object
+    def add_swipe_event(self, swipe_event_obj: LocalSwipeEvent):
         with self._get_session() as session:
             try:
                 session.add(swipe_event_obj)
@@ -69,58 +69,60 @@ class DB:
 
     # identical logic to previous version of accessfunctions.py
     def get_participants(self):
-        query = select(distinct(SwipeEvent.participant)).order_by(
-            SwipeEvent.participant
+        query = select(distinct(ManifestSwipeEvent.participant)).order_by(
+            ManifestSwipeEvent.participant
         )
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_dates(self, participant):
         query = (
-            select(distinct(SwipeEvent.date))
-            .where(SwipeEvent.participant == participant)
-            .order_by(SwipeEvent.date)
+            select(distinct(ManifestSwipeEvent.date))
+            .where(ManifestSwipeEvent.participant == participant)
+            .order_by(ManifestSwipeEvent.date)
         )
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_directions(self, participant, date):
         query = (
-            select(distinct(SwipeEvent.direction))
+            select(distinct(ManifestSwipeEvent.direction))
             .where(
-                SwipeEvent.participant == participant,
-                SwipeEvent.date == date,
+                ManifestSwipeEvent.participant == participant,
+                ManifestSwipeEvent.date == date,
             )
-            .order_by(SwipeEvent.direction)
+            .order_by(ManifestSwipeEvent.direction)
         )
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_events(self, participant, date, direction):
         query = (
-            select(distinct(SwipeEvent.event_number))
+            select(distinct(ManifestSwipeEvent.event_number))
             .where(
-                SwipeEvent.participant == participant,
-                SwipeEvent.date == date,
-                SwipeEvent.direction == direction,
+                ManifestSwipeEvent.participant == participant,
+                ManifestSwipeEvent.date == date,
+                ManifestSwipeEvent.direction == direction,
             )
-            .order_by(SwipeEvent.event_number)
+            .order_by(ManifestSwipeEvent.event_number)
         )
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_swipe_event_id(self, participant, date, event, direction):
-        query = select(SwipeEvent.event_id).where(
-            SwipeEvent.participant == participant,
-            SwipeEvent.date == date,
-            SwipeEvent.event_number == event,
-            SwipeEvent.direction == direction,
+        query = select(ManifestSwipeEvent.event_id).where(
+            ManifestSwipeEvent.participant == participant,
+            ManifestSwipeEvent.date == date,
+            ManifestSwipeEvent.event_number == event,
+            ManifestSwipeEvent.direction == direction,
         )
         with self._get_session() as session:
             return session.scalars(query).first()
 
     def get_swipe_event(self, event_id):
-        query = select(SwipeEvent).where(SwipeEvent.event_id == event_id)
+        query = select(ManifestSwipeEvent).where(
+            ManifestSwipeEvent.event_id == event_id
+        )
         with self._get_session() as session:
             return session.scalars(query).first()
 
@@ -165,5 +167,5 @@ def _init_db():
 
 def _seed_db(db: DB):
     for swipe_data in iter_swipes(Path(dataroot)):
-        swipe_event_obj = SwipeEvent(**swipe_data)
+        swipe_event_obj = LocalSwipeEvent(**swipe_data)
         db.add_swipe_event(swipe_event_obj)

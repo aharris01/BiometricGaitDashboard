@@ -112,7 +112,6 @@ class SAL:
             "date": event.date.isoformat() if getattr(event, "date", None) else None,
             "direction": event.direction,
             "event_number": event.event_number,
-            "state": event.state,
         }
 
         availability: dict = {}
