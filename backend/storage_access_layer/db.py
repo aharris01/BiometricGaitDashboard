@@ -13,6 +13,9 @@ from ..scripts.ingest import iter_swipes
 
 load_dotenv()
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MANIFEST_PATH = PROJECT_ROOT / "manifest.db"
+
 dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root
 
 
@@ -142,7 +145,7 @@ class DB:
 
 
 def _init_db():
-    engine = create_engine(f"sqlite:///{dataroot}/metadata.db")
+    engine = create_engine(f"sqlite:///{MANIFEST_PATH}")
 
     # Check if the database file is being created for the first time by querying which tables exist
     with engine.connect() as conn:
