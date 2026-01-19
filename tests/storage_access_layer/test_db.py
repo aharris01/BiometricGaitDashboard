@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 import pytest
 
-from backend.storage_access_layer.db import SwipeEvent
+from backend.storage_access_layer.db.db import SwipeEvent
 
 
 # Basic insert + fetch test

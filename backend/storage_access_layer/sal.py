@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlparse
 import numpy as np
 
 from . import validators as v
-from .db import DB
+from .db.db import DB
 
 
 def uri_to_path(uri: str) -> Path:

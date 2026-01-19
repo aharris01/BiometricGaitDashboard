@@ -9,11 +9,11 @@ from contextlib import contextmanager
 import datetime
 
 from sqlalchemy import select, distinct
-from ..scripts.ingest import iter_swipes
+from ...scripts.ingest import iter_swipes
 
 load_dotenv()
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "manifest.db"
 
 dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root

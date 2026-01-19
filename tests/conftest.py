@@ -9,9 +9,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 # DB imports
-from backend.storage_access_layer.db import Base
-from backend.storage_access_layer.db import SwipeEvent
-from backend.storage_access_layer.db import DB
+from backend.storage_access_layer.db.db import Base
+from backend.storage_access_layer.db.db import SwipeEvent
+from backend.storage_access_layer.db.db import DB
 
 
 @pytest.fixture(scope="module")
