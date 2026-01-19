@@ -28,17 +28,7 @@ class SwipeEvent(Base):
     date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     direction: Mapped[str] = mapped_column(String, nullable=False)
     event_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    state: Mapped[str] = mapped_column(String, nullable=False)
-
-    trial_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
-    trial_p100_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
-    trial_grf_npz_uri: Mapped[str] = mapped_column(Text, nullable=False)
-
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        default=datetime.datetime.now,
-    )
+    local: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class DB:
