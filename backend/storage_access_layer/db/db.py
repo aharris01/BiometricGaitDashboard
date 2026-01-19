@@ -3,9 +3,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine, event, exists, and_
 from sqlalchemy import text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, with_loader_criteria, Session
 from contextlib import contextmanager
 from sqlalchemy import select, distinct
 from .schema import LocalBase, LocalSwipeEvent, ManifestSwipeEvent
@@ -38,6 +38,7 @@ class DB:
             autocommit=False,
             expire_on_commit=False,
         )
+        add_local_availability_filter(self.SessionLocal)
 
         # Database needs to be populated with local data if it was just created
         if self._owns_engine and created_new:
@@ -130,6 +131,26 @@ class DB:
 # -------------------------------------------------
 # DB initialisation helpers
 # -------------------------------------------------
+
+
+def add_local_availability_filter(SessionFactory):
+    @event.listens_for(SessionFactory, "do_orm_execute")
+    def _add_filter(execute_state):
+        if not execute_state.is_select:
+            return
+
+        execute_state.statement = execute_state.statement.options(
+            with_loader_criteria(
+                ManifestSwipeEvent,
+                lambda cls: exists().where(
+                    and_(
+                        LocalSwipeEvent.event_id == cls.event_id,
+                        LocalSwipeEvent.present == 1,
+                    )
+                ),
+                include_aliases=True,  # important if you use aliases/subqueries
+            )
+        )
 
 
 def _init_db():
