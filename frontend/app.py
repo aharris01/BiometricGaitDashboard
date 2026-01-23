@@ -45,6 +45,7 @@ app.clientside_callback(
     State("scroll-store", "data"),
 )
 
+
 def run_dash() -> None:
     app.run(
         host=DASH_HOST, port=DASH_PORT, debug=DASH_DEBUG, dev_tools_hot_reload=False

@@ -44,9 +44,7 @@ def register(app):
         footstep_cls = "" if mode == "footstep" else "hidden"
 
         swipe_btn = "mode-btn mode-btn-active" if mode == "swipe" else "mode-btn"
-        footstep_btn = (
-            "mode-btn mode-btn-active" if mode == "footstep" else "mode-btn"
-        )
+        footstep_btn = "mode-btn mode-btn-active" if mode == "footstep" else "mode-btn"
         pipeline_btn = "mode-btn"  # popup only, never active
 
         return swipe_cls, footstep_cls, swipe_btn, footstep_btn, pipeline_btn

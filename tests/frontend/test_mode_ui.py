@@ -27,7 +27,10 @@ def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
 
     # --- Default should be Swipe Events
     dash_duo.wait_for_text_to_equal("#header-title", "Swipe Events", timeout=5)
-    assert dash_duo.find_element("#header-subtitle").text.strip() == "Footstep extraction QA"
+    assert (
+        dash_duo.find_element("#header-subtitle").text.strip()
+        == "Footstep extraction QA"
+    )
 
     assert has_hidden("swipe-view") is False
     assert has_hidden("footstep-view") is True
@@ -43,7 +46,10 @@ def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
         el("#btn-mode-footstep").click()
 
         dash_duo.wait_for_text_to_equal("#header-title", "Footsteps", timeout=5)
-        assert dash_duo.find_element("#header-subtitle").text.strip() == "Footstep-level inspection"
+        assert (
+            dash_duo.find_element("#header-subtitle").text.strip()
+            == "Footstep-level inspection"
+        )
 
         assert has_hidden("swipe-view") is True
         assert has_hidden("footstep-view") is False
@@ -57,7 +63,10 @@ def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
     el("#btn-mode-footstep").click()
 
     dash_duo.wait_for_text_to_equal("#header-title", "Footsteps", timeout=5)
-    assert dash_duo.find_element("#header-subtitle").text.strip() == "Footstep-level inspection"
+    assert (
+        dash_duo.find_element("#header-subtitle").text.strip()
+        == "Footstep-level inspection"
+    )
 
     assert has_hidden("swipe-view") is True
     assert has_hidden("footstep-view") is False
@@ -71,7 +80,10 @@ def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
     el("#btn-mode-swipe").click()
 
     dash_duo.wait_for_text_to_equal("#header-title", "Swipe Events", timeout=5)
-    assert dash_duo.find_element("#header-subtitle").text.strip() == "Footstep extraction QA"
+    assert (
+        dash_duo.find_element("#header-subtitle").text.strip()
+        == "Footstep extraction QA"
+    )
 
     assert has_hidden("swipe-view") is False
     assert has_hidden("footstep-view") is True
