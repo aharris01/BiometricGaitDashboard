@@ -2,7 +2,7 @@
 from dash import Input, Output, callback
 from dash.exceptions import PreventUpdate
 
-from frontend.api import get_event_full
+from frontend.api import get_event_full, get_metrics
 from frontend.views.metrics_graph import MetricsGraph
 from frontend.views.summary_view import SummaryView
 
@@ -17,10 +17,8 @@ def register(app, *, cmap):
         if not store_data or not store_data.get("event_id"):
             raise PreventUpdate
 
-        event_id = store_data["event_id"]
-        full = get_event_full(event_id, logger=app.logger)
-        footsteps = full.get("footsteps", [])
-        return MetricsGraph(event_id, footsteps).render()
+        metrics = get_metrics(logger=app.logger)
+        return MetricsGraph(metrics).render()
 
     @callback(
         Output("summary-container", "children"),

@@ -395,7 +395,7 @@ class SAL:
         return event_id
 
     def get_summary_plot_data(self):
-        result = []
+        result = {}
         # for f in os.walk(Path(r"data")):
         #     print(f)
         for file in list(Path(r"data").rglob("metadata.csv")):
@@ -423,12 +423,8 @@ class SAL:
             avg_box_size = box_sizes_sum / len(box_sizes)
             footstep_count = len(box_sizes)
             event_id = self.get_event_id_from_URI(str(file))
-            result.append(
-                {
-                    event_id: {
-                        "avg_box_size": int(avg_box_size),
-                        "footstep_count": footstep_count,
-                    }
-                }
-            )
+            result[event_id] = {
+                "avg_box_size": int(avg_box_size),
+                "footstep_count": footstep_count,
+            }
         return result
