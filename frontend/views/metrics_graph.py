@@ -1,6 +1,5 @@
 from dash import html
 from dash.dcc import Graph
-from random import randrange
 import plotly.graph_objects as go
 
 
