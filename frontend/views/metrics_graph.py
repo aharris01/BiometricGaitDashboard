@@ -79,9 +79,9 @@ class MetricsGraph:
                             id="box-size-scatter-plot",
                             figure=scatter_plot,
                             style={
-                                "maxWidth": "1100px",
-                                "width": "500px",
-                                "height": "400px",
+                                "maxWidth": "2200px",
+                                "maxHeight": "1000px",
+                                "height": "700px",
                             },
                         ),
                     ],
