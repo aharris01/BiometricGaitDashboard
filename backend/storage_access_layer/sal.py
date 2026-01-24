@@ -420,9 +420,20 @@ class SAL:
                 bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
                 box_sizes.append(bounding_box_size)
                 box_sizes_sum += bounding_box_size
+            if not box_sizes:
+                continue
+
             avg_box_size = box_sizes_sum / len(box_sizes)
             footstep_count = len(box_sizes)
-            event_id = self.get_event_id_from_URI(str(file))
+
+            try:
+                event_id = self.get_event_id_from_URI(str(file))
+            except Exception:
+                continue
+
+            if not event_id:
+                continue
+
             result[event_id] = {
                 "avg_box_size": int(avg_box_size),
                 "footstep_count": footstep_count,
