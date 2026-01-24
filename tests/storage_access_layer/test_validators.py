@@ -49,3 +49,45 @@ def test_getSwipeEventId_check_invalid_return():
 def test_getBothDirectionEvents_check_invalid_nested():
     with pytest.raises(ValueError):
         v.get_both_direction_events_check(1, datetime.date.today(), [[1], ["bad"]])
+
+
+@pytest.mark.unit
+def test_getDirections_check_valid():
+    v.get_directions_check(
+        1,
+        datetime.date.today(),
+        ["in", "out"],
+    )
+
+
+@pytest.mark.unit
+def test_getEvents_check_valid():
+    v.get_events_check(
+        1,
+        datetime.date.today(),
+        "in",
+        [1, 2, 3],
+    )
+
+
+@pytest.mark.unit
+def test_getSwipeEventId_check_valid_none():
+    v.get_swipe_event_id_check(
+        1,
+        datetime.date.today(),
+        1,
+        "out",
+        None,
+    )
+
+
+@pytest.mark.unit
+def test_getBothDirectionEvents_check_valid():
+    v.get_both_direction_events_check(
+        1,
+        datetime.date.today(),
+        {
+            "in": [1, 2],
+            "out": [3],
+        },
+    )

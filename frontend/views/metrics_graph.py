@@ -4,8 +4,10 @@ import plotly.graph_objects as go
 
 
 class MetricsGraph:
-    def __init__(self, metrics=None):
-        self.metrics = metrics or {}
+    def __init__(self, metrics=None, footsteps=None, event_id=None):
+        self.event_id = event_id
+        self.footsteps = footsteps or []
+        self.metrics = metrics if isinstance(metrics, dict) else {}
 
     def _placeholder_figure(self, text, height=520):
         fig = go.Figure()

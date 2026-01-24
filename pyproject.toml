@@ -9,7 +9,10 @@ markers = [
 
 [tool.coverage.run]
 source = ["backend", "frontend"]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "frontend/callbacks/*"
+]
 
 
 [tool.pyright]

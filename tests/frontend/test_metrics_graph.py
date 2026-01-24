@@ -16,3 +16,11 @@ def test_metrics_graph_renders_with_footsteps():
     g = MetricsGraph("evt-1", footsteps=footsteps)
     out = g.render()
     assert isinstance(out, html.Div)
+
+
+def test_metrics_graph_placeholder_branch():
+    from frontend.views.metrics_graph import MetricsGraph
+
+    g = MetricsGraph(metrics={})
+    out = g.render()
+    assert out is not None
