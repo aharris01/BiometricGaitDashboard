@@ -14,6 +14,7 @@ import numpy as np
 from . import validators as v
 from .db import DB
 
+dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root
 
 def uri_to_path(uri: str) -> Path:
     """
@@ -396,9 +397,7 @@ class SAL:
 
     def get_summary_plot_data(self):
         result = {}
-        # for f in os.walk(Path(r"data")):
-        #     print(f)
-        for file in list(Path(r"data").rglob("metadata.csv")):
+        for file in list(Path(dataroot).rglob("metadata.csv")):
             try:
                 with file.open(newline="") as f:
                     reader = csv.DictReader(f)
