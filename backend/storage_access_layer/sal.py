@@ -16,6 +16,7 @@ from .db import DB
 
 dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root
 
+
 def uri_to_path(uri: str) -> Path:
     """
     Convert a file:// URI (stored in the DB) to a real filesystem Path,
