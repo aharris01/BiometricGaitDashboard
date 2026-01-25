@@ -1,8 +1,9 @@
 # frontend/layout.py
-from dash.dcc import Dropdown, Interval, Store
+from dash.dcc import Interval, Store, ConfirmDialog
 from dash.html import Div, Button, H2, Span
 
-CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
+from frontend.views.swipe_event_view import SwipeEventView
+from frontend.views.footstep_view import FootstepView
 
 
 def build_layout():
@@ -15,18 +16,37 @@ def build_layout():
                 id="header",
                 className="header",
                 children=[
+                    # Left: dynamic title/subtitle
                     Div(
                         children=[
-                            H2("Swipe Summary"),
+                            H2("Swipe Events", id="header-title"),
                             Span(
                                 "Footstep extraction QA",
+                                id="header-subtitle",
                                 className="subtitle",
                             ),
                         ],
                     ),
-                    Span(
-                        "Local API: 127.0.0.1:8000",
-                        className="subtitle",
+                    # Right: mode buttons
+                    Div(
+                        style={"display": "flex", "gap": "8px", "alignItems": "center"},
+                        children=[
+                            Button(
+                                "Swipe Events",
+                                id="btn-mode-swipe",
+                                className="mode-btn mode-btn-active",
+                            ),
+                            Button(
+                                "Footsteps",
+                                id="btn-mode-footstep",
+                                className="mode-btn",
+                            ),
+                            Button(
+                                "Run Pipeline",
+                                id="btn-mode-pipeline",
+                                className="mode-btn",
+                            ),
+                        ],
                     ),
                 ],
             ),
@@ -35,6 +55,37 @@ def build_layout():
                 id="content",
                 className="content",
                 children=[
+                    # stores
+                    Store(
+                        id="mode-store",
+                        data={"mode": "swipe", "prev_mode": "swipe"},
+                        storage_type="session",
+                    ),
+                    Store(
+                        id="scroll-store",
+                        data={"swipe": 0, "footstep": 0},
+                        storage_type="session",
+                    ),
+                    Store(
+                        id="event-id-store",
+                        data={"event_id": None},
+                        storage_type="session",
+                    ),
+                    Store(id="footsteps-store", data=None, storage_type="session"),
+                    Store(
+                        id="selected-step-store",
+                        data={"step_id": None},
+                        storage_type="session",
+                    ),
+                    # popup for pipeline
+                    ConfirmDialog(
+                        id="pipeline-dialog",
+                        message="Run Pipeline (local) is not implemented yet.",
+                    ),
+                    # page load trigger
+                    Interval(id="page-load", max_intervals=1),
+                    # a hidden sink used by the clientside scroll callback output
+                    Div(id="scroll-sink", className="hidden"),
                     # hidden sink (unchanged)
                     Div(
                         id={
@@ -44,67 +95,9 @@ def build_layout():
                         },
                         className="hidden",
                     ),
-                    # stores
-                    Store(
-                        id="event-id-store",
-                        data={"event_id": None},
-                        storage_type="session",
-                    ),
-                    Store(
-                        id="footsteps-store",
-                        data=None,
-                        storage_type="session",
-                    ),
-                    # selected step id from thumbnail click
-                    Store(
-                        id="selected-step-store",
-                        data={"step_id": None},
-                        storage_type="session",
-                    ),
-                    # page load trigger
-                    Interval(id="page-load", max_intervals=1),
-                    # ---------- Dropdown Row ----------
-                    Div(
-                        id="dropdown-container",
-                        className="dropdown-container",
-                        children=[
-                            Dropdown(
-                                id={
-                                    "type": "dropdown",
-                                    "name": "participant",
-                                    "level": 4,
-                                },
-                                style=CONTROL_STYLE,
-                                clearable=True,
-                            ),
-                            Dropdown(
-                                id={"type": "dropdown", "name": "date", "level": 3},
-                                style=CONTROL_STYLE,
-                                clearable=True,
-                            ),
-                            Dropdown(
-                                id={
-                                    "type": "dropdown",
-                                    "name": "direction",
-                                    "level": 2,
-                                },
-                                style=CONTROL_STYLE,
-                                clearable=True,
-                            ),
-                            Dropdown(
-                                id={"type": "dropdown", "name": "event", "level": 1},
-                                style=CONTROL_STYLE,
-                                clearable=True,
-                            ),
-                            Button(
-                                "Submit",
-                                id="submit-button",
-                            ),
-                        ],
-                    ),
-                    # ---------- Views ----------
-                    Div(id="metrics-graph-container"),
-                    Div(id="summary-container"),
+                    # views
+                    SwipeEventView(),
+                    FootstepView(),
                 ],
             ),
         ],
