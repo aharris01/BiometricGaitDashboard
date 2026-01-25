@@ -4,8 +4,8 @@ import plotly.graph_objects as go
 
 
 class MetricsGraph:
-    def __init__(self, metrics=None):
-        self.metrics = metrics or {}
+    def __init__(self, swipe_event_metrics=None):
+        self.metrics = swipe_event_metrics or {}
 
     def _placeholder_figure(self, text, height=520):
         fig = go.Figure()

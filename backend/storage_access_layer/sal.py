@@ -411,7 +411,7 @@ class SAL:
         )
 
 
-    def get_summary_plot_data(self):
+    def get_swipe_event_summary_plot_data(self):
         result = {}
         for file in list(Path(dataroot).rglob("metadata.csv")):
             try:
