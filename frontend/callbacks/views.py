@@ -14,7 +14,7 @@ def register(app, *, cmap):
         prevent_initial_call=True,
     )
     def display_metrics_graph(store_data):
-        if not store_data or not store_data.get("event_id"):
+        if not store_data:
             raise PreventUpdate
 
         metrics = get_metrics(logger=app.logger)
