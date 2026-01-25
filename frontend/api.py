@@ -63,6 +63,12 @@ def get_event_full(event_id: str, *, logger=None):
     )
 
 
+def get_metrics(logger=None):
+    return fetch_json(
+        f"{API_BASE_URL}/api/events/summaryplot", context="get_metrics", logger=logger
+    )
+
+
 # (Optional legacy) not needed anymore after the change, but harmless to keep
 def get_event_footstep_p100s(event_id: str, *, logger=None):
     return fetch_json(

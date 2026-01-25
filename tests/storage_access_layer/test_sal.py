@@ -535,3 +535,28 @@ def test_get_event_summary_invalid_uri(sal, fake_db):
         "metadata": False,
         "steps": False,
     }
+
+
+@pytest.mark.unit
+def test_uri_to_path_invalid_scheme_raises():
+    from backend.storage_access_layer.sal import uri_to_path
+
+    with pytest.raises(ValueError):
+        uri_to_path("not-a-uri-at-all")
+
+
+@pytest.mark.unit
+def test_get_event_id_from_URI_calls_get_swipe_event_id(sal, fake_db):
+    fake_db.get_swipe_event_id.return_value = "EVT123"
+
+    uri = r"data\100\2023-10-31\out\12\metadata.csv"
+
+    out = sal.get_event_id_from_URI(uri)
+
+    assert out == "EVT123"
+    fake_db.get_swipe_event_id.assert_called_once_with(
+        100,
+        dt.date(2023, 10, 31),
+        12,
+        "out",
+    )

@@ -4,7 +4,7 @@ from __future__ import annotations
 import atexit
 import csv
 import os
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import unquote, urlparse
@@ -25,16 +25,22 @@ def uri_to_path(uri: str) -> Path:
     if parsed.scheme != "file":
         raise ValueError(f"Unsupported URI scheme in {uri!r}; expected file://")
 
-    path = unquote(parsed.path)
+    # Decode URL-escaped characters and get the path part
+    path = unquote(parsed.path)  # e.g. "/Users/me/..." or "/C:/Users/me/..."
 
     # On Windows, parsed.path often starts with "/C:/..."
     if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
+        # drop leading "/" → "C:/Users/me/..."
         path = path[1:]
 
     return Path(path)
 
 
 class SAL:
+    # =========================================================
+    # Backend ↔ SAL to get data by event_id primary key
+    # =========================================================
+
     def __init__(self, db: DB | None = None):
         self.db = db or DB()
         atexit.register(self._close_db)
@@ -370,49 +376,66 @@ class SAL:
         items.sort(key=lambda x: x["id"])
         return items, None
 
-    # =========================================================
-    # Backward-compatible wrappers (camelCase)
-    # =========================================================
+        # utility function to get event_id from file URI
 
-    def getParticipants(self) -> List[int]:
-        return self.get_participants()
+    def get_event_id_from_URI(self, file_URI: str):
+        # file URIs look like this: "..\..\data\100\2023-10-31\out\12\metadata.csv"
+        file_name = str(file_URI)[5:]  # truncate "data\"
+        keywords = list(file_name.split("\\"))
+        participant = keywords[0]
+        date_str = keywords[1]
+        direction = keywords[2]
+        event = keywords[3]
+        event_id = self.get_swipe_event_id(
+            int(participant),
+            datetime.strptime(date_str, "%Y-%m-%d").date(),
+            int(event),
+            direction,
+        )
+        return event_id
 
-    def getDates(self, participant: int) -> List[date]:
-        return self.get_dates(participant)
+    def get_summary_plot_data(self):
+        result = {}
+        # for f in os.walk(Path(r"data")):
+        #     print(f)
+        for file in list(Path(r"data").rglob("metadata.csv")):
+            try:
+                with file.open(newline="") as f:
+                    reader = csv.DictReader(f)
+                    rows = list(reader)
+            except Exception:
+                print(f"{file}: Error occurred while opening file")
+                continue
+            box_sizes = []
+            box_sizes_sum = 0
+            for row in rows:
+                try:
+                    x_min = int(float(row["XMin"]))
+                    x_max = int(float(row["XMax"]))
+                    y_min = int(float(row["YMin"]))
+                    y_max = int(float(row["YMax"]))
+                except Exception:
+                    print("Missing data, skipping this footstep...")
+                    continue
+                bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
+                box_sizes.append(bounding_box_size)
+                box_sizes_sum += bounding_box_size
+            if not box_sizes:
+                continue
 
-    def getDirections(self, participant: int, dt: date):
-        return self.get_directions(participant, dt)
+            avg_box_size = box_sizes_sum / len(box_sizes)
+            footstep_count = len(box_sizes)
 
-    def getEvents(self, participant: int, dt: date, direction: str) -> List[int]:
-        return self.get_events(participant, dt, direction)
+            try:
+                event_id = self.get_event_id_from_URI(str(file))
+            except Exception:
+                continue
 
-    def getSwipeEventId(
-        self, participant: int, dt: date, event: int, direction: str
-    ) -> Optional[str]:
-        return self.get_swipe_event_id(participant, dt, event, direction)
+            if not event_id:
+                continue
 
-    def getBothDirectionEvents(
-        self, participant: int, dt: date
-    ) -> Dict[str, List[int]]:
-        return self.get_both_direction_events(participant, dt)
-
-    def getEventSummary(self, event_id: str):
-        return self.get_event_summary(event_id)
-
-    def getP100(self, event_id: str):
-        return self.get_p100(event_id)
-
-    def getGRF(self, event_id: str):
-        return self.get_grf(event_id)
-
-    def getFootsteps(self, event_id: str):
-        return self.get_footsteps(event_id)
-
-    def getFootstepData(self, event_id: str, step_id: int):
-        return self.get_footstep_data(event_id, step_id)
-
-    def getAllFootstepP100(self, event_id: str):
-        return self.get_all_footstep_p100(event_id)
-
-    def getAllFootstepDetails(self, event_id: str):
-        return self.get_all_footstep_details(event_id)
+            result[event_id] = {
+                "avg_box_size": int(avg_box_size),
+                "footstep_count": footstep_count,
+            }
+        return result

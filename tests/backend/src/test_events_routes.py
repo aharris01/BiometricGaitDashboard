@@ -58,6 +58,11 @@ class FakeSAL:
         return ([{"id": 0, "p100": [[1]]}], None)
 
 
+class FakeSALMissingEvent:
+    def get_event_summary(self, event_id: str):
+        return None
+
+
 @pytest.fixture
 def client():
     app = create_app(sal=FakeSAL())
@@ -87,3 +92,11 @@ def test_event_footsteps_p100s_ok(client):
     assert "items" in data
     assert isinstance(data["items"], list)
     assert data["items"][0]["id"] == 0
+
+
+@pytest.mark.unit
+def test_event_full_missing_event_returns_404():
+    app = create_app(sal=FakeSALMissingEvent())
+    with app.test_client() as client:
+        resp = client.get("/api/events/missing/full")
+        assert resp.status_code == 404

@@ -1,13 +1,11 @@
 from dash import html
 from dash.dcc import Graph
-from random import randrange
 import plotly.graph_objects as go
 
 
 class MetricsGraph:
-    def __init__(self, event_id, footsteps=None):
-        self.event_id = event_id
-        self.footsteps = footsteps or []
+    def __init__(self, metrics=None):
+        self.metrics = metrics or {}
 
     def _placeholder_figure(self, text, height=520):
         fig = go.Figure()
@@ -34,27 +32,26 @@ class MetricsGraph:
 
     def render(self):
         # ---- Scatter plot ----
-        if self.footsteps:
-            sum_box_size_for_avg = 0
-            box_sizes = []  # list of bounding box (bbox) size of each footstep
-            for footstep in self.footsteps:
-                box_x = abs(footstep["x_max"] - footstep["x_min"])
-                box_y = abs(footstep["y_max"] - footstep["y_min"])
-                box_size = box_x * box_y
-                box_sizes.append(box_size)
-                sum_box_size_for_avg += box_size
-            random_count = []
-            for _box in box_sizes:
-                random_count.append(randrange(1, 11, 1))
+        if self.metrics:
+            event_ids = list(self.metrics.keys())
+            x_vals = [self.metrics[e]["avg_box_size"] for e in event_ids]
+            y_vals = [self.metrics[e]["footstep_count"] for e in event_ids]
 
             scatter_plot = go.Figure()
             scatter_plot.add_trace(
                 go.Scatter(
-                    x=box_sizes,
-                    y=random_count,
-                    name="Box sizes",
-                    mode="markers",  # only show data points (no connecting lines)
+                    x=x_vals,
+                    y=y_vals,
+                    mode="markers",  # only show data points (no connecting lines),
+                    text=event_ids,
+                    hovertemplate="<b>Event:</b> %{text}<br>"
+                    + "<b>Average Box Size:</b> %{x}<br>"
+                    + "<b>Footstep Count:</b> %{y}"
+                    + "<extra></extra>",
                 )
+            )
+            scatter_plot.update_layout(
+                xaxis_title="Average Bounding Box Size", yaxis_title="Footstep Count"
             )
         else:
             scatter_plot = self._placeholder_figure(
@@ -81,9 +78,9 @@ class MetricsGraph:
                             id="box-size-scatter-plot",
                             figure=scatter_plot,
                             style={
-                                "maxWidth": "1100px",
-                                "width": "500px",
-                                "height": "400px",
+                                "maxWidth": "2200px",
+                                "maxHeight": "1000px",
+                                "height": "700px",
                             },
                         ),
                     ],
