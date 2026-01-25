@@ -26,3 +26,5 @@ def api_swipe_lookup(participant: int, date: str, direction: str, event: int):
         return jsonify({"id": event_id})
     except KeyError:
         return make_error(404, "not_found", "swipe not found")
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
