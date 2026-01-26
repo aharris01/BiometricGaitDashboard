@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import pytest
-from selenium.webdriver.support.ui import WebDriverWait
+
+pytest.importorskip("selenium")
+
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 @pytest.mark.parametrize("start_mode", ["swipe", "footstep"])
