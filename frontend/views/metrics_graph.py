@@ -72,19 +72,30 @@ class MetricsGraph:
             children=[
                 # 1) Filters panel (left)
                 html.Div(
-                    className="metrics-panel",
+                    className="metrics-panel metrics-panel--filters",
                     children=[
+                        # Header row: title (left) + OK button (right)
+                        html.Div(
+                            className="panel-header",
+                            children=[
+                                html.H3(
+                                    "Filters",
+                                    className="panel-title",
+                                    style={"marginBottom": "6px", "marginTop": "4px"},
+                                ),
+                                html.Button("OK", id="btn-apply-filters", className="ok-btn"),
+                            ],
+                        ),
                         html.Div(
                             className="metrics-panel-scroll",
                             children=[
-                                html.H4("Filters", className="metrics-title"),
                                 ParticipantMultiSelect(
                                     id="metrics-filter-participant",
                                     options=participant_options,
                                 ),
                                 DateSelector(id="metrics-filter-date"),
                             ],
-                        )
+                        ),
                     ],
                 ),
 

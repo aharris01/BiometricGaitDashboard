@@ -142,11 +142,11 @@
    }
    
    /* =========================================================
-      Metrics - 4 Panel Layout
+      Metrics - 4 Panel Layout (with OK button + scroll wrapper)
       ========================================================= */
    .metrics-row {
      display: grid;
-     grid-template-columns: 200px 1fr 56px 200px; /* filters | plot | arrows | selected */
+     grid-template-columns: 200px 1fr 56px 240px; /* filters | plot | arrows | selected */
      gap: 12px;
      width: 100%;
      align-items: start;
@@ -163,7 +163,14 @@
    /* left/right panels */
    .metrics-panel {
      min-height: 560px; /* align with plot height */
-     overflow: visible;
+     overflow: visible; /* IMPORTANT: allow calendar popover */
+   }
+   
+   /* Scrollable inner content (so popovers are NOT clipped) */
+   .metrics-panel-scroll {
+     overflow: auto;
+     max-height: 520px; /* keep header visible; adjust as needed */
+     padding-right: 4px;
    }
    
    /* center plot */
@@ -171,11 +178,38 @@
      min-height: 560px;
    }
    
-   .metrics-title {
-     margin: 0 0 10px 0;
-     font-size: 14px;
-     font-weight: 700;
+   /* Filters header row: title (left) + OK button (right) */
+   .panel-header {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 8px;
+     margin-bottom: 8px;
+   }
+   
+   /* Make "Filters" same size as plot H3 title */
+   .panel-title {
+     margin: 0;
+     font-size: 18px;
+     font-weight: 600;
      color: #111827;
+   }
+   
+   /* OK button style */
+   .ok-btn {
+     height: 32px;
+     padding: 0 14px;
+     border-radius: 8px;
+     border: 1px solid #93c5fd;
+     background: #eff6ff;
+     color: #1d4ed8;
+     font-size: 13px;
+     font-weight: 500;
+     cursor: pointer;
+   }
+   
+   .ok-btn:hover {
+     background: #dbeafe;
    }
    
    /* Filter field blocks (used by frontend/views/filters.py components) */
@@ -216,12 +250,6 @@
      background: #f3f4f6;
    }
    
-   /* Make checklist look clean */
-   #metrics-selected-checklist label {
-     font-size: 13px;
-     color: #111827;
-   }
-   
    /* =========================================================
       Responsive
       ========================================================= */
@@ -239,6 +267,10 @@
      .metrics-panel,
      .metrics-plot {
        min-height: auto;
+     }
+   
+     .metrics-panel-scroll {
+       max-height: none;
      }
    }
    
