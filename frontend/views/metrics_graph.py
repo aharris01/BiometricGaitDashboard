@@ -1,5 +1,5 @@
-from dash import html
-from dash.dcc import Graph
+from dash import html, dcc
+from frontend.views.filters import ParticipantMultiSelect, DateSelector
 import plotly.graph_objects as go
 
 
@@ -31,7 +31,7 @@ class MetricsGraph:
         return fig
 
     def render(self):
-        # ---- Scatter plot ----
+        # ---- Scatter plot (all swipe events summary) ----
         if self.metrics:
             event_ids = list(self.metrics.keys())
             x_vals = [self.metrics[e]["avg_box_size"] for e in event_ids]
@@ -42,7 +42,7 @@ class MetricsGraph:
                 go.Scatter(
                     x=x_vals,
                     y=y_vals,
-                    mode="markers",  # only show data points (no connecting lines),
+                    mode="markers",
                     text=event_ids,
                     hovertemplate="<b>Event:</b> %{text}<br>"
                     + "<b>Average Box Size:</b> %{x}<br>"
@@ -51,22 +51,40 @@ class MetricsGraph:
                 )
             )
             scatter_plot.update_layout(
-                xaxis_title="Average Bounding Box Size", yaxis_title="Footstep Count"
+                xaxis_title="Average Bounding Box Size",
+                yaxis_title="Footstep Count",
+                margin=dict(l=30, r=20, t=20, b=40),
             )
         else:
             scatter_plot = self._placeholder_figure(
-                "Box size scatter not available for this event."
+                "Summary scatter not available (no metrics data)."
             )
+
+        # ---- UI-only demo options (replace with real data later) ----
+        participant_options = [
+            {"label": "100", "value": 100},
+            {"label": "101", "value": 101},
+            {"label": "102", "value": 102},
+        ]
 
         figure_div = html.Div(
             className="metrics-row",
             children=[
-                # 1) Filter list (left)
+                # 1) Filters panel (left)
                 html.Div(
                     className="metrics-panel",
                     children=[
-                        html.H4("Filters", className="metrics-title"),
-                        html.Div(id="metrics-filter-list", children="(filters here)"),
+                        html.Div(
+                            className="metrics-panel-scroll",
+                            children=[
+                                html.H4("Filters", className="metrics-title"),
+                                ParticipantMultiSelect(
+                                    id="metrics-filter-participant",
+                                    options=participant_options,
+                                ),
+                                DateSelector(id="metrics-filter-date"),
+                            ],
+                        )
                     ],
                 ),
 
@@ -76,36 +94,44 @@ class MetricsGraph:
                     children=[
                         html.H3(
                             "Bounding box size scatter plot",
-                            style={"marginBottom": "4px", "marginTop": "4px"},
+                            style={"marginBottom": "6px", "marginTop": "4px"},
                         ),
-                        Graph(
+                        dcc.Graph(
                             id="box-size-scatter-plot",
                             figure=scatter_plot,
                             config={"displayModeBar": True},
-                            style={"height": "520px"},  # keep reasonable in row layout
+                            style={"height": "520px"},
                         ),
                     ],
                 ),
 
-        # 3) Add/Remove arrows (middle)
-        html.Div(
-            className="metrics-arrows",
-            children=[
-                html.Button("▶", id="btn-add-selected", className="arrow-btn"),
-                html.Button("◀", id="btn-remove-selected", className="arrow-btn"),
-            ],
-        ),
+                # 3) Arrow buttons (middle)
+                html.Div(
+                    className="metrics-arrows",
+                    children=[
+                        html.Button("▶", id="btn-add-selected", className="arrow-btn"),
+                        html.Button("◀", id="btn-remove-selected", className="arrow-btn"),
+                    ],
+                ),
 
-        # 4) Selected items list (right)
-        html.Div(
-            className="metrics-panel",
-            children=[
-                html.H4("Selected", className="metrics-title"),
-                html.Div(id="metrics-selected-list", children="(selected items here)"),
+                # 4) Selected list (right)
+                html.Div(
+                    className="metrics-panel",
+                    children=[
+                        html.Div(
+                            className="metrics-panel-scroll",
+                            children=[
+                                html.H4("Selected", className="metrics-title"),
+                                html.Div(
+                                    id="metrics-selected-list",
+                                    children="(selected items here)",
+                                ),
+                            ],
+                        )
+                    ],
+                ),
             ],
-        ),
-    ],
-)
+        )
 
         return html.Div(
             children=[figure_div],

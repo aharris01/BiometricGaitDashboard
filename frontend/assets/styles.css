@@ -122,7 +122,6 @@
      max-width: 1700px;
    }
    
-   /* Optional: give graphs a little breathing room */
    #metrics-graph-container > div,
    #summary-container > div {
      margin-top: 8px;
@@ -143,46 +142,64 @@
    }
    
    /* =========================================================
-      Metrics (Top Blue Area)
+      Metrics - 4 Panel Layout
       ========================================================= */
    .metrics-row {
      display: grid;
-     grid-template-columns: 220px 1fr 56px 220px; /* filter | plot | arrows | selected */
+     grid-template-columns: 200px 1fr 56px 200px; /* filters | plot | arrows | selected */
      gap: 12px;
      width: 100%;
      align-items: start;
    }
    
-   .metrics-panel {
-     background: white;
+   .metrics-panel,
+   .metrics-plot {
+     background: #ffffff;
      border: 1px solid #e5e7eb;
      border-radius: 8px;
      padding: 10px;
-   
-     min-height: 520px; /* match plot height */
-     overflow: auto;
    }
    
+   /* left/right panels */
+   .metrics-panel {
+     min-height: 560px; /* align with plot height */
+     overflow: visible;
+   }
+   
+   /* center plot */
    .metrics-plot {
-     background: white;
-     border: 1px solid #e5e7eb;
-     border-radius: 8px;
-     padding: 10px;
+     min-height: 560px;
    }
    
    .metrics-title {
-     margin: 0 0 8px 0;
+     margin: 0 0 10px 0;
      font-size: 14px;
+     font-weight: 700;
+     color: #111827;
+   }
+   
+   /* Filter field blocks (used by frontend/views/filters.py components) */
+   .metrics-field {
+     display: flex;
+     flex-direction: column;
+     gap: 6px;
+     margin-bottom: 14px;
+   }
+   
+   .metrics-field label {
+     font-size: 12px;
+     color: #374151;
      font-weight: 600;
    }
    
+   /* Arrow controls column */
    .metrics-arrows {
      display: flex;
      flex-direction: column;
      gap: 10px;
      align-items: center;
      justify-content: center;
-     min-height: 520px;
+     min-height: 560px;
    }
    
    .arrow-btn {
@@ -190,7 +207,7 @@
      height: 44px;
      border-radius: 10px;
      border: 1px solid #e5e7eb;
-     background: white;
+     background: #ffffff;
      cursor: pointer;
      font-size: 18px;
    }
@@ -199,7 +216,15 @@
      background: #f3f4f6;
    }
    
-   /* Responsive: stack on small screens */
+   /* Make checklist look clean */
+   #metrics-selected-checklist label {
+     font-size: 13px;
+     color: #111827;
+   }
+   
+   /* =========================================================
+      Responsive
+      ========================================================= */
    @media (max-width: 900px) {
      .metrics-row {
        grid-template-columns: 1fr;
@@ -208,9 +233,11 @@
      .metrics-arrows {
        flex-direction: row;
        min-height: auto;
+       justify-content: flex-start;
      }
    
-     .metrics-panel {
+     .metrics-panel,
+     .metrics-plot {
        min-height: auto;
      }
    }
