@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("selenium")
+
 from io import BytesIO
 from types import SimpleNamespace
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import numpy as np
-import pytest
 
 from backend.storage_access_layer.sal import SAL
 
