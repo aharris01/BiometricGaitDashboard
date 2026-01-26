@@ -59,16 +59,20 @@ class MetricsGraph:
             )
 
         figure_div = html.Div(
-            style={
-                "display": "flex",
-                "flexDirection": "row",
-                "justifyContent": "space-between",
-                "alignItems": "flex-start",
-                "gap": "8px",
-                "width": "100%",
-            },
+            className="metrics-row",
             children=[
+                # 1) Filter list (left)
                 html.Div(
+                    className="metrics-panel",
+                    children=[
+                        html.H4("Filters", className="metrics-title"),
+                        html.Div(id="metrics-filter-list", children="(filters here)"),
+                    ],
+                ),
+
+                # 2) Scatter plot (center)
+                html.Div(
+                    className="metrics-plot",
                     children=[
                         html.H3(
                             "Bounding box size scatter plot",
@@ -77,17 +81,32 @@ class MetricsGraph:
                         Graph(
                             id="box-size-scatter-plot",
                             figure=scatter_plot,
-                            style={
-                                "maxWidth": "2200px",
-                                "maxHeight": "1000px",
-                                "height": "700px",
-                            },
+                            config={"displayModeBar": True},
+                            style={"height": "520px"},  # keep reasonable in row layout
                         ),
                     ],
-                    style={"flex": "1"},
                 ),
+
+        # 3) Add/Remove arrows (middle)
+        html.Div(
+            className="metrics-arrows",
+            children=[
+                html.Button("▶", id="btn-add-selected", className="arrow-btn"),
+                html.Button("◀", id="btn-remove-selected", className="arrow-btn"),
             ],
-        )
+        ),
+
+        # 4) Selected items list (right)
+        html.Div(
+            className="metrics-panel",
+            children=[
+                html.H4("Selected", className="metrics-title"),
+                html.Div(id="metrics-selected-list", children="(selected items here)"),
+            ],
+        ),
+    ],
+)
+
         return html.Div(
             children=[figure_div],
             style={
