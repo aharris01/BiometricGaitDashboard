@@ -69,9 +69,8 @@ def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
 
     # steps.npz exists, but key "0" not present
     steps_path = trial.with_name("steps.npz")
-    np.savez(
-        steps_path, **{"1": np.ones((2, 2, 2))}
-    )  # pyright: ignore[reportArgumentType]
+    np.savez(steps_path, **{"1": np.ones((2, 2, 2))})  # pyright: ignore[reportArgumentType]
+ 
 
     fake_db._event = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
@@ -100,9 +99,7 @@ def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     vol1 = np.ones((4, 2, 2)) * 2
 
     steps_path = trial.with_name("steps.npz")
-    np.savez(
-        steps_path, **{"0": vol0, "1": vol1}
-    )  # pyright: ignore[reportArgumentType]
+    np.savez(steps_path, **{"0": vol0, "1": vol1})  # pyright: ignore[reportArgumentType]
 
     fake_db._event = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
     items, err = sal.get_all_footstep_details("evt-1")
