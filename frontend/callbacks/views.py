@@ -2,7 +2,7 @@
 from dash import Input, Output, callback
 from dash.exceptions import PreventUpdate
 
-from frontend.api import get_event_full, get_metrics
+from frontend.api import get_event_full, get_swipe_event_summary_metrics
 from frontend.views.metrics_graph import MetricsGraph
 from frontend.views.summary_view import SummaryView
 
@@ -17,7 +17,7 @@ def register(app, *, cmap):
         if not store_data or not store_data.get("event_id"):
             raise PreventUpdate
 
-        metrics = get_metrics(logger=app.logger)
+        metrics = get_swipe_event_summary_metrics(logger=app.logger)
         return MetricsGraph(metrics).render()
 
     @callback(

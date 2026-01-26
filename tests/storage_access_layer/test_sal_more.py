@@ -1,9 +1,30 @@
-from types import SimpleNamespace
+from __future__ import annotations
 
-import numpy as np
 import pytest
 
+pytest.importorskip("selenium")
+
+from io import BytesIO
+from types import SimpleNamespace
+from zipfile import ZIP_DEFLATED, ZipFile
+
+import numpy as np
+
 from backend.storage_access_layer.sal import SAL
+
+
+def _write_npz_with_numeric_keys(path, arrays: dict[str, np.ndarray]) -> None:
+    """
+    Create an .npz file that np.load can read with numeric string keys like "0", "1".
+
+    This avoids pyright issues with np.savez(**{"0": ...}) while keeping runtime behavior
+    identical for SAL (which expects keys like "0" in steps.npz).
+    """
+    with ZipFile(path, mode="w", compression=ZIP_DEFLATED) as zf:
+        for key, arr in arrays.items():
+            buf = BytesIO()
+            np.save(buf, arr)
+            zf.writestr(f"{key}.npy", buf.getvalue())
 
 
 @pytest.fixture
@@ -27,7 +48,6 @@ def sal(fake_db):
     return SAL(db=fake_db)
 
 
-@pytest.mark.unit
 def test_get_p100_invalid_uri_returns_none(sal, fake_db):
     # uri_to_path should raise ValueError if scheme != file
     fake_db._event = SimpleNamespace(trial_p100_npz_uri="http://example.com/p100.npz")
@@ -35,7 +55,6 @@ def test_get_p100_invalid_uri_returns_none(sal, fake_db):
     assert out is None
 
 
-@pytest.mark.unit
 def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
     # Exercise the "first key" branch (not arr_0)
     p = tmp_path / "grf.npz"
@@ -47,7 +66,6 @@ def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
     assert data == [1.0, 2.0, 3.0]
 
 
-@pytest.mark.unit
 def test_get_footsteps_bad_csv_returns_missing_file(tmp_path, sal, fake_db):
     # metadata.csv exists but missing required columns -> missing_file
     trial = tmp_path / "trial.npz"
@@ -62,14 +80,13 @@ def test_get_footsteps_bad_csv_returns_missing_file(tmp_path, sal, fake_db):
     assert err == "missing_file"
 
 
-@pytest.mark.unit
 def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))
 
     # steps.npz exists, but key "0" not present
     steps_path = trial.with_name("steps.npz")
-    np.savez(steps_path, **{"1": np.ones((2, 2, 2))})  # pyright: ignore[reportArgumentType]
+    _write_npz_with_numeric_keys(steps_path, {"1": np.ones((2, 2, 2))})
 
     fake_db._event = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
@@ -77,7 +94,6 @@ def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
     assert err == "missing_file"
 
 
-@pytest.mark.unit
 def test_get_all_footstep_p100_missing_file(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))
@@ -89,7 +105,6 @@ def test_get_all_footstep_p100_missing_file(tmp_path, sal, fake_db):
     assert err == "missing_file"
 
 
-@pytest.mark.unit
 def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))
@@ -98,7 +113,7 @@ def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     vol1 = np.ones((4, 2, 2)) * 2
 
     steps_path = trial.with_name("steps.npz")
-    np.savez(steps_path, **{"0": vol0, "1": vol1})  # pyright: ignore[reportArgumentType]
+    _write_npz_with_numeric_keys(steps_path, {"0": vol0, "1": vol1})
 
     fake_db._event = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
     items, err = sal.get_all_footstep_details("evt-1")
@@ -111,7 +126,6 @@ def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     assert isinstance(items[0]["grf"], list)
 
 
-@pytest.mark.unit
 def test_get_all_footstep_details_missing_file(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))

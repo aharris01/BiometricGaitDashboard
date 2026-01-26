@@ -27,12 +27,9 @@ def uri_to_path(uri: str) -> Path:
     if parsed.scheme != "file":
         raise ValueError(f"Unsupported URI scheme in {uri!r}; expected file://")
 
-    # Decode URL-escaped characters and get the path part
     path = unquote(parsed.path)  # e.g. "/Users/me/..." or "/C:/Users/me/..."
 
-    # On Windows, parsed.path often starts with "/C:/..."
     if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
-        # drop leading "/" → "C:/Users/me/..."
         path = path[1:]
 
     return Path(path)
@@ -105,11 +102,6 @@ class SAL:
     # =========================================================
 
     def get_event_summary(self, event_id: str) -> Optional[Tuple[dict, dict]]:
-        """
-        Return (event_dict, availability_dict) or None if event missing.
-
-        availability includes whether p100/grf/metadata/steps exist on disk.
-        """
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None
@@ -125,21 +117,18 @@ class SAL:
 
         availability: dict = {}
 
-        # p100 availability
         try:
             p100_path = uri_to_path(event.trial_p100_npz_uri)
             availability["p100"] = p100_path.exists()
         except Exception:
             availability["p100"] = False
 
-        # grf availability
         try:
             grf_path = uri_to_path(event.trial_grf_npz_uri)
             availability["grf"] = grf_path.exists()
         except Exception:
             availability["grf"] = False
 
-        # metadata.csv and steps.npz live next to trial_npz_uri
         try:
             trial_path = uri_to_path(event.trial_npz_uri)
             availability["metadata"] = trial_path.with_name("metadata.csv").exists()
@@ -151,9 +140,6 @@ class SAL:
         return event_dict, availability
 
     def get_p100(self, event_id: str):
-        """
-        Return P100 as a JSON-serialisable list (2D array), or None if missing.
-        """
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None
@@ -172,12 +158,6 @@ class SAL:
         return array.tolist()
 
     def get_grf(self, event_id: str):
-        """
-        Returns:
-            (data_list, None) on success
-            (None, "missing_event") if event not in DB
-            (None, "missing_file")  if GRF file missing/unreadable
-        """
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
@@ -212,14 +192,6 @@ class SAL:
         return data_list, None
 
     def get_footsteps(self, event_id: str):
-        """
-        Load per-footstep metadata from metadata.csv (next to trial.npz).
-
-        Returns:
-            (steps, None) on success
-            (None, "missing_event") if DB record missing
-            (None, "missing_file")  if file missing/unreadable
-        """
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
@@ -260,11 +232,6 @@ class SAL:
         return steps, None
 
     def get_footstep_data(self, event_id: str, step_id: int):
-        """
-        Load a single footstep volume from steps.npz and return:
-          - step_p100: 2D max image for this step
-          - step_grf:  1D curve for this step
-        """
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, None, "missing_event"
@@ -288,20 +255,12 @@ class SAL:
             return None, None, "missing_file"
 
         vol = steps_npz[key]  # (T, H, W)
-
         step_p100 = vol.max(axis=0)  # (H, W)
         step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
 
         return step_p100.tolist(), step_grf.tolist(), None
 
     def get_all_footstep_p100(self, event_id: str):
-        """
-        Load ALL footstep P100 images from steps.npz (one disk read).
-        Returns:
-            (items, None) on success where items = [{"id": int, "p100": [[...]]}, ...]
-            (None, "missing_event") if event missing
-            (None, "missing_file") if steps.npz missing/unreadable
-        """
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
@@ -332,15 +291,7 @@ class SAL:
         items.sort(key=lambda x: x["id"])
         return items, None
 
-    # return all footstep thumbnails + per-step GRF in one call
     def get_all_footstep_details(self, event_id: str):
-        """
-        Load ALL footstep details from steps.npz (one disk read).
-        Returns:
-            (items, None) on success where items = [{"id": int, "p100": [[...]], "grf": [...]}, ...]
-            (None, "missing_event") if event missing
-            (None, "missing_file") if steps.npz missing/unreadable
-        """
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
@@ -378,25 +329,49 @@ class SAL:
         items.sort(key=lambda x: x["id"])
         return items, None
 
-        # utility function to get event_id from file URI
+    # =========================================================
+    # Summary plot helpers
+    # =========================================================
 
-    def get_event_id_from_URI(self, file_URI: str):
-        # file URIs look like this: "..\..\data\100\2023-10-31\out\12\metadata.csv"
-        file_name = str(file_URI)[5:]  # truncate "data\"
-        keywords = list(file_name.split("\\"))
-        participant = keywords[0]
-        date_str = keywords[1]
-        direction = keywords[2]
-        event = keywords[3]
-        event_id = self.get_swipe_event_id(
+    def get_event_id_from_URI(self, file_path: str) -> Optional[str]:
+        """
+        Extract participant/date/direction/event from a metadata.csv path and
+        resolve it to the DB event_id.
+
+        Supports both Windows-style paths (data\\100\\...) and Unix-style (data/100/...).
+        """
+        # Normalize Windows separators so this works on macOS/Linux too (and in unit tests)
+        normalized = str(file_path).replace("\\", "/")
+        p = Path(normalized)
+
+        # Make relative to dataroot if possible
+        try:
+            rel = p.relative_to(Path(dataroot))
+            parts = rel.parts
+        except ValueError:
+            parts = p.parts
+
+        # Handle when dataroot="." and full path includes ".../data/<...>"
+        if "data" in parts:
+            parts = parts[parts.index("data") + 1 :]
+
+        # Expect: participant/date/direction/event/metadata.csv
+        if len(parts) < 5:
+            return None
+
+        participant = parts[0]
+        date_str = parts[1]
+        direction = parts[2]
+        event = parts[3]
+
+        return self.get_swipe_event_id(
             int(participant),
             datetime.strptime(date_str, "%Y-%m-%d").date(),
             int(event),
             direction,
         )
-        return event_id
 
-    def get_summary_plot_data(self):
+    def get_swipe_event_summary_plot_data(self):
         result = {}
         for file in list(Path(dataroot).rglob("metadata.csv")):
             try:
@@ -406,8 +381,10 @@ class SAL:
             except Exception:
                 print(f"{file}: Error occurred while opening file")
                 continue
+
             box_sizes = []
             box_sizes_sum = 0
+
             for row in rows:
                 try:
                     x_min = int(float(row["XMin"]))
@@ -417,20 +394,18 @@ class SAL:
                 except Exception:
                     print("Missing data, skipping this footstep...")
                     continue
+
                 bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
                 box_sizes.append(bounding_box_size)
                 box_sizes_sum += bounding_box_size
+
             if not box_sizes:
                 continue
 
             avg_box_size = box_sizes_sum / len(box_sizes)
             footstep_count = len(box_sizes)
 
-            try:
-                event_id = self.get_event_id_from_URI(str(file))
-            except Exception:
-                continue
-
+            event_id = self.get_event_id_from_URI(str(file))
             if not event_id:
                 continue
 
@@ -438,4 +413,5 @@ class SAL:
                 "avg_box_size": int(avg_box_size),
                 "footstep_count": footstep_count,
             }
+
         return result
