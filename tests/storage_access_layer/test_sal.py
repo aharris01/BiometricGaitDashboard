@@ -209,7 +209,9 @@ def test_get_p100_ok(tmp_path, sal, fake_db):
     p = tmp_path / "p100.npz"
     np.savez(p, arr_0=arr)
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_p100_npz_uri=p.as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_p100_npz_uri=p.as_uri()
+    )
 
     out = sal.get_p100("evt-1")
     assert out == arr.tolist()
@@ -309,7 +311,9 @@ def test_get_footsteps_ok(tmp_path, sal, fake_db):
             }
         )
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial_path.as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
+    )
 
     steps, err = sal.get_footsteps("evt-1")
     assert err is None
@@ -339,7 +343,9 @@ def test_get_footsteps_missing_file(tmp_path, sal, fake_db):
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial_path.as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
+    )
 
     steps, err = sal.get_footsteps("evt-1")
     assert steps is None
@@ -360,7 +366,9 @@ def test_get_footstep_data_ok(tmp_path, sal, fake_db):
     steps_path = trial_path.with_name("steps.npz")
     _write_npz_with_numeric_keys(steps_path, {"0": vol})
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial_path.as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
+    )
 
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert err is None
@@ -381,7 +389,9 @@ def test_get_footstep_data_missing_file(tmp_path, sal, fake_db):
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial_path.as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial_path.as_uri()
+    )
 
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert p100 is None and grf is None
@@ -583,15 +593,39 @@ def test_get_swipe_event_summary_plot_data_scans_and_computes(tmp_path, fake_db)
     with meta.open("w", newline="") as f:
         w = csv.DictWriter(
             f,
-            fieldnames=["FootstepID", "StartFrame", "EndFrame", "XMin", "XMax", "YMin", "YMax"],
+            fieldnames=[
+                "FootstepID",
+                "StartFrame",
+                "EndFrame",
+                "XMin",
+                "XMax",
+                "YMin",
+                "YMax",
+            ],
         )
         w.writeheader()
         # bbox areas: 10*5=50 and 4*2=8 => avg = 29
         w.writerow(
-            {"FootstepID": "0", "StartFrame": "0", "EndFrame": "1", "XMin": "0", "XMax": "10", "YMin": "0", "YMax": "5"}
+            {
+                "FootstepID": "0",
+                "StartFrame": "0",
+                "EndFrame": "1",
+                "XMin": "0",
+                "XMax": "10",
+                "YMin": "0",
+                "YMax": "5",
+            }
         )
         w.writerow(
-            {"FootstepID": "1", "StartFrame": "2", "EndFrame": "3", "XMin": "1", "XMax": "5", "YMin": "2", "YMax": "4"}
+            {
+                "FootstepID": "1",
+                "StartFrame": "2",
+                "EndFrame": "3",
+                "XMin": "1",
+                "XMax": "5",
+                "YMin": "2",
+                "YMax": "4",
+            }
         )
 
     out = s.get_swipe_event_summary_plot_data()
