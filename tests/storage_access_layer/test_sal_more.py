@@ -1,9 +1,27 @@
+from __future__ import annotations
+
+from io import BytesIO
 from types import SimpleNamespace
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import numpy as np
 import pytest
 
 from backend.storage_access_layer.sal import SAL
+
+
+def _write_npz_with_numeric_keys(path, arrays: dict[str, np.ndarray]) -> None:
+    """
+    Create an .npz file that np.load can read with numeric string keys like "0", "1".
+
+    This avoids pyright issues with np.savez(**{"0": ...}) while keeping runtime behavior
+    identical for SAL (which expects keys like "0" in steps.npz).
+    """
+    with ZipFile(path, mode="w", compression=ZIP_DEFLATED) as zf:
+        for key, arr in arrays.items():
+            buf = BytesIO()
+            np.save(buf, arr)
+            zf.writestr(f"{key}.npy", buf.getvalue())
 
 
 @pytest.fixture
@@ -69,8 +87,7 @@ def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
 
     # steps.npz exists, but key "0" not present
     steps_path = trial.with_name("steps.npz")
-    np.savez(steps_path, **{"1": np.ones((2, 2, 2))})  # pyright: ignore[reportArgumentType]
- 
+    _write_npz_with_numeric_keys(steps_path, {"1": np.ones((2, 2, 2))})
 
     fake_db._event = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
@@ -99,7 +116,7 @@ def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     vol1 = np.ones((4, 2, 2)) * 2
 
     steps_path = trial.with_name("steps.npz")
-    np.savez(steps_path, **{"0": vol0, "1": vol1})  # pyright: ignore[reportArgumentType]
+    _write_npz_with_numeric_keys(steps_path, {"0": vol0, "1": vol1})
 
     fake_db._event = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
     items, err = sal.get_all_footstep_details("evt-1")
