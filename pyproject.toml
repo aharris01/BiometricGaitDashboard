@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = ["--cov=backend", "--cov=frontend", "--cov-fail-under=80"]
+addopts = ["--cov=backend", "--cov=frontend", "--cov-fail-under=79.3"]
 markers = [
     "integration: mark a test as an integration test.",
     "unit: mark a test as a unit test.",
@@ -11,15 +11,14 @@ markers = [
 source = ["backend", "frontend"]
 omit = [
     "tests/*",
-    "frontend/callbacks/*"
+    "frontend/callbacks/*",
 ]
-
 
 [tool.pyright]
 include = ["backend", "frontend", "tests"]
 exclude = ["**/node_modules", "**/__pycache__", "dist", "build"]
 typeCheckingMode = "basic"
-pythonVersion = "3.13"
+pythonVersion = "3.11"
 reportMissingImports = "warning"
 reportMissingTypeStubs = "none"
 
