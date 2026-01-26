@@ -142,7 +142,8 @@
    }
    
    /* =========================================================
-      Metrics - 4 Panel Layout (with OK button + scroll wrapper)
+      Metrics - 4 Panel Layout
+      (scroll filters list + calendar popup overflow)
       ========================================================= */
    .metrics-row {
      display: grid;
@@ -160,17 +161,20 @@
      padding: 10px;
    }
    
-   /* left/right panels */
+   /* left/right panels: DO NOT CLIP POPUPS */
    .metrics-panel {
-     min-height: 560px; /* align with plot height */
-     overflow: visible; /* IMPORTANT: allow calendar popover */
+     min-height: 560px;  /* align with plot height */
+     overflow: visible;  /* allow calendar popup to overflow outside */
+     position: relative; /* better stacking context */
    }
    
-   /* Scrollable inner content (so popovers are NOT clipped) */
+   /* Scroll only list-like content (NOT the whole panel) */
    .metrics-panel-scroll {
-     overflow: auto;
-     max-height: 520px; /* keep header visible; adjust as needed */
-     padding-right: 4px;
+     /* keep smaller so DatePicker can live OUTSIDE it */
+     max-height: 380px;
+     overflow-y: auto;
+     overflow-x: visible;
+     padding-right: 6px;
    }
    
    /* center plot */
@@ -221,12 +225,46 @@
    }
    
    .metrics-field label {
-     font-size: 12px;
+     font-size: 13px; /* match .mode-btn */
      color: #374151;
      font-weight: 600;
    }
    
-   /* Arrow controls column */
+   /* Make filter input/placeholder text match .mode-btn too */
+   .metrics-panel .Select-control,
+   .metrics-panel .Select-placeholder,
+   .metrics-panel .Select-value-label,
+   .metrics-panel .DateInput_input,
+   .metrics-panel .DateInput_input::placeholder {
+     font-size: 13px !important; /* match .mode-btn */
+   }
+   
+   /* Optional: lighter placeholder color */
+   .metrics-panel .Select-placeholder,
+   .metrics-panel .DateInput_input::placeholder {
+     color: #6b7280 !important;
+   }
+   
+   /* =========================================================
+      DatePicker: allow popup to be full + above everything
+      ========================================================= */
+   .DatePicker,
+   .DateRangePicker {
+     width: 100%;
+   }
+   
+   /* Keep the calendar above plot/buttons */
+   .DatePicker__picker,
+   .DateRangePicker__picker {
+     z-index: 5000;
+   }
+   
+   /* DO NOT force position: fixed here.
+      The real fix is: DateSelector is OUTSIDE .metrics-panel-scroll. */
+   
+   /* =========================================================
+      Arrow controls column
+      ========================================================= */
    .metrics-arrows {
      display: flex;
      flex-direction: column;
