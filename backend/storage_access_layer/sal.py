@@ -380,36 +380,21 @@ class SAL:
 
         # utility function to get event_id from file URI
 
-    def get_event_id_from_URI(self, file_path: str) -> Optional[str]:
-        p = Path(file_path)
-
-        # make it relative to dataroot if possible
-        try:
-            rel = p.relative_to(Path(dataroot))
-            parts = rel.parts
-        except ValueError:
-            parts = p.parts
-
-        # handle when dataroot is "." and path includes "data/..."
-        if "data" in parts:
-            parts = parts[parts.index("data") + 1 :]
-
-        # expect: participant/date/direction/event/metadata.csv
-        if len(parts) < 5:
-            return None
-
-        participant = parts[0]
-        date_str = parts[1]
-        direction = parts[2]
-        event = parts[3]
-
-        return self.get_swipe_event_id(
+    def get_event_id_from_URI(self, file_URI: str):
+        # file URIs look like this: "..\..\data\100\2023-10-31\out\12\metadata.csv"
+        file_name = str(file_URI)[5:]  # truncate "data\"
+        keywords = list(file_name.split("\\"))
+        participant = keywords[0]
+        date_str = keywords[1]
+        direction = keywords[2]
+        event = keywords[3]
+        event_id = self.get_swipe_event_id(
             int(participant),
             datetime.strptime(date_str, "%Y-%m-%d").date(),
             int(event),
             direction,
         )
-
+        return event_id
 
     def get_summary_plot_data(self):
         result = {}
