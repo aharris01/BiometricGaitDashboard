@@ -14,7 +14,7 @@ def register(app, *, cmap):
         prevent_initial_call=True,
     )
     def display_metrics_graph(store_data):
-        if not store_data:
+        if not store_data or not store_data.get("event_id"):
             raise PreventUpdate
 
         metrics = get_swipe_event_summary_metrics(logger=app.logger)
