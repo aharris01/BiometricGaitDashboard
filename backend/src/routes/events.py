@@ -88,4 +88,3 @@ def api_swipe_event_summary_plot():
         return jsonify(data)
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
-

@@ -71,7 +71,6 @@ def get_swipe_event_summary_metrics(logger=None):
     )
 
 
-
 # (Optional legacy) not needed anymore after the change, but harmless to keep
 def get_event_footstep_p100s(event_id: str, *, logger=None):
     return fetch_json(

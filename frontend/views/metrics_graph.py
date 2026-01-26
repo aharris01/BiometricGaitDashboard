@@ -3,6 +3,7 @@ from dash import html, dcc
 from frontend.views.filters import ParticipantMultiSelect, DateSelector
 import plotly.graph_objects as go
 
+
 class MetricsGraph:
     def __init__(self, swipe_event_metrics: dict | None = None):
         self.metrics = swipe_event_metrics or {}
@@ -32,7 +33,9 @@ class MetricsGraph:
 
     def _build_scatter(self) -> go.Figure:
         if not self.metrics:
-            return self._placeholder_figure("Summary scatter not available (no metrics data).")
+            return self._placeholder_figure(
+                "Summary scatter not available (no metrics data)."
+            )
 
         event_ids = list(self.metrics.keys())
         x_vals = [self.metrics[e]["avg_box_size"] for e in event_ids]
@@ -84,7 +87,11 @@ class MetricsGraph:
                                     className="panel-header",
                                     children=[
                                         html.H3("Filters", className="panel-title"),
-                                        html.Button("OK", id="btn-apply-filters", className="ok-btn"),
+                                        html.Button(
+                                            "OK",
+                                            id="btn-apply-filters",
+                                            className="ok-btn",
+                                        ),
                                     ],
                                 ),
                                 DateSelector(id="metrics-filter-date"),

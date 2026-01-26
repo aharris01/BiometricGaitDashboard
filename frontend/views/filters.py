@@ -2,7 +2,9 @@
 from dash import html, dcc
 
 
-def ParticipantMultiSelect(*, id: str, options=None, placeholder="Select participants..."):
+def ParticipantMultiSelect(
+    *, id: str, options=None, placeholder="Select participants..."
+):
     return html.Div(
         className="metrics-field",
         children=[
