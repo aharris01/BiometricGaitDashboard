@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = ["--cov=backend", "--cov=frontend", "--cov-fail-under=79.3"]
+addopts = ["--cov=backend", "--cov=frontend", "--cov-fail-under=80"]
 markers = [
     "integration: mark a test as an integration test.",
     "unit: mark a test as a unit test.",
