@@ -20,6 +20,17 @@ MANIFEST_PATH = PROJECT_ROOT / "manifest.db"
 dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root
 
 
+def apply_local_filter(query):
+    return query.where(
+        exists().where(
+            and_(
+                LocalSwipeEvent.event_id == ManifestSwipeEvent.event_id,
+                LocalSwipeEvent.present.is_(True),
+            )
+        )
+    )
+
+
 class DB:
     def __init__(self, engine: Engine | None = None):
         # Engine can be provided for testing
@@ -38,7 +49,7 @@ class DB:
             autocommit=False,
             expire_on_commit=False,
         )
-        add_local_availability_filter(self.SessionLocal)
+        # add_local_availability_filter(self.SessionLocal)
 
         # Database needs to be populated with local data if it was just created
         if self._owns_engine and created_new:
@@ -70,59 +81,62 @@ class DB:
 
     # identical logic to previous version of accessfunctions.py
     def get_participants(self):
-        query = select(distinct(ManifestSwipeEvent.participant)).order_by(
-            ManifestSwipeEvent.participant
-        )
+        query = apply_local_filter(
+            select(distinct(ManifestSwipeEvent.participant))
+        ).order_by(ManifestSwipeEvent.participant)
+
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_dates(self, participant):
-        query = (
-            select(distinct(ManifestSwipeEvent.date))
-            .where(ManifestSwipeEvent.participant == participant)
-            .order_by(ManifestSwipeEvent.date)
-        )
+        query = apply_local_filter(
+            select(distinct(ManifestSwipeEvent.date)).where(
+                ManifestSwipeEvent.participant == participant
+            )
+        ).order_by(ManifestSwipeEvent.date)
+
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_directions(self, participant, date):
-        query = (
-            select(distinct(ManifestSwipeEvent.direction))
-            .where(
+        query = apply_local_filter(
+            select(distinct(ManifestSwipeEvent.direction)).where(
                 ManifestSwipeEvent.participant == participant,
                 ManifestSwipeEvent.date == date,
             )
-            .order_by(ManifestSwipeEvent.direction)
-        )
+        ).order_by(ManifestSwipeEvent.direction)
+
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_events(self, participant, date, direction):
-        query = (
-            select(distinct(ManifestSwipeEvent.event_number))
-            .where(
+        query = apply_local_filter(
+            select(distinct(ManifestSwipeEvent.event_number)).where(
                 ManifestSwipeEvent.participant == participant,
                 ManifestSwipeEvent.date == date,
                 ManifestSwipeEvent.direction == direction,
             )
-            .order_by(ManifestSwipeEvent.event_number)
-        )
+        ).order_by(ManifestSwipeEvent.event_number)
+
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_swipe_event_id(self, participant, date, event, direction):
-        query = select(ManifestSwipeEvent.event_id).where(
-            ManifestSwipeEvent.participant == participant,
-            ManifestSwipeEvent.date == date,
-            ManifestSwipeEvent.event_number == event,
-            ManifestSwipeEvent.direction == direction,
+        query = apply_local_filter(
+            select(ManifestSwipeEvent.event_id).where(
+                ManifestSwipeEvent.participant == participant,
+                ManifestSwipeEvent.date == date,
+                ManifestSwipeEvent.event_number == event,
+                ManifestSwipeEvent.direction == direction,
+            )
         )
+
         with self._get_session() as session:
             return session.scalars(query).first()
 
     def get_swipe_event(self, event_id):
-        query = select(ManifestSwipeEvent).where(
-            ManifestSwipeEvent.event_id == event_id
+        query = apply_local_filter(
+            select(ManifestSwipeEvent).where(ManifestSwipeEvent.event_id == event_id)
         )
         with self._get_session() as session:
             return session.scalars(query).first()
@@ -131,26 +145,6 @@ class DB:
 # -------------------------------------------------
 # DB initialisation helpers
 # -------------------------------------------------
-
-
-def add_local_availability_filter(SessionFactory):
-    @event.listens_for(SessionFactory, "do_orm_execute")
-    def _add_filter(execute_state):
-        if not execute_state.is_select:
-            return
-
-        execute_state.statement = execute_state.statement.options(
-            with_loader_criteria(
-                ManifestSwipeEvent,
-                lambda cls: exists().where(
-                    and_(
-                        LocalSwipeEvent.event_id == cls.event_id,
-                        LocalSwipeEvent.present == 1,
-                    )
-                ),
-                include_aliases=True,  # important if you use aliases/subqueries
-            )
-        )
 
 
 def _init_db():
@@ -167,9 +161,10 @@ def _init_db():
     @event.listens_for(engine, "connect")
     def _attach_manifest(dbapi_conn, _):
         cur = dbapi_conn.cursor()
-
-        cur.execute("ATTACH DATABASE ? AS manifest;", (manifest_uri,))
-
+        cur.execute(
+            "ATTACH DATABASE ? AS manifest;",
+            (f"file:{MANIFEST_PATH.as_posix()}?mode=ro",),
+        )
         cur.close()
 
     with engine.connect() as conn:
