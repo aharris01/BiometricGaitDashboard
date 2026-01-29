@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text, Date, Integer, TIMESTAMP
+from sqlalchemy import String, Text, Date, Integer, TIMESTAMP, Float
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 import datetime
 
@@ -17,6 +17,9 @@ class ManifestSwipeEvent(ManifestBase):
     direction: Mapped[str] = mapped_column(String, nullable=False)
     event_number: Mapped[int] = mapped_column(Integer, nullable=False)
     local: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # added metrics columns to the manifest.db for average bounding box size and step count
+    average_bounding_box_size = mapped_column(Float, nullable=True)
+    step_count = mapped_column(Integer, nullable=True)
 
 
 class LocalBase(DeclarativeBase):

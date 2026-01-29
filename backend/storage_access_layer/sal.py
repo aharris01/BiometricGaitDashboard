@@ -254,45 +254,18 @@ class SAL:
         except Exception:
             return None, "missing_file"
 
-    # =========================================================
-    # Backward-compatible camelCase wrappers
-    # =========================================================
+    # accessor function for average bounding box size of a specific event
+    def get_average_bounding_box_size(self, event_id: str) -> Optional[float]:
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None
 
-    def getParticipants(self):
-        return self.get_participants()
+        return event.average_bounding_box_size
 
-    def getDates(self, participant):
-        return self.get_dates(participant)
+    # accessor function for average bounding box size of a specific event
+    def get_step_count(self, event_id: str) -> Optional[int]:
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None
 
-    def getDirections(self, participant, dt):
-        return self.get_directions(participant, dt)
-
-    def getEvents(self, participant, dt, direction):
-        return self.get_events(participant, dt, direction)
-
-    def getSwipeEventId(self, participant, dt, event, direction):
-        return self.get_swipe_event_id(participant, dt, event, direction)
-
-    def getBothDirectionEvents(self, participant, dt):
-        return self.get_both_direction_events(participant, dt)
-
-    def getEventSummary(self, event_id):
-        return self.get_event_summary(event_id)
-
-    def getP100(self, event_id):
-        return self.get_p100(event_id)
-
-    def getGRF(self, event_id):
-        return self.get_grf(event_id)
-
-    def getFootsteps(self, event_id):
-        return self.get_footsteps(event_id)
-
-    def getFootstepData(self, event_id, step_id):
-        return self.get_footstep_data(event_id, step_id)
-
-    def getAllFootstepP100(self, event_id):
-        return self.get_all_footstep_p100(event_id)
-
-    def getAllFootstepDetails(self, event_id):
-        return self.get_all_footstep_details(event_id)
+        return event.step_count
