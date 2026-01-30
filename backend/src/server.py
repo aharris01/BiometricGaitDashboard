@@ -69,7 +69,7 @@ server = create_app()
 
 
 def run_backend() -> None:
-    server.run(host=API_HOST, port=API_PORT, debug=False)
+    server.run(host=API_HOST, port=API_PORT, debug=True, use_reloader=False)
 
 
 if __name__ == "__main__":
