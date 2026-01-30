@@ -30,7 +30,7 @@ def register(app, *, cmap):
         Input("event-id-store", "data"),
         prevent_initial_call=False,
     )
-    def display_summary_graph(store_data):
+    def display_summary_graph(store_data: dict):
         if not store_data:
             raise PreventUpdate
         elif not isinstance(store_data, str) and not store_data.get("event_id"):
