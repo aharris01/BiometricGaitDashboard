@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dash import html, dcc, callback, Output, Input
+from dash.exceptions import PreventUpdate
 from frontend.views.filters import ParticipantMultiSelect, DateSelector
 import json
 import plotly.graph_objects as go
@@ -70,10 +71,13 @@ class MetricsGraph:
 
     @callback(
         Output("metrics-graph-click-data", "children"),
-        Output("event-id-store", "data"),
+        Output("event-id-store", "data", allow_duplicate=True),
         Input("box-size-scatter-plot", "clickData"),
+        prevent_initial_call=True,
     )
     def on_click_display_event_id(self):
+        if self is None:
+            raise PreventUpdate
         # Data point click logging
         print(self)
 
