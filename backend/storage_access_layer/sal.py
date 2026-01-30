@@ -392,7 +392,7 @@ class SAL:
                     y_min = int(float(row["YMin"]))
                     y_max = int(float(row["YMax"]))
                 except Exception:
-                    print("Missing data, skipping this footstep...")
+                    print("SAL.get_swipe_event_summary_plot_data(): Missing data, skipping this footstep...")
                     continue
 
                 bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
