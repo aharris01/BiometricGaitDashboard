@@ -11,10 +11,7 @@ def register(app, *, cmap):
     @callback(
         Output("metrics-graph-container", "children"),
         # This should load without any input
-        Input(
-            {"type": "dropdown", "name": "participant", "level": 4},
-            "modified_timestamp",
-        ),
+        Input("page-load", "interval"),
         prevent_initial_call=False,
     )
     def display_metrics_graph(store_data):
