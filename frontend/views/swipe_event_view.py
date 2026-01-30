@@ -41,6 +41,7 @@ def SwipeEventView():
                 ],
             ),
             Div(id="metrics-graph-container"),
+            Div(id="metrics-graph-click-data"),
             Div(id="summary-container"),
         ],
     )

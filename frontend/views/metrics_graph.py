@@ -1,6 +1,7 @@
 from __future__ import annotations
-from dash import html, dcc
+from dash import html, dcc, callback, Output, Input
 from frontend.views.filters import ParticipantMultiSelect, DateSelector
+import json
 import plotly.graph_objects as go
 
 
@@ -30,6 +31,9 @@ class MetricsGraph:
             ],
         )
         return fig
+
+    def get_swipe_event_id_on_click(self, event_id):
+        print("Scatter plot click: " + event_id)
 
     def _build_scatter(self) -> go.Figure:
         if not self.metrics:
@@ -61,7 +65,15 @@ class MetricsGraph:
             yaxis_title="Footstep Count",
             margin=dict(l=30, r=20, t=20, b=40),
         )
+
         return fig
+
+    @callback(
+        Output("metrics-graph-click-data", "children"),
+        Input("box-size-scatter-plot", "clickData"),
+    )
+    def on_click_display_event_id(self):
+        return json.dumps(self)
 
     def render(self):
         scatter_plot = self._build_scatter()
