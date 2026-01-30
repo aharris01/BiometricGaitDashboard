@@ -73,7 +73,11 @@ class MetricsGraph:
         Input("box-size-scatter-plot", "clickData"),
     )
     def on_click_display_event_id(self):
-        return json.dumps(self)
+        click_data_json = json.dumps(self)
+        click_data = json.loads(click_data_json)
+        if click_data is not None:
+            event_id = click_data["points"][0]["text"]
+            return event_id
 
     def render(self):
         scatter_plot = self._build_scatter()
