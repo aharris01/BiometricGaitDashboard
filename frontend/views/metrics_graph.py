@@ -1,6 +1,8 @@
 from __future__ import annotations
-from dash import html, dcc
+from dash import html, dcc, callback, Output, Input
+from dash.exceptions import PreventUpdate
 from frontend.views.filters import ParticipantMultiSelect, DateSelector
+import json
 import plotly.graph_objects as go
 
 
@@ -30,6 +32,9 @@ class MetricsGraph:
             ],
         )
         return fig
+
+    def get_swipe_event_id_on_click(self, event_id):
+        print("Scatter plot click: " + event_id)
 
     def _build_scatter(self) -> go.Figure:
         if not self.metrics:
@@ -61,7 +66,26 @@ class MetricsGraph:
             yaxis_title="Footstep Count",
             margin=dict(l=30, r=20, t=20, b=40),
         )
+
         return fig
+
+    @callback(
+        Output("metrics-graph-click-data", "children"),
+        Output("event-id-store", "data", allow_duplicate=True),
+        Input("box-size-scatter-plot", "clickData"),
+        prevent_initial_call=True,
+    )
+    def on_click_display_event_id(self):
+        if self is None:
+            raise PreventUpdate
+        # Data point click logging
+        print(self)
+
+        click_data_json = json.dumps(self)
+        click_data = json.loads(click_data_json)
+        if click_data is not None:
+            event_id = click_data["points"][0]["text"]
+            return [self, {"event_id": event_id}]
 
     def render(self):
         scatter_plot = self._build_scatter()

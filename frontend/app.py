@@ -15,7 +15,10 @@ DASH_HOST = os.getenv("DASH_HOST", "127.0.0.1")
 DASH_PORT = int(os.getenv("DASH_PORT", "8050"))
 DASH_DEBUG = os.getenv("DASH_DEBUG", "false").lower() == "true"
 
-app = Dash(__name__, suppress_callback_exceptions=True)
+app = Dash(
+    __name__,
+    suppress_callback_exceptions=False,
+)
 app.layout = build_layout()
 
 register_all(app, cmap=cmap)
