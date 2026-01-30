@@ -99,7 +99,8 @@ def register(app):
         return _calculate_cascade_state(ctx.triggered_id, ids, values, app.logger)
 
     @callback(
-        Output("event-id-store", "data"),
+        Output("none", "data"),
+        # Output("event-id-store","data"),
         Input("submit-button", "n_clicks"),
         State({"type": "dropdown", "name": "participant", "level": 4}, "value"),
         State({"type": "dropdown", "name": "date", "level": 3}, "value"),
