@@ -176,6 +176,14 @@ class DB:
 
             return SwipeEvent(**event_dict)
 
+    def get_local_event_ids(self):
+        query = select(LocalSwipeEvent.event_id).where(
+            LocalSwipeEvent.present.is_(True)
+        )
+
+        with self._get_session() as session:
+            return session.scalars(query).all()
+
 
 # -------------------------------------------------
 # DB initialisation helpers
