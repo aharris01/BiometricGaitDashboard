@@ -1,14 +1,34 @@
 # tests/backend/storage_access_layer/test_sal.py
 
+from __future__ import annotations
+
 import csv
 import datetime as dt
+from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import numpy as np
 import pytest
 
+import backend.storage_access_layer.sal as sal_mod
 from backend.storage_access_layer.sal import SAL, uri_to_path
+
+
+def _write_npz_with_numeric_keys(path: Path, arrays: dict[str, np.ndarray]) -> None:
+    """
+    Create an .npz file that np.load can read with numeric string keys like "0", "1".
+
+    This avoids pyright issues with np.savez(**{"0": ...}) while keeping runtime behavior
+    identical for SAL (which expects keys like "0" in steps.npz).
+    """
+    with ZipFile(path, mode="w", compression=ZIP_DEFLATED) as zf:
+        for key, arr in arrays.items():
+            buf = BytesIO()
+            np.save(buf, arr)
+            zf.writestr(f"{key}.npy", buf.getvalue())
 
 
 # -------------------------------------------------------------------
@@ -39,8 +59,6 @@ def fake_db():
 
     # optional alias so older code/tests won't break
     db.getSwipeEvent = db.get_swipe_event  # type: ignore[attr-defined]
-    # event lookup
-    db.get_swipe_event = MagicMock()
 
     # close method so SAL._close_db() is happy
     db.close = MagicMock()
@@ -341,13 +359,12 @@ def test_get_footsteps_missing_file(tmp_path, sal, fake_db):
 
 @pytest.mark.unit
 def test_get_footstep_data_ok(tmp_path, sal, fake_db):
-    # trial npz path
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
 
     vol = np.ones((5, 2, 2))
     steps_path = trial_path.with_name("steps.npz")
-    np.savez(steps_path, **{"0": vol})  # pyright: ignore[reportArgumentType]
+    _write_npz_with_numeric_keys(steps_path, {"0": vol})
 
     fake_db.get_swipe_event.return_value = SimpleNamespace(
         trial_npz_uri=trial_path.as_uri()
@@ -369,7 +386,6 @@ def test_get_footstep_data_missing_event(sal, fake_db):
 
 @pytest.mark.unit
 def test_get_footstep_data_missing_file(tmp_path, sal, fake_db):
-    # trial npz exists but steps.npz does not
     trial_path = tmp_path / "trial.npz"
     np.savez(trial_path, arr_0=np.zeros((2, 2)))
 
@@ -403,15 +419,16 @@ def test_get_all_footstep_p100_missing_file(tmp_path, sal, fake_db):
 def test_get_all_footstep_p100_ok(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((1, 1)))
+
     steps_path = trial.with_name("steps.npz")
-    np.savez(
+    _write_npz_with_numeric_keys(
         steps_path,
-        allow_pickle=False,
-        **{
+        {
             "2": np.array([[[1, 2]], [[3, 4]]]),  # max -> [[3,4]]
             "0": np.array([[[5, 6]]]),  # max -> [[5,6]]
         },
     )
+
     fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
 
     items, err = sal.get_all_footstep_p100("evt-1")
@@ -419,7 +436,7 @@ def test_get_all_footstep_p100_ok(tmp_path, sal, fake_db):
     assert items == [
         {"id": 0, "p100": [[5, 6]]},
         {"id": 2, "p100": [[3, 4]]},
-    ]  # sorted by id
+    ]
 
 
 @pytest.mark.unit
@@ -427,9 +444,8 @@ def test_get_all_footstep_p100_invalid_key(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((1, 1)))
     steps_path = trial.with_name("steps.npz")
-    np.savez(
-        steps_path, allow_pickle=False, **{"abc": np.zeros((1, 1, 1))}
-    )  # int("abc") fails
+    np.savez(steps_path, abc=np.zeros((1, 1, 1)))  # int("abc") fails
+
     fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
 
     items, err = sal.get_all_footstep_p100("evt-1")
@@ -459,7 +475,7 @@ def test_get_event_summary_ok(tmp_path, sal, fake_db):
     (trial.with_name("metadata.csv")).write_text(
         "FootstepID,StartFrame,EndFrame,XMin,XMax,YMin,YMax\n"
     )
-    (trial.with_name("steps.npz")).write_bytes(b"")  # existence check only
+    (trial.with_name("steps.npz")).write_bytes(b"")
 
     event = SimpleNamespace(
         event_id="e1",
@@ -488,7 +504,6 @@ def test_get_event_summary_ok(tmp_path, sal, fake_db):
 
 @pytest.mark.unit
 def test_get_event_summary_missing_files(tmp_path, sal, fake_db):
-    # Only create trial.npz; omit p100/grf/metadata/steps
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((1, 1)))
     event = SimpleNamespace(
@@ -499,7 +514,7 @@ def test_get_event_summary_missing_files(tmp_path, sal, fake_db):
         event_number=2,
         state="done",
         trial_p100_npz_uri=(tmp_path / "no_p100.npz").as_uri(),
-        trial_grf_npz_uri="file:///definitely/invalid/path",  # exists() False
+        trial_grf_npz_uri="file:///definitely/invalid/path",
         trial_npz_uri=trial.as_uri(),
     )
     fake_db.get_swipe_event.return_value = event
@@ -535,3 +550,93 @@ def test_get_event_summary_invalid_uri(sal, fake_db):
         "metadata": False,
         "steps": False,
     }
+
+
+@pytest.mark.unit
+def test_uri_to_path_invalid_scheme_raises():
+    with pytest.raises(ValueError):
+        uri_to_path("not-a-uri-at-all")
+
+
+@pytest.mark.unit
+def test_get_event_id_from_URI_calls_get_swipe_event_id(sal, fake_db):
+    fake_db.get_swipe_event_id.return_value = "EVT123"
+
+    uri = r"data\100\2023-10-31\out\12\metadata.csv"
+
+    out = sal.get_event_id_from_URI(uri)
+
+    assert out == "EVT123"
+    fake_db.get_swipe_event_id.assert_called_once_with(
+        100,
+        dt.date(2023, 10, 31),
+        12,
+        "out",
+    )
+
+
+# -------------------------------------------------------------------
+# Summary plot helpers (extra coverage to push CI over 80%)
+# -------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_get_swipe_event_summary_plot_data_scans_and_computes(tmp_path, fake_db):
+    # Point SAL's module-level dataroot at tmp_path so rglob finds our file
+    sal_mod.dataroot = str(tmp_path)
+    s = SAL(db=fake_db)
+
+    fake_db.get_swipe_event_id.return_value = "EVT999"
+
+    meta = tmp_path / "data" / "100" / "2024-01-01" / "in" / "7" / "metadata.csv"
+    meta.parent.mkdir(parents=True, exist_ok=True)
+    with meta.open("w", newline="") as f:
+        w = csv.DictWriter(
+            f,
+            fieldnames=[
+                "FootstepID",
+                "StartFrame",
+                "EndFrame",
+                "XMin",
+                "XMax",
+                "YMin",
+                "YMax",
+            ],
+        )
+        w.writeheader()
+        # bbox areas: 10*5=50 and 4*2=8 => avg = 29
+        w.writerow(
+            {
+                "FootstepID": "0",
+                "StartFrame": "0",
+                "EndFrame": "1",
+                "XMin": "0",
+                "XMax": "10",
+                "YMin": "0",
+                "YMax": "5",
+            }
+        )
+        w.writerow(
+            {
+                "FootstepID": "1",
+                "StartFrame": "2",
+                "EndFrame": "3",
+                "XMin": "1",
+                "XMax": "5",
+                "YMin": "2",
+                "YMax": "4",
+            }
+        )
+
+    out = s.get_swipe_event_summary_plot_data()
+
+    assert "EVT999" in out
+    assert out["EVT999"]["footstep_count"] == 2
+    assert out["EVT999"]["avg_box_size"] == 29
+
+    fake_db.get_swipe_event_id.assert_called_once_with(
+        100,
+        dt.date(2024, 1, 1),
+        7,
+        "in",
+    )

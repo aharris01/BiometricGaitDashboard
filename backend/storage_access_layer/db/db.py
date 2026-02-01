@@ -8,6 +8,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker, with_loader_criteria, Session
 from contextlib import contextmanager
 from sqlalchemy import select, distinct
+
+from backend.storage_access_layer.db.models import SwipeEvent
 from .schema import LocalBase, LocalSwipeEvent, ManifestSwipeEvent
 
 from ...scripts.ingest import iter_swipes
@@ -17,7 +19,7 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "manifest.db"
 
-dataroot = os.environ.get("DATAROOT", ".")  # Defaults to root
+DATAROOT = Path(os.environ.get("DATAROOT", "."))  # Defaults to root
 
 
 def apply_local_filter(query):
@@ -28,6 +30,19 @@ def apply_local_filter(query):
                 LocalSwipeEvent.present.is_(True),
             )
         )
+    )
+
+
+def event_base_path(event) -> Path:
+    """
+    Build the filesystem path to an event directory based on manifest fields.
+    """
+    return (
+        DATAROOT
+        / str(event.participant)
+        / event.date.isoformat()
+        / event.direction
+        / str(event.event_number)
     )
 
 
@@ -135,11 +150,31 @@ class DB:
             return session.scalars(query).first()
 
     def get_swipe_event(self, event_id):
-        query = apply_local_filter(
-            select(ManifestSwipeEvent).where(ManifestSwipeEvent.event_id == event_id)
+        query = (
+            select(ManifestSwipeEvent, LocalSwipeEvent.root_path)
+            .join(
+                LocalSwipeEvent, LocalSwipeEvent.event_id == ManifestSwipeEvent.event_id
+            )
+            .where(ManifestSwipeEvent.event_id == event_id)
         )
         with self._get_session() as session:
-            return session.scalars(query).first()
+            row = session.execute(query).first()
+            if row is None:
+                return None
+            event, root_path = row
+
+            event_dict = {
+                "event_id": event.event_id,
+                "participant": event.participant,
+                "date": event.date.isoformat(),
+                "direction": event.direction,
+                "event_number": event.event_number,
+                "trial_npz_uri": f"{root_path}/trial.npz",
+                "trial_p100_npz_uri": f"{root_path}/trial.p100.npz",
+                "trial_grf_npz_uri": f"{root_path}/trial.grf.npz",
+            }
+
+            return SwipeEvent(**event_dict)
 
 
 # -------------------------------------------------
@@ -149,7 +184,7 @@ class DB:
 
 def _init_db():
     # Local database is writable
-    local_uri = f"sqlite:///{dataroot}/local.db"
+    local_uri = f"sqlite:///{DATAROOT.as_posix()}/local.db"
 
     # Manifest database is read-only mode
     manifest_uri = f"file:{MANIFEST_PATH.as_posix()}?mode=ro"
@@ -163,7 +198,7 @@ def _init_db():
         cur = dbapi_conn.cursor()
         cur.execute(
             "ATTACH DATABASE ? AS manifest;",
-            (f"file:{MANIFEST_PATH.as_posix()}?mode=ro",),
+            (manifest_uri,),
         )
         cur.close()
 
@@ -182,6 +217,6 @@ def _init_db():
 
 
 def _seed_db(db: DB):
-    for swipe_data in iter_swipes(Path(dataroot)):
+    for swipe_data in iter_swipes(DATAROOT):
         swipe_event_obj = LocalSwipeEvent(**swipe_data)
         db.add_swipe_event(swipe_event_obj)

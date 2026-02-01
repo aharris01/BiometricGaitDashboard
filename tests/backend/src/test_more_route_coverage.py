@@ -6,7 +6,7 @@ from backend.src.server import create_app
 
 class FakeSAL:
     # ---- swipe route needs this ----
-    def getSwipeEventId(
+    def get_swipe_event_id(
         self, participant: int, date: dt.date, event: int, direction: str
     ):
         # only one valid combo; everything else returns None

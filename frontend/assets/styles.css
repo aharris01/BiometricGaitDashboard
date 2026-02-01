@@ -1,119 +1,314 @@
-/* =========================
+/* =========================================================
    Global / Page
-   ========================= */
-   html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-                 Roboto, "Helvetica Neue", Arial, sans-serif;
-    background-color: #f9fafb;
-  }
-  
-  .page {
-    height: 100vh;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    box-sizing: border-box;
-  }
-  
-  /* =========================
-     Header Bar
-     ========================= */
-  .header {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    width: 100%;
-    max-width: 1100px;
-    background-color: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 12px 16px;
-    box-sizing: border-box;
-  
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  
-  .header h2 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-  }
-  
-  .subtitle {
-    font-size: 12px;
-    color: #6b7280;
-  }
-  
-  /* =========================
-     Main Content
-     ========================= */
-  .content {
-    width: 100%;
-    max-width: 1100px;
-    padding: 16px;
-    box-sizing: border-box;
-  
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  /* =========================
-     Dropdown Row
-     ========================= */
-  .dropdown-container {
-    width: 100%;
-    max-width: 900px;
-  
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  
-  /* Each dropdown / button */
-  .dropdown-container > * {
-    flex: 1 1 220px;
-  }
-  
-  /* Submit button alignment tweak */
-  #submit-button {
-    flex: 0 0 auto;
-    height: 38px;
-    padding: 0 24px;
-  }
-  
-  /* =========================
-     Graph Containers
-     ========================= */
-  #metrics-graph-container,
-  #summary-container {
-    width: 100%;
-    max-width: 1100px;
-  }
-  
-  /* Optional: give graphs a little breathing room */
-  #metrics-graph-container > div,
-  #summary-container > div {
-    margin-top: 8px;
-  }
-  
-  /* =========================
-     Plotly Graph Tweaks
-     ========================= */
-  .js-plotly-plot {
-    border-radius: 6px;
-  }
-  
-  /* =========================
-     Utility
-     ========================= */
-  .hidden {
-    display: none !important;
-  }
-  
+   ========================================================= */
+   html,
+   body {
+     margin: 0;
+     padding: 0;
+     height: 100%;
+     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+       "Helvetica Neue", Arial, sans-serif;
+     background-color: #f9fafb;
+   }
+   
+   .page {
+     height: 100vh;
+     overflow-y: auto;
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     box-sizing: border-box;
+   }
+   
+   /* =========================================================
+      Header Bar
+      ========================================================= */
+   .header {
+     position: sticky;
+     top: 0;
+     z-index: 1000;
+   
+     width: 100%;
+     max-width: 1100px;
+     padding: 12px 16px;
+     box-sizing: border-box;
+   
+     background-color: #ffffff;
+     border-bottom: 1px solid #e5e7eb;
+   
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+   }
+   
+   .header h2 {
+     margin: 0;
+     font-size: 18px;
+     font-weight: 600;
+   }
+   
+   .subtitle {
+     font-size: 12px;
+     color: #6b7280;
+   }
+   
+   /* Header mode buttons */
+   .mode-btn {
+     height: 34px;
+     padding: 0 12px;
+   
+     border: 1px solid #e5e7eb;
+     background: #ffffff;
+     border-radius: 8px;
+   
+     cursor: pointer;
+     font-size: 13px;
+   }
+   
+   .mode-btn:hover {
+     background: #f3f4f6;
+   }
+   
+   .mode-btn-active {
+     border-color: #93c5fd;
+     background: #eff6ff;
+   }
+   
+   /* =========================================================
+      Main Content
+      ========================================================= */
+   .content {
+     width: 100%;
+     max-width: 1100px;
+     padding: 16px;
+     box-sizing: border-box;
+   
+     display: flex;
+     flex-direction: column;
+     gap: 16px;
+   }
+   
+   /* =========================================================
+      Dropdown Row
+      ========================================================= */
+   .dropdown-container {
+     width: 100%;
+     max-width: 900px;
+   
+     display: flex;
+     gap: 12px;
+     align-items: center;
+     flex-wrap: wrap;
+   }
+   
+   /* Each dropdown / button in the row */
+   .dropdown-container > * {
+     flex: 1 1 220px;
+   }
+   
+   /* Submit button alignment tweak */
+   #submit-button {
+     flex: 0 0 auto;
+     height: 38px;
+     padding: 0 24px;
+   }
+   
+   /* =========================================================
+      Graph Containers
+      ========================================================= */
+   #metrics-graph-container,
+   #summary-container {
+     width: 100%;
+     max-width: 1700px;
+   }
+   
+   #metrics-graph-container > div,
+   #summary-container > div {
+     margin-top: 8px;
+   }
+   
+   /* =========================================================
+      Plotly Graph Tweaks
+      ========================================================= */
+   .js-plotly-plot {
+     border-radius: 6px;
+   }
+   
+   /* =========================================================
+      Utility
+      ========================================================= */
+   .hidden {
+     display: none !important;
+   }
+   
+   /* =========================================================
+      Metrics - 4 Panel Layout
+      (scroll filters list + calendar popup overflow)
+      ========================================================= */
+   .metrics-row {
+     display: grid;
+     grid-template-columns: 200px 1fr 56px 240px; /* filters | plot | arrows | selected */
+     gap: 12px;
+     width: 100%;
+     align-items: start;
+   }
+   
+   .metrics-panel,
+   .metrics-plot {
+     background: #ffffff;
+     border: 1px solid #e5e7eb;
+     border-radius: 8px;
+     padding: 10px;
+   }
+   
+   /* left/right panels: DO NOT CLIP POPUPS */
+   .metrics-panel {
+     min-height: 560px;  /* align with plot height */
+     overflow: visible;  /* allow calendar popup to overflow outside */
+     position: relative; /* better stacking context */
+   }
+   
+   /* Scroll only list-like content (NOT the whole panel) */
+   .metrics-panel-scroll {
+     /* keep smaller so DatePicker can live OUTSIDE it */
+     max-height: 380px;
+     overflow-y: auto;
+     overflow-x: visible;
+     padding-right: 6px;
+   }
+   
+   /* center plot */
+   .metrics-plot {
+     min-height: 560px;
+   }
+   
+   /* Filters header row: title (left) + OK button (right) */
+   .panel-header {
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 8px;
+     margin-bottom: 8px;
+   }
+   
+   /* Make "Filters" same size as plot H3 title */
+   .panel-title {
+     margin: 0;
+     font-size: 18px;
+     font-weight: 600;
+     color: #111827;
+   }
+   
+   /* OK button style */
+   .ok-btn {
+     height: 32px;
+     padding: 0 14px;
+     border-radius: 8px;
+     border: 1px solid #93c5fd;
+     background: #eff6ff;
+     color: #1d4ed8;
+     font-size: 13px;
+     font-weight: 500;
+     cursor: pointer;
+   }
+   
+   .ok-btn:hover {
+     background: #dbeafe;
+   }
+   
+   /* Filter field blocks (used by frontend/views/filters.py components) */
+   .metrics-field {
+     display: flex;
+     flex-direction: column;
+     gap: 6px;
+     margin-bottom: 14px;
+   }
+   
+   .metrics-field label {
+     font-size: 13px; /* match .mode-btn */
+     color: #374151;
+     font-weight: 600;
+   }
+   
+   /* Make filter input/placeholder text match .mode-btn too */
+   .metrics-panel .Select-control,
+   .metrics-panel .Select-placeholder,
+   .metrics-panel .Select-value-label,
+   .metrics-panel .DateInput_input,
+   .metrics-panel .DateInput_input::placeholder {
+     font-size: 13px !important; /* match .mode-btn */
+   }
+   
+   /* Optional: lighter placeholder color */
+   .metrics-panel .Select-placeholder,
+   .metrics-panel .DateInput_input::placeholder {
+     color: #6b7280 !important;
+   }
+   
+   /* =========================================================
+      DatePicker: allow popup to be full + above everything
+      ========================================================= */
+   .DatePicker,
+   .DateRangePicker {
+     width: 100%;
+   }
+   
+   /* Keep the calendar above plot/buttons */
+   .DatePicker__picker,
+   .DateRangePicker__picker {
+     z-index: 5000;
+   }
+   
+   /* DO NOT force position: fixed here.
+      The real fix is: DateSelector is OUTSIDE .metrics-panel-scroll. */
+   
+   /* =========================================================
+      Arrow controls column
+      ========================================================= */
+   .metrics-arrows {
+     display: flex;
+     flex-direction: column;
+     gap: 10px;
+     align-items: center;
+     justify-content: center;
+     min-height: 560px;
+   }
+   
+   .arrow-btn {
+     width: 44px;
+     height: 44px;
+     border-radius: 10px;
+     border: 1px solid #e5e7eb;
+     background: #ffffff;
+     cursor: pointer;
+     font-size: 18px;
+   }
+   
+   .arrow-btn:hover {
+     background: #f3f4f6;
+   }
+   
+   /* =========================================================
+      Responsive
+      ========================================================= */
+   @media (max-width: 900px) {
+     .metrics-row {
+       grid-template-columns: 1fr;
+     }
+   
+     .metrics-arrows {
+       flex-direction: row;
+       min-height: auto;
+       justify-content: flex-start;
+     }
+   
+     .metrics-panel,
+     .metrics-plot {
+       min-height: auto;
+     }
+   
+     .metrics-panel-scroll {
+       max-height: none;
+     }
+   }
+   

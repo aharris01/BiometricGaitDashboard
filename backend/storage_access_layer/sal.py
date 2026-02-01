@@ -4,32 +4,42 @@ from __future__ import annotations
 import atexit
 import csv
 import os
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, cast
+from urllib.parse import unquote, urlparse
 
 import numpy as np
 
 from . import validators as v
 from .db.db import DB
 
-DATAROOT = Path(os.environ.get("DATAROOT", "."))
+DATAROOT = Path(os.environ.get("dataroot", "."))  # Defaults to root
 
 
-def event_base_path(event) -> Path:
+def uri_to_path(uri: str) -> Path:
     """
-    Build the filesystem path to an event directory based on manifest fields.
+    Convert a file:// URI (stored in the DB) to a real filesystem Path,
+    working on both Windows and Unix-like systems.
     """
-    return (
-        DATAROOT
-        / str(event.participant)
-        / event.date.isoformat()
-        / event.direction
-        / str(event.event_number)
-    )
+    parsed = urlparse(str(uri))
+
+    if parsed.scheme != "file":
+        raise ValueError(f"Unsupported URI scheme in {uri!r}; expected file://")
+
+    path = unquote(parsed.path)  # e.g. "/Users/me/..." or "/C:/Users/me/..."
+
+    if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
+        path = path[1:]
+
+    return Path(path)
 
 
 class SAL:
+    # =========================================================
+    # Backend ↔ SAL to get data by event_id primary key
+    # =========================================================
+
     def __init__(self, db: DB | None = None):
         self.db = db or DB()
         atexit.register(self._close_db)
@@ -99,22 +109,35 @@ class SAL:
         if event is None:
             return None
 
-        base = event_base_path(event)
-
         event_dict = {
             "event_id": event.event_id,
             "participant": event.participant,
-            "date": event.date.isoformat(),
+            "date": event.date,
             "direction": event.direction,
             "event_number": event.event_number,
         }
 
-        availability = {
-            "p100": (base / "trial.p100.npz").exists(),
-            "grf": (base / "trial.grf.npz").exists(),
-            "metadata": (base / "metadata.csv").exists(),
-            "steps": (base / "steps.npz").exists(),
-        }
+        availability: dict = {}
+
+        try:
+            p100_path = uri_to_path(event.trial_p100_npz_uri)
+            availability["p100"] = p100_path.exists()
+        except Exception:
+            availability["p100"] = False
+
+        try:
+            grf_path = uri_to_path(event.trial_grf_npz_uri)
+            availability["grf"] = grf_path.exists()
+        except Exception:
+            availability["grf"] = False
+
+        try:
+            trial_path = uri_to_path(event.trial_npz_uri)
+            availability["metadata"] = trial_path.with_name("metadata.csv").exists()
+            availability["steps"] = trial_path.with_name("steps.npz").exists()
+        except Exception:
+            availability["metadata"] = False
+            availability["steps"] = False
 
         return event_dict, availability
 
@@ -123,38 +146,64 @@ class SAL:
         if event is None:
             return None
 
-        path = event_base_path(event) / "trial.p100.npz"
-        if not path.exists():
+        try:
+            file_path = uri_to_path(event.trial_p100_npz_uri)
+        except ValueError:
             return None
 
         try:
-            data = np.load(path)
-            return data["arr_0"].tolist()
-        except Exception:
+            loaded_file = np.load(file_path)
+        except FileNotFoundError:
             return None
+
+        array = loaded_file["arr_0"]
+        return array.tolist()
 
     def get_grf(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
 
-        path = event_base_path(event) / "trial.grf.npz"
-        if not path.exists():
+        try:
+            file_path = uri_to_path(event.trial_grf_npz_uri)
+        except ValueError:
             return None, "missing_file"
 
         try:
-            data = np.load(path)
-            array = data[data.files[0]]
-            return array.tolist(), None
+            loaded = np.load(file_path)
+        except FileNotFoundError:
+            return None, "missing_file"
         except Exception:
             return None, "missing_file"
+
+        try:
+            if hasattr(loaded, "files") and "arr_0" in loaded.files:
+                array = loaded["arr_0"]
+            elif hasattr(loaded, "files") and loaded.files:
+                array = loaded[loaded.files[0]]
+            else:
+                array = loaded
+        except Exception:
+            return None, "missing_file"
+
+        try:
+            data_list = array.tolist()
+        except Exception:
+            return None, "missing_file"
+
+        return data_list, None
 
     def get_footsteps(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
 
-        meta_path = event_base_path(event) / "metadata.csv"
+        try:
+            trial_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, "missing_file"
+
+        meta_path = trial_path.with_name("metadata.csv")
         if not meta_path.exists():
             return None, "missing_file"
 
@@ -165,20 +214,21 @@ class SAL:
         except Exception:
             return None, "missing_file"
 
+        steps: list[dict] = []
         try:
-            steps = [
-                {
-                    "id": int(row["FootstepID"]),
-                    "start_frame": int(row["StartFrame"]),
-                    "end_frame": int(row["EndFrame"]),
-                    "x_min": int(row["XMin"]),
-                    "x_max": int(row["XMax"]),
-                    "y_min": int(row["YMin"]),
-                    "y_max": int(row["YMax"]),
-                }
-                for row in rows
-            ]
-        except Exception:
+            for row in rows:
+                steps.append(
+                    {
+                        "id": int(row["FootstepID"]),
+                        "start_frame": int(row["StartFrame"]),
+                        "end_frame": int(row["EndFrame"]),
+                        "x_min": int(row["XMin"]),
+                        "x_max": int(row["XMax"]),
+                        "y_min": int(row["YMin"]),
+                        "y_max": int(row["YMax"]),
+                    }
+                )
+        except (KeyError, ValueError):
             return None, "missing_file"
 
         return steps, None
@@ -188,71 +238,98 @@ class SAL:
         if event is None:
             return None, None, "missing_event"
 
-        steps_path = event_base_path(event) / "steps.npz"
+        try:
+            trial_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, None, "missing_file"
+
+        steps_path = trial_path.with_name("steps.npz")
         if not steps_path.exists():
             return None, None, "missing_file"
 
         try:
             steps_npz = np.load(steps_path)
-            key = str(step_id)
-            if key not in steps_npz.files:
-                return None, None, "missing_file"
-
-            vol = steps_npz[key]
-            step_p100 = vol.max(axis=0)
-            step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)
-            return step_p100.tolist(), step_grf.tolist(), None
         except Exception:
             return None, None, "missing_file"
+
+        key = str(step_id)
+        if key not in steps_npz.files:
+            return None, None, "missing_file"
+
+        vol = steps_npz[key]  # (T, H, W)
+        step_p100 = vol.max(axis=0)  # (H, W)
+        step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+
+        return step_p100.tolist(), step_grf.tolist(), None
 
     def get_all_footstep_p100(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
 
-        steps_path = event_base_path(event) / "steps.npz"
+        try:
+            trial_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, "missing_file"
+
+        steps_path = trial_path.with_name("steps.npz")
         if not steps_path.exists():
             return None, "missing_file"
 
         try:
             steps_npz = np.load(steps_path)
-            items = [
-                {
-                    "id": int(k),
-                    "p100": steps_npz[k].max(axis=0).tolist(),
-                }
-                for k in steps_npz.files
-            ]
-            items.sort(key=lambda x: x["id"])
-            return items, None
         except Exception:
             return None, "missing_file"
+
+        items = []
+        try:
+            for key in steps_npz.files:
+                vol = steps_npz[key]  # (T, H, W)
+                step_p100 = vol.max(axis=0)  # (H, W)
+                items.append({"id": int(key), "p100": step_p100.tolist()})
+        except Exception:
+            return None, "missing_file"
+
+        items.sort(key=lambda x: x["id"])
+        return items, None
 
     def get_all_footstep_details(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
 
-        steps_path = event_base_path(event) / "steps.npz"
+        try:
+            trial_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, "missing_file"
+
+        steps_path = trial_path.with_name("steps.npz")
         if not steps_path.exists():
             return None, "missing_file"
 
         try:
             steps_npz = np.load(steps_path)
-            items = []
-            for k in steps_npz.files:
-                vol = steps_npz[k]
-                items.append(
-                    {
-                        "id": int(k),
-                        "p100": vol.max(axis=0).tolist(),
-                        "grf": vol.reshape(vol.shape[0], -1).sum(axis=1).tolist(),
-                    }
-                )
-            items.sort(key=lambda x: x["id"])
-            return items, None
         except Exception:
             return None, "missing_file"
+
+        items = []
+        try:
+            for key in steps_npz.files:
+                vol = steps_npz[key]  # (T, H, W)
+                step_p100 = vol.max(axis=0)  # (H, W)
+                step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+                items.append(
+                    {
+                        "id": int(key),
+                        "p100": step_p100.tolist(),
+                        "grf": step_grf.tolist(),
+                    }
+                )
+        except Exception:
+            return None, "missing_file"
+
+        items.sort(key=lambda x: x["id"])
+        return items, None
 
     # accessor function for average bounding box size of a specific event
     def get_average_bounding_box_size(self, event_id: str) -> Optional[float]:
@@ -260,12 +337,90 @@ class SAL:
         if event is None:
             return None
 
-        return event.average_bounding_box_size
+    # =========================================================
+    # Summary plot helpers
+    # =========================================================
+    def get_event_id_from_URI(self, file_path: str) -> Optional[str]:
+        """
+        Extract participant/date/direction/event from a metadata.csv path and
+        resolve it to the DB event_id.
 
-    # accessor function for average bounding box size of a specific event
-    def get_step_count(self, event_id: str) -> Optional[int]:
-        event = self.db.get_swipe_event(event_id)
-        if event is None:
+        Supports both Windows-style paths (data\\100\\...) and Unix-style (data/100/...).
+        """
+        # Normalize Windows separators so this works on macOS/Linux too (and in unit tests)
+        normalized = str(file_path).replace("\\", "/")
+        p = Path(normalized)
+
+        # Make relative to dataroot if possible
+        try:
+            rel = p.relative_to(DATAROOT)
+            parts = rel.parts
+        except ValueError:
+            parts = p.parts
+
+        # Handle when dataroot="." and full path includes ".../data/<...>"
+        if "data" in parts:
+            parts = parts[parts.index("data") + 1 :]
+
+        # Expect: participant/date/direction/event/metadata.csv
+        if len(parts) < 5:
             return None
 
-        return event.step_count
+        participant = parts[0]
+        date_str = parts[1]
+        direction = parts[2]
+        event = parts[3]
+
+        return self.get_swipe_event_id(
+            int(participant),
+            datetime.strptime(date_str, "%Y-%m-%d").date(),
+            int(event),
+            direction,
+        )
+
+    def get_swipe_event_summary_plot_data(self):
+        result = {}
+        for file in list(DATAROOT.rglob("metadata.csv")):
+            try:
+                with file.open(newline="") as f:
+                    reader = csv.DictReader(f)
+                    rows = list(reader)
+            except Exception:
+                print(f"{file}: Error occurred while opening file")
+                continue
+
+            box_sizes = []
+            box_sizes_sum = 0
+
+            for row in rows:
+                try:
+                    x_min = int(float(row["XMin"]))
+                    x_max = int(float(row["XMax"]))
+                    y_min = int(float(row["YMin"]))
+                    y_max = int(float(row["YMax"]))
+                except Exception:
+                    print(
+                        "SAL.get_swipe_event_summary_plot_data(): Missing data, skipping this footstep..."
+                    )
+                    continue
+
+                bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
+                box_sizes.append(bounding_box_size)
+                box_sizes_sum += bounding_box_size
+
+            if not box_sizes:
+                continue
+
+            avg_box_size = box_sizes_sum / len(box_sizes)
+            footstep_count = len(box_sizes)
+
+            event_id = self.get_event_id_from_URI(str(file))
+            if not event_id:
+                continue
+
+            result[event_id] = {
+                "avg_box_size": int(avg_box_size),
+                "footstep_count": footstep_count,
+            }
+
+        return result

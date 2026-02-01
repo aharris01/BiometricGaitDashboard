@@ -1,15 +1,16 @@
-from dash import html
-from dash.dcc import Graph
-from random import randrange
+from __future__ import annotations
+from dash import html, dcc, callback, Output, Input
+from dash.exceptions import PreventUpdate
+from frontend.views.filters import ParticipantMultiSelect, DateSelector
+import json
 import plotly.graph_objects as go
 
 
 class MetricsGraph:
-    def __init__(self, event_id, footsteps=None):
-        self.event_id = event_id
-        self.footsteps = footsteps or []
+    def __init__(self, swipe_event_metrics: dict | None = None):
+        self.metrics = swipe_event_metrics or {}
 
-    def _placeholder_figure(self, text, height=520):
+    def _placeholder_figure(self, text: str, height: int = 520) -> go.Figure:
         fig = go.Figure()
         fig.update_layout(
             height=height,
@@ -32,67 +33,156 @@ class MetricsGraph:
         )
         return fig
 
+    def get_swipe_event_id_on_click(self, event_id):
+        print("Scatter plot click: " + event_id)
+
+    def _build_scatter(self) -> go.Figure:
+        if not self.metrics:
+            return self._placeholder_figure(
+                "Summary scatter not available (no metrics data)."
+            )
+
+        event_ids = list(self.metrics.keys())
+        x_vals = [self.metrics[e]["avg_box_size"] for e in event_ids]
+        y_vals = [self.metrics[e]["footstep_count"] for e in event_ids]
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode="markers",
+                text=event_ids,
+                hovertemplate=(
+                    "<b>Event:</b> %{text}<br>"
+                    + "<b>Average Box Size:</b> %{x}<br>"
+                    + "<b>Footstep Count:</b> %{y}"
+                    + "<extra></extra>"
+                ),
+            )
+        )
+        fig.update_layout(
+            xaxis_title="Average Bounding Box Size",
+            yaxis_title="Footstep Count",
+            margin=dict(l=30, r=20, t=20, b=40),
+        )
+
+        return fig
+
+    @callback(
+        Output("metrics-graph-click-data", "children"),
+        Output("event-id-store", "data", allow_duplicate=True),
+        Input("box-size-scatter-plot", "clickData"),
+        prevent_initial_call=True,
+    )
+    def on_click_display_event_id(self):
+        if self is None:
+            raise PreventUpdate
+        # Data point click logging
+        print(self)
+
+        click_data_json = json.dumps(self)
+        click_data = json.loads(click_data_json)
+        if click_data is not None:
+            event_id = click_data["points"][0]["text"]
+            return [self, {"event_id": event_id}]
+
     def render(self):
-        # ---- Scatter plot ----
-        if self.footsteps:
-            sum_box_size_for_avg = 0
-            box_sizes = []  # list of bounding box (bbox) size of each footstep
-            for footstep in self.footsteps:
-                box_x = abs(footstep["x_max"] - footstep["x_min"])
-                box_y = abs(footstep["y_max"] - footstep["y_min"])
-                box_size = box_x * box_y
-                box_sizes.append(box_size)
-                sum_box_size_for_avg += box_size
-            random_count = []
-            for _box in box_sizes:
-                random_count.append(randrange(1, 11, 1))
+        scatter_plot = self._build_scatter()
 
-            scatter_plot = go.Figure()
-            scatter_plot.add_trace(
-                go.Scatter(
-                    x=box_sizes,
-                    y=random_count,
-                    name="Box sizes",
-                    mode="markers",  # only show data points (no connecting lines)
-                )
-            )
-        else:
-            scatter_plot = self._placeholder_figure(
-                "Box size scatter not available for this event."
-            )
+        # UI-only demo options (replace with real data later)
+        participant_options = [
+            {"label": "100", "value": 100},
+            {"label": "101", "value": 101},
+            {"label": "102", "value": 102},
+        ]
 
-        figure_div = html.Div(
-            style={
-                "display": "flex",
-                "flexDirection": "row",
-                "justifyContent": "space-between",
-                "alignItems": "flex-start",
-                "gap": "8px",
-                "width": "100%",
-            },
+        return html.Div(
             children=[
                 html.Div(
+                    className="metrics-row",
                     children=[
-                        html.H3(
-                            "Bounding box size scatter plot",
-                            style={"marginBottom": "4px", "marginTop": "4px"},
+                        # 1) Filters panel (left)
+                        html.Div(
+                            className="metrics-panel metrics-panel--filters",
+                            children=[
+                                # Header row: title (left) + OK button (right)
+                                html.Div(
+                                    className="panel-header",
+                                    children=[
+                                        html.H3("Filters", className="panel-title"),
+                                        html.Button(
+                                            "OK",
+                                            id="btn-apply-filters",
+                                            className="ok-btn",
+                                        ),
+                                    ],
+                                ),
+                                DateSelector(id="metrics-filter-date"),
+                                html.Div(
+                                    className="metrics-panel-scroll",
+                                    children=[
+                                        ParticipantMultiSelect(
+                                            id="metrics-filter-participant",
+                                            options=participant_options,
+                                        ),
+                                    ],
+                                ),
+                            ],
                         ),
-                        Graph(
-                            id="box-size-scatter-plot",
-                            figure=scatter_plot,
-                            style={
-                                "maxWidth": "1100px",
-                                "width": "500px",
-                                "height": "400px",
-                            },
+                        # 2) Scatter plot (center)
+                        html.Div(
+                            className="metrics-plot",
+                            children=[
+                                html.H3(
+                                    "Bounding box size scatter plot",
+                                    style={"marginBottom": "6px", "marginTop": "4px"},
+                                ),
+                                dcc.Graph(
+                                    id="box-size-scatter-plot",
+                                    figure=scatter_plot,
+                                    config={"displayModeBar": True},
+                                    style={"height": "520px"},
+                                ),
+                            ],
+                        ),
+                        # 3) Arrow buttons (middle)
+                        html.Div(
+                            className="metrics-arrows",
+                            children=[
+                                html.Button(
+                                    "▶", id="btn-add-selected", className="arrow-btn"
+                                ),
+                                html.Button(
+                                    "◀", id="btn-remove-selected", className="arrow-btn"
+                                ),
+                            ],
+                        ),
+                        # 4) Selected list (right)
+                        html.Div(
+                            className="metrics-panel metrics-panel--selected",
+                            children=[
+                                html.Div(
+                                    className="panel-header",
+                                    children=[
+                                        html.H3("Selected", className="panel-title"),
+                                        html.Div(),  # spacer to match header layout
+                                    ],
+                                ),
+                                html.Div(
+                                    className="metrics-panel-scroll",
+                                    children=[
+                                        html.Div(
+                                            id="metrics-selected-list",
+                                            children="(selected items here)",
+                                        )
+                                    ],
+                                ),
+                            ],
                         ),
                     ],
-                    style={"flex": "1"},
-                ),
+                )
             ],
-        )
-        return html.Div(
-            children=[figure_div],
             style={
                 "width": "100%",
                 "maxWidth": "1100px",

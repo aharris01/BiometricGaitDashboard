@@ -82,3 +82,16 @@ def api_event_footstep_detail(event_id: str, step_id: int):
         return jsonify({"p100": p100 or [], "grf": grf or []})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@events_bp.get("/api/events/summaryplot")
+def api_swipe_event_summary_plot():
+    try:
+        data = get_sal().get_swipe_event_summary_plot_data()
+        if not data:
+            return make_error(
+                500, "internal_error", "could not generate summary data for plot"
+            )
+        return jsonify(data)
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
