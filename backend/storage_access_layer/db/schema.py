@@ -41,3 +41,11 @@ class LocalSwipeEvent(LocalBase):
     # These columns are to determine if there are any changes to the available data
     present: Mapped[int] = mapped_column(Integer, nullable=False)
     last_seen: Mapped[datetime.datetime] = mapped_column(TIMESTAMP, nullable=False)
+
+
+class LocalMetrics(LocalBase):
+    __tablename__ = "local_metrics"
+
+    event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    average_bounding_box_size: Mapped[Float] = mapped_column(Float, nullable=True)
+    step_count: Mapped[int] = mapped_column(Integer, nullable=True)
