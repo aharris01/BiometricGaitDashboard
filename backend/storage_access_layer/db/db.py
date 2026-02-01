@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from sqlalchemy import Engine, create_engine, event, exists, and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy import text
+from sqlalchemy import text, cast, Float
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy import select, distinct
@@ -183,13 +183,17 @@ class DB:
 
             return SwipeEvent(**event_dict)
 
-    def get_local_event_ids(self):
-        query = select(LocalSwipeEvent.event_id).where(
-            LocalSwipeEvent.present.is_(True)
-        )
+    def get_local_metrics(self):
+        query = select(
+            LocalMetrics.event_id,
+            cast(LocalMetrics.average_bounding_box_size, Float).label(
+                "average_bounding_box_size"
+            ),
+            LocalMetrics.step_count,
+        ).group_by(LocalMetrics.event_id)
 
         with self._get_session() as session:
-            return session.scalars(query).all()
+            return session.execute(query).mappings().all()
 
 
 # -------------------------------------------------

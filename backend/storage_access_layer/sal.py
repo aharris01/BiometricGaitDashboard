@@ -379,48 +379,17 @@ class SAL:
         )
 
     def get_swipe_event_summary_plot_data(self):
-        result = {}
-        for file in list(DATAROOT.rglob("metadata.csv")):
-            try:
-                with file.open(newline="") as f:
-                    reader = csv.DictReader(f)
-                    rows = list(reader)
-            except Exception:
-                print(f"{file}: Error occurred while opening file")
-                continue
+        result = self.db.get_local_metrics()
 
-            box_sizes = []
-            box_sizes_sum = 0
-
-            for row in rows:
-                try:
-                    x_min = int(float(row["XMin"]))
-                    x_max = int(float(row["XMax"]))
-                    y_min = int(float(row["YMin"]))
-                    y_max = int(float(row["YMax"]))
-                except Exception:
-                    print(
-                        "SAL.get_swipe_event_summary_plot_data(): Missing data, skipping this footstep..."
-                    )
-                    continue
-
-                bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
-                box_sizes.append(bounding_box_size)
-                box_sizes_sum += bounding_box_size
-
-            if not box_sizes:
-                continue
-
-            avg_box_size = box_sizes_sum / len(box_sizes)
-            footstep_count = len(box_sizes)
-
-            event_id = self.get_event_id_from_URI(str(file))
-            if not event_id:
-                continue
-
-            result[event_id] = {
-                "avg_box_size": int(avg_box_size),
-                "footstep_count": footstep_count,
+        out = {}
+        for r in result:
+            avg = r["average_bounding_box_size"]
+            out[r["event_id"]] = {
+                "event_id": r["event_id"],
+                "avg_box_size": float(avg) if avg is not None else None,
+                "footstep_count": int(r["step_count"])
+                if r["step_count"] is not None
+                else None,
             }
 
-        return result
+        return out
