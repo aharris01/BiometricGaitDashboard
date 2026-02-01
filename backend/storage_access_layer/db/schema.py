@@ -24,7 +24,7 @@ class ManifestMetrics(ManifestBase):
     __table_args__ = {"schema": "manifest"}
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
-    average_bounding_box_size: Mapped[Float] = mapped_column(Float, nullable=True)
+    avg_bbox_size: Mapped[Float] = mapped_column(Float, nullable=True)
     step_count: Mapped[int] = mapped_column(Integer, nullable=True)
 
 
