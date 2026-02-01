@@ -227,4 +227,11 @@ def _init_db():
 def _seed_db(db: DB):
     for swipe_data in iter_swipes(DATAROOT):
         swipe_event_obj = LocalSwipeEvent(**swipe_data)
+        with db._get_session() as session:
+            query = select(ManifestSwipeEvent).where(
+                ManifestSwipeEvent.event_id == swipe_event_obj.event_id
+            )
+            result = session.execute(query).first()
+            if result is None:
+                continue  # Skip if event_id not found in manifest
         db.add_swipe_event(swipe_event_obj)
