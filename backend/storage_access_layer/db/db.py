@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from sqlalchemy import Engine, create_engine, event, exists, and_
 from sqlalchemy import text
-from sqlalchemy.orm import sessionmaker, with_loader_criteria, Session
+from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy import select, distinct
 
