@@ -186,9 +186,7 @@ class DB:
     def get_local_metrics(self):
         query = select(
             LocalMetrics.event_id,
-            cast(LocalMetrics.average_bounding_box_size, Float).label(
-                "average_bounding_box_size"
-            ),
+            LocalMetrics.average_bounding_box_size,
             LocalMetrics.step_count,
         ).group_by(LocalMetrics.event_id)
 

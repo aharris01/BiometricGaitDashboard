@@ -380,7 +380,6 @@ class SAL:
 
     def get_swipe_event_summary_plot_data(self):
         result = self.db.get_local_metrics()
-
         out = {}
         for r in result:
             avg = r["average_bounding_box_size"]
