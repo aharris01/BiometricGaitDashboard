@@ -183,6 +183,12 @@ class DB:
 
             return SwipeEvent(**event_dict)
 
+    def get_local_event_ids(self):
+        query = select(LocalSwipeEvent.event_id)
+
+        with self._get_session() as session:
+            return session.scalars(query).all()
+
     def get_local_metrics(self):
         query = select(
             LocalMetrics.event_id,
