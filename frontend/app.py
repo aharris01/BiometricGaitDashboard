@@ -17,7 +17,7 @@ DASH_DEBUG = os.getenv("DASH_DEBUG", "false").lower() == "true"
 
 app = Dash(
     __name__,
-    suppress_callback_exceptions=False,
+    suppress_callback_exceptions=True,
 )
 app.layout = build_layout()
 

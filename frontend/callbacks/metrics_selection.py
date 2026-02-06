@@ -67,36 +67,3 @@ def add_selected_events(_n, selection_store, selected_store):
 
     return {"event_ids": merged}
 
-
-@callback(
-    Output("metrics-selected-list", "children"),
-    Input("metrics_selected_events_store", "data"),
-    prevent_initial_call=False,
-)
-def render_selected_list(selected_store):
-    event_ids = (selected_store or {}).get("event_ids", [])
-    if not event_ids:
-        return "(selected items here)"
-
-    # clickable list items (future-proof IDs)
-    return html.Div(
-        children=[
-            html.Div(
-                html.Button(
-                    eid,
-                    id={"type": "selected_event", "event_id": eid},
-                    style={
-                        "width": "100%",
-                        "textAlign": "left",
-                        "padding": "8px 10px",
-                        "border": "1px solid #e5e7eb",
-                        "borderRadius": "8px",
-                        "background": "white",
-                        "cursor": "pointer",
-                    },
-                ),
-                style={"marginBottom": "8px"},
-            )
-            for eid in event_ids
-        ]
-    )

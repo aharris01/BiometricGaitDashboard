@@ -11,7 +11,7 @@ def register(app, *, cmap):
     @callback(
         Output("metrics-graph-container", "children"),
         # This should load without any input
-        Input("page-load", "interval"),
+        Input("page-load", "n_intervals"),
         prevent_initial_call=False,
     )
     def display_metrics_graph(store_data):

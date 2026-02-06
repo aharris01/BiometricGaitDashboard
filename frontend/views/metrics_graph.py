@@ -168,7 +168,12 @@ class MetricsGraph:
                                     className="panel-header",
                                     children=[
                                         html.H3("Selected", className="panel-title"),
-                                        html.Div(),  # spacer to match header layout
+                                        html.Button(
+                                            "Select",
+                                            id="btn-selected-select-mode",
+                                            className="ok-btn",   # reuse same style as OK
+                                        ),
+
                                     ],
                                 ),
                                 html.Div(

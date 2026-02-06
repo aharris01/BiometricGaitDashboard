@@ -1,6 +1,7 @@
 # frontend/utils.py
 from dash.exceptions import PreventUpdate
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 
 def require_values(context, **kwargs):
@@ -20,5 +21,5 @@ def parse_date_str(s: str) -> bool:
     except ValueError:
         return False
 
-def with_select_all(options, label="Select all", value="__all__"):
+def with_select_all(options: Optional[List[Dict[str, Any]]], *, label="Select all", value="__all__"):
     return [{"label": label, "value": value}] + (options or [])
