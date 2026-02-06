@@ -483,7 +483,6 @@ def test_get_event_summary_ok(tmp_path, sal, fake_db):
         date=dt.date(2024, 1, 1),
         direction="in",
         event_number=1,
-        state="ready",
         trial_p100_npz_uri=p100.as_uri(),
         trial_grf_npz_uri=grf.as_uri(),
         trial_npz_uri=trial.as_uri(),
@@ -497,7 +496,6 @@ def test_get_event_summary_ok(tmp_path, sal, fake_db):
         "date": "2024-01-01",
         "direction": "in",
         "event_number": 1,
-        "state": "ready",
     }
     assert availability == {"p100": True, "grf": True, "metadata": True, "steps": True}
 

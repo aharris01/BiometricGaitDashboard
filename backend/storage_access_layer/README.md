@@ -14,18 +14,26 @@ This design keeps the storage layer isolated so the rest of the project layers d
 
 ## Modules
 
-File | Description
+Module | Description
 ------|--------------
-db.py | Defines the SwipeEvent ORM model, SQLAlchemy engine, session factory, and internal session helpers.
+db | Defines the database ORM model, SQLAlchemy engine, session factory, and internal session helpers.
 accessfunctions.py | Provides user-facing query functions that internally manage their own database session.
 SAL.py | Provides the SAL class wrapper around DB, with validation automatically enforced.
 validators.py | Defines validation rules for all access functions, ensuring input and output types remain correct.
 
 ---
 
-## Database Model — SwipeEvent
+## Database schema
+Two databases are used: an immutable database with all swipe events in the research study, and a writable database with the locally available data. When queries are made to the DB object, both databases are attached to access both at the same time.
+<hr>
 
-Represents a single gait‑trial event stored in the database.
+### Manifest Database Model
+
+#### swipe_event
+
+<hr>
+
+Represents a single, valid gait‑trial event stored in the database.
 
 Column | Type | Description
 ---------|------|-------------
@@ -34,13 +42,22 @@ participant | Integer | Participant ID.
 date | Date | The date of the swipe event.
 direction | String | Direction ("in" or "out").
 event_number | Integer | Event number.
-state | String | State ("ready", "complete", etc.)
-trial_npz_uri | Text | Path to trial file.
-trial_p100_npz_uri | Text | Path to P100 file.
-trial_grf_npz_uri | Text | Path to GRF file.
-created_at | TIMESTAMP | Automatically set to CURRENT_TIMESTAMP.
+---
+
+### Local Database Model
 
 ---
+
+#### local_swipe_event
+---
+Represents a locally available swipe event. Only local metadata is stored
+
+Column | Type | Description
+---| --- | --- |
+event_id | String (PK) | Unique event identifier matching an entry in the manifest database
+root_path | String | The absolute path to the swipe event files on the local filesystem
+present | Integer | A boolean value to determine if the event is still available locally
+last_seen | TIMESTAMP | When the event was last found in a filesystem scan
 
 ## Access Functions (accessfunctions.py)
 

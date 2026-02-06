@@ -49,8 +49,11 @@ def api_event_full(event_id: str):
                 "footstep_details": footstep_details,
             }
         )
-    except Exception as exc:
-        return make_error(500, "internal_error", "unexpected error", str(exc))
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        raise
 
 
 # Keep this endpoint if you want; frontend will no longer need it
