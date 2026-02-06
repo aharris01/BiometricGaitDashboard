@@ -164,7 +164,7 @@
    /* left/right panels: DO NOT CLIP POPUPS */
    .metrics-panel {
      min-height: 560px;  /* align with plot height */
-     overflow: visible;  /* allow calendar popup to overflow outside */
+     overflow: visible;  /* allow popup to overflow outside */
      position: relative; /* better stacking context */
    }
    
@@ -286,6 +286,76 @@
    
    .arrow-btn:hover {
      background: #f3f4f6;
+   }
+   
+   /* =========================================================
+      Collapsible Filters (Steam-style)
+      ========================================================= */
+   
+   /* Summary header (clickable bar) */
+   .filter_summary {
+     cursor: pointer;
+     user-select: none;
+   
+     padding: 10px 12px;
+     background: #374151;          /* dark gray-blue */
+     color: #e5e7eb;
+   
+     border-radius: 6px;
+     font-weight: 600;
+     font-size: 13px;
+   }
+   
+   /* Remove default browser marker */
+   details > summary::-webkit-details-marker {
+     display: none;
+   }
+   
+   /* Custom arrow */
+   details > summary::before {
+     display: inline-block;
+     margin-right: 8px;
+     transition: transform 0.15s ease;
+     color: #9ca3af;
+   }
+   
+   /* Rotate arrow when open */
+   details[open] > summary::before {
+     transform: rotate(90deg);
+   }
+   
+   /* Collapsible content box */
+   .filter_box {
+     margin-top: 8px;
+   
+     border: 1px solid #e5e7eb;
+     border-radius: 8px;
+     background: #ffffff;
+   
+     padding: 6px;
+     max-height: 260px;            /* Steam-like scroll */
+     overflow-y: auto;
+   }
+   
+   /* Checklist items */
+   .filter_box label {
+     cursor: pointer;
+     border-radius: 6px;
+   }
+   
+   /* Hover effect (subtle) */
+   .filter_box label:hover {
+     background: #f3f4f6;
+   }
+   
+   /* Checkbox alignment */
+   .filter_box input[type="checkbox"] {
+     margin-right: 10px;
+   }
+   
+   /* Optional: keep spacing consistent inside metrics panel */
+   .metrics-panel .filter_box {
+     margin-bottom: 12px;
    }
    
    /* =========================================================

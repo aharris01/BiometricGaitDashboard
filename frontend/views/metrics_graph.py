@@ -1,7 +1,8 @@
 from __future__ import annotations
 from dash import html, dcc, callback, Output, Input
 from dash.exceptions import PreventUpdate
-from frontend.views.filters import ParticipantMultiSelect, DateSelector
+from frontend.views.filters import collapsible_checklist
+
 import json
 import plotly.graph_objects as go
 
@@ -106,7 +107,7 @@ class MetricsGraph:
                         html.Div(
                             className="metrics-panel metrics-panel--filters",
                             children=[
-                                # Header row: title (left) + OK button (right)
+                                # Header row
                                 html.Div(
                                     className="panel-header",
                                     children=[
@@ -118,18 +119,17 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
-                                DateSelector(id="metrics-filter-date"),
-                                html.Div(
-                                    className="metrics-panel-scroll",
-                                    children=[
-                                        ParticipantMultiSelect(
-                                            id="metrics-filter-participant",
-                                            options=participant_options,
-                                        ),
-                                    ],
+
+                                # Collapsible participant filter
+                                collapsible_checklist(
+                                    title="by participant",
+                                    component_id="metrics_filter_participant",
+                                    options=participant_options,
+                                    open=True,
                                 ),
                             ],
                         ),
+
                         # 2) Scatter plot (center)
                         html.Div(
                             className="metrics-plot",

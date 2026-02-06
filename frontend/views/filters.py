@@ -1,35 +1,32 @@
-# frontend/views/filters.py
 from dash import html, dcc
 
 
-def ParticipantMultiSelect(
-    *, id: str, options=None, placeholder="Select participants..."
-):
-    return html.Div(
-        className="metrics-field",
+def collapsible_checklist(*, title: str, component_id: str, options=None, open=False):
+    return html.Details(
+        open=open,
+        style={"width": "100%"},
         children=[
-            html.Label("by participant"),
-            dcc.Dropdown(
-                id=id,
-                options=options or [],
-                multi=True,
-                placeholder=placeholder,
-                clearable=True,
-            ),
-        ],
-    )
-
-
-def DateSelector(*, id: str, placeholder="Select date..."):
-    return html.Div(
-        className="metrics-field",
-        children=[
-            html.Label("by date"),
-            dcc.DatePickerSingle(
-                id=id,
-                placeholder=placeholder,
-                display_format="YYYY-MM-DD",
-                clearable=True,
+            html.Summary(title, className="filter_summary"),
+            html.Div(
+                className="filter_box",
+                children=[
+                    dcc.Checklist(
+                        id=component_id,
+                        options=options or [],
+                        value=[],
+                        inputStyle={"marginRight": "10px"},
+                        labelStyle={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "padding": "6px 8px",
+                        },
+                        style={
+                            "display": "flex",
+                            "flexDirection": "column",
+                            "gap": "2px",
+                        },
+                    )
+                ],
             ),
         ],
     )
