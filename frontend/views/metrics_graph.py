@@ -140,7 +140,10 @@ class MetricsGraph:
                                 dcc.Graph(
                                     id="box-size-scatter-plot",
                                     figure=scatter_plot,
-                                    config={"displayModeBar": True},
+                                    config={
+                                        "displayModeBar": True,
+                                        "modeBarButtonsToAdd": ["select2d", "lasso2d"],
+                                    },
                                     style={"height": "520px"},
                                 ),
                             ],

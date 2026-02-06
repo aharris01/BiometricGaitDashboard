@@ -4,6 +4,8 @@ from .selection import register as register_selection
 from .modes import register as register_modes
 from .metrics_filters import register as register_metrics_filters
 from . import filters
+from . import metrics_selection
+
 
 
 def register_all(app, *, cmap):

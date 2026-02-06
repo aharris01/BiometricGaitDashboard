@@ -80,7 +80,17 @@ def build_layout():
                     Store(
                         id="metrics_filter_participant_state", 
                         data={"prev": []}, 
-                        storage_type="session"),
+                        storage_type="session"
+                    ),
+                    Store(id="metrics_scatter_selection_store", 
+                          data={"event_ids": []}, 
+                          storage_type="session"
+                    ),
+                    Store(id="metrics_selected_events_store", 
+                          data={"event_ids": []}, 
+                          storage_type="session"
+                    ),
+
 
                     # popup for pipeline
                     ConfirmDialog(
