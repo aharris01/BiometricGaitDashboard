@@ -26,7 +26,7 @@ def calc_first_metrics():
                 else:
                     print("No data found for the given event ID.")
 
-            parsed = urlparse(root_path)
+            parsed = urlparse(str(root_path))
             root_path = Path(parsed.path.lstrip("/"))
             file = Path(root_path) / "metadata.csv"
             try:
@@ -81,7 +81,7 @@ def calc_swipe_duration():
                 else:
                     print("No data found for the given event ID.")
 
-            parsed = urlparse(root_path)
+            parsed = urlparse(str(root_path))
             root_path = Path(parsed.path.lstrip("/"))
             file = Path(root_path) / "metadata.csv"
             try:
