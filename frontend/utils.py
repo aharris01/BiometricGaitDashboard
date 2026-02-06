@@ -19,3 +19,6 @@ def parse_date_str(s: str) -> bool:
         return True
     except ValueError:
         return False
+
+def with_select_all(options, label="Select all", value="__all__"):
+    return [{"label": label, "value": value}] + (options or [])

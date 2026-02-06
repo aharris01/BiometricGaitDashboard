@@ -2,6 +2,8 @@ from __future__ import annotations
 from dash import html, dcc, callback, Output, Input
 from dash.exceptions import PreventUpdate
 from frontend.views.filters import collapsible_checklist
+from frontend.utils import with_select_all
+from frontend.api import get_participants
 
 import json
 import plotly.graph_objects as go
@@ -91,12 +93,9 @@ class MetricsGraph:
     def render(self):
         scatter_plot = self._build_scatter()
 
-        # UI-only demo options (replace with real data later)
-        participant_options = [
-            {"label": "100", "value": 100},
-            {"label": "101", "value": 101},
-            {"label": "102", "value": 102},
-        ]
+
+        participant_options = with_select_all(get_participants(logger=None))
+
 
         return html.Div(
             children=[

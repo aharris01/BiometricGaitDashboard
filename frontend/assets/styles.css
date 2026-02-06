@@ -333,7 +333,7 @@
      background: #ffffff;
    
      padding: 6px;
-     max-height: 260px;            /* Steam-like scroll */
+     max-height: 260px;            
      overflow-y: auto;
    }
    
