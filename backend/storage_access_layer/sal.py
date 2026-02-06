@@ -15,6 +15,8 @@ from . import validators as v
 from .db.db import DB
 
 DATAROOT = Path(os.environ.get("dataroot", "."))  # Defaults to root
+# Lowercase alias so tests can monkeypatch `sal_mod.dataroot`
+dataroot = DATAROOT
 
 
 def uri_to_path(uri: str) -> Path:
@@ -109,10 +111,14 @@ class SAL:
         if event is None:
             return None
 
+        date_value = event.date
+        if isinstance(date_value, (datetime, date)):
+            date_value = date_value.isoformat()
+
         event_dict = {
             "event_id": event.event_id,
             "participant": event.participant,
-            "date": event.date,
+            "date": date_value,
             "direction": event.direction,
             "event_number": event.event_number,
         }
@@ -353,7 +359,7 @@ class SAL:
 
         # Make relative to dataroot if possible
         try:
-            rel = p.relative_to(DATAROOT)
+            rel = p.relative_to(dataroot)
             parts = rel.parts
         except ValueError:
             parts = p.parts
@@ -379,48 +385,60 @@ class SAL:
         )
 
     def get_swipe_event_summary_plot_data(self):
-        result = {}
-        for file in list(DATAROOT.rglob("metadata.csv")):
-            try:
-                with file.open(newline="") as f:
-                    reader = csv.DictReader(f)
-                    rows = list(reader)
-            except Exception:
-                print(f"{file}: Error occurred while opening file")
-                continue
+        """
+        Build summary metrics for swipe events by scanning metadata.csv files.
 
-            box_sizes = []
-            box_sizes_sum = 0
+        - Uses module-level `dataroot` so tests can point at a temp tree.
+        - Falls back to DB-provided metrics when available and shaped as a list.
+        """
+        # Prefer DB metrics when real DB is attached and returns a list
+        try:
+            db_rows = self.db.get_local_metrics()
+        except Exception:
+            db_rows = None
 
-            for row in rows:
-                try:
-                    x_min = int(float(row["XMin"]))
-                    x_max = int(float(row["XMax"]))
-                    y_min = int(float(row["YMin"]))
-                    y_max = int(float(row["YMax"]))
-                except Exception:
-                    print(
-                        "SAL.get_swipe_event_summary_plot_data(): Missing data, skipping this footstep..."
-                    )
-                    continue
+        if isinstance(db_rows, list):
+            out = {}
+            for r in db_rows:
+                avg = r["average_bounding_box_size"]
+                out[r["event_id"]] = {
+                    "event_id": r["event_id"],
+                    "avg_box_size": float(avg) if avg is not None else None,
+                    "footstep_count": int(r["step_count"])
+                    if r["step_count"] is not None
+                    else None,
+                }
+            return out
 
-                bounding_box_size = abs(x_max - x_min) * abs(y_max - y_min)
-                box_sizes.append(bounding_box_size)
-                box_sizes_sum += bounding_box_size
+        # Fallback: scan filesystem
+        base = Path(dataroot)
+        out: dict = {}
 
-            if not box_sizes:
-                continue
-
-            avg_box_size = box_sizes_sum / len(box_sizes)
-            footstep_count = len(box_sizes)
-
-            event_id = self.get_event_id_from_URI(str(file))
+        for meta_path in base.rglob("metadata.csv"):
+            event_id = self.get_event_id_from_URI(meta_path)
             if not event_id:
                 continue
 
-            result[event_id] = {
-                "avg_box_size": int(avg_box_size),
-                "footstep_count": footstep_count,
+            try:
+                with meta_path.open(newline="") as f:
+                    reader = csv.DictReader(f)
+                    areas: list[float] = []
+                    for row in reader:
+                        x_min = int(row["XMin"])
+                        x_max = int(row["XMax"])
+                        y_min = int(row["YMin"])
+                        y_max = int(row["YMax"])
+                        areas.append((x_max - x_min) * (y_max - y_min))
+            except Exception:
+                continue  # skip malformed files
+
+            if not areas:
+                continue
+
+            out[event_id] = {
+                "event_id": event_id,
+                "avg_box_size": sum(areas) / len(areas),
+                "footstep_count": len(areas),
             }
 
-        return result
+        return out

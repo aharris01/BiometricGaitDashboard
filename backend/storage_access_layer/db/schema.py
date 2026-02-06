@@ -17,9 +17,15 @@ class ManifestSwipeEvent(ManifestBase):
     direction: Mapped[str] = mapped_column(String, nullable=False)
     event_number: Mapped[int] = mapped_column(Integer, nullable=False)
     local: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # added metrics columns to the manifest.db for average bounding box size and step count
-    average_bounding_box_size = mapped_column(Float, nullable=True)
-    step_count = mapped_column(Integer, nullable=True)
+
+
+class ManifestMetrics(ManifestBase):
+    __tablename__ = "global_metrics"
+    __table_args__ = {"schema": "manifest"}
+
+    event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    avg_bbox_size: Mapped[Float] = mapped_column(Float, nullable=True)
+    step_count: Mapped[int] = mapped_column(Integer, nullable=True)
 
 
 class LocalBase(DeclarativeBase):
@@ -35,3 +41,11 @@ class LocalSwipeEvent(LocalBase):
     # These columns are to determine if there are any changes to the available data
     present: Mapped[int] = mapped_column(Integer, nullable=False)
     last_seen: Mapped[datetime.datetime] = mapped_column(TIMESTAMP, nullable=False)
+
+
+class LocalMetrics(LocalBase):
+    __tablename__ = "local_metrics"
+
+    event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    average_bounding_box_size: Mapped[Float] = mapped_column(Float, nullable=True)
+    step_count: Mapped[int] = mapped_column(Integer, nullable=True)

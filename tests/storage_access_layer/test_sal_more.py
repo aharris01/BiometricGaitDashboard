@@ -48,6 +48,7 @@ def sal(fake_db):
     return SAL(db=fake_db)
 
 
+@pytest.mark.unit
 def test_get_p100_invalid_uri_returns_none(sal, fake_db):
     # uri_to_path should raise ValueError if scheme != file
     fake_db._event = SimpleNamespace(trial_p100_npz_uri="http://example.com/p100.npz")
@@ -55,6 +56,7 @@ def test_get_p100_invalid_uri_returns_none(sal, fake_db):
     assert out is None
 
 
+@pytest.mark.unit
 def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
     # Exercise the "first key" branch (not arr_0)
     p = tmp_path / "grf.npz"
@@ -66,6 +68,7 @@ def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
     assert data == [1.0, 2.0, 3.0]
 
 
+@pytest.mark.unit
 def test_get_footsteps_bad_csv_returns_missing_file(tmp_path, sal, fake_db):
     # metadata.csv exists but missing required columns -> missing_file
     trial = tmp_path / "trial.npz"
@@ -80,6 +83,7 @@ def test_get_footsteps_bad_csv_returns_missing_file(tmp_path, sal, fake_db):
     assert err == "missing_file"
 
 
+@pytest.mark.unit
 def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))
@@ -94,6 +98,7 @@ def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
     assert err == "missing_file"
 
 
+@pytest.mark.unit
 def test_get_all_footstep_p100_missing_file(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))
@@ -105,6 +110,7 @@ def test_get_all_footstep_p100_missing_file(tmp_path, sal, fake_db):
     assert err == "missing_file"
 
 
+@pytest.mark.unit
 def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))
@@ -126,6 +132,7 @@ def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     assert isinstance(items[0]["grf"], list)
 
 
+@pytest.mark.unit
 def test_get_all_footstep_details_missing_file(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))

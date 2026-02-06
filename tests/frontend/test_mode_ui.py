@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize("start_mode", ["swipe", "footstep"])
 def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
     """
@@ -82,6 +83,7 @@ def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
     assert "mode-btn-active" not in footstep_btn_cls
 
 
+@pytest.mark.integration
 def test_run_pipeline_shows_popup_and_does_not_switch_mode(dash_duo):
     """
     Covers the pipeline branch:
