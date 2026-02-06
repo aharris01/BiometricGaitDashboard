@@ -77,6 +77,11 @@ def build_layout():
                         data={"step_id": None},
                         storage_type="session",
                     ),
+                    Store(
+                        id="metrics_filter_participant_state", 
+                        data={"prev": []}, 
+                        storage_type="session"),
+
                     # popup for pipeline
                     ConfirmDialog(
                         id="pipeline-dialog",
