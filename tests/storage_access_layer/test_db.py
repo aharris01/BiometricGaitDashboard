@@ -1,7 +1,7 @@
 import datetime
 from pathlib import Path
 
-import numpy as np
+
 import pytest
 
 from backend.storage_access_layer.db.schema import (
@@ -23,7 +23,7 @@ def test_get_participants_dates_directions_events(seeded_db):
 def test_get_swipe_event_builds_paths(seeded_db, tmp_path):
     event = seeded_db.get_swipe_event("EV_PRESENT")
     assert event is not None
-    expected_root = Path(seeded_db.get_local_event_ids()[0]).name  # event_id
+    # expected_root = Path(seeded_db.get_local_event_ids()[0]).name  # event_id
     assert event.event_id == "EV_PRESENT"
     assert event.trial_npz_uri.endswith("trial.npz")
     assert event.trial_p100_npz_uri.endswith("trial.p100.npz")
