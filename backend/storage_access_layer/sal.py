@@ -385,6 +385,7 @@ class SAL:
             avg = r["average_bounding_box_size"]
             out[r["event_id"]] = {
                 "event_id": r["event_id"],
+                "participant": int(r["participant"]),
                 "avg_box_size": float(avg) if avg is not None else None,
                 "footstep_count": int(r["step_count"])
                 if r["step_count"] is not None
