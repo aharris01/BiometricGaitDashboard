@@ -163,8 +163,8 @@
    
    /* left/right panels: DO NOT CLIP POPUPS */
    .metrics-panel {
-     min-height: 560px; /* align with plot height */
-     overflow: visible; /* allow popup to overflow outside */
+     min-height: 560px;  /* align with plot height */
+     overflow: visible;  /* allow popup to overflow outside */
      position: relative; /* better stacking context */
    }
    
@@ -214,13 +214,6 @@
    
    .ok-btn:hover {
      background: #dbeafe;
-   }
-   
-   /* NEW: toggle active style (for Selected panel Select button) */
-   .toggle-btn-active {
-     border-color: #93c5fd;
-     background: #eff6ff;
-     color: #1d4ed8;
    }
    
    /* Filter field blocks (used by frontend/views/filters.py components) */
@@ -305,7 +298,7 @@
      user-select: none;
    
      padding: 10px 12px;
-     background: #374151; /* dark gray-blue */
+     background: #374151;          /* dark gray-blue */
      color: #e5e7eb;
    
      border-radius: 6px;
@@ -318,7 +311,7 @@
      display: none;
    }
    
-   /* Custom arrow (content removed earlier, so this is harmless) */
+   /* Custom arrow */
    details > summary::before {
      display: inline-block;
      margin-right: 8px;
@@ -340,7 +333,7 @@
      background: #ffffff;
    
      padding: 6px;
-     max-height: 260px;
+     max-height: 260px;            
      overflow-y: auto;
    }
    
