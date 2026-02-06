@@ -20,13 +20,18 @@ def toggle_selected_panel_mode(_n, mode_store):
 
 
 @callback(
+    Output("btn-selected-select-mode", "className"),
     Output("btn-selected-select-mode", "children"),
     Input("metrics_selected_panel_mode_store", "data"),
-    prevent_initial_call=False,
+    prevent_initial_call=True,
 )
-def update_select_button_label(mode_store):
+def style_select_toggle_button(mode_store):
     mode = (mode_store or {}).get("mode", "view")
-    return "Done" if mode == "select" else "Select"
+
+    base = "ok-btn"  # reuse existing style
+    active = f"{base} toggle-btn-active" if mode == "select" else base
+
+    return active, "Select"
 
 
 @callback(
@@ -34,7 +39,7 @@ def update_select_button_label(mode_store):
     Input("metrics_selected_events_store", "data"),
     Input("metrics_selected_panel_mode_store", "data"),
     State("metrics_selected_checklist_store", "data"),
-    prevent_initial_call=False,
+    prevent_initial_call=True,
 )
 def render_selected_list(selected_store, mode_store, checklist_value_store):
     event_ids = (selected_store or {}).get("event_ids", [])
@@ -67,9 +72,6 @@ def render_selected_list(selected_store, mode_store, checklist_value_store):
             ]
         )
 
-    # SELECT MODE: checklist with Select all at top
-    options = with_select_all([{"label": eid, "value": eid} for eid in event_ids])
-
     # optional: preserve current checklist selection if present
     current_values = (checklist_value_store or {}).get("value", [])
 
@@ -93,3 +95,36 @@ def render_selected_list(selected_store, mode_store, checklist_value_store):
             )
         ]
     )
+
+
+@callback(
+    Output("metrics_selected_events_store", "data"),
+    Output("metrics_selected_checklist_store", "data"),
+    Input("btn-remove-selected", "n_clicks"),
+    State("metrics_selected_events_store", "data"),
+    State("metrics_selected_checklist_store", "data"),
+    State("metrics_selected_panel_mode_store", "data"),
+    prevent_initial_call=True,
+)
+def remove_selected_events(n_clicks, selected_store, checklist_store, panel_mode):
+    # Only allow removal in select mode
+    if (panel_mode or {}).get("mode") != "select":
+        raise PreventUpdate
+
+    if not n_clicks:
+        raise PreventUpdate
+
+    event_ids = (selected_store or {}).get("event_ids", [])
+    checked = (checklist_store or {}).get("value", [])
+
+    # ignore "__all__" if present
+    checked = [v for v in checked if v != "__all__"]
+
+    if not event_ids or not checked:
+        raise PreventUpdate
+
+    remaining = [eid for eid in event_ids if eid not in set(checked)]
+
+    # update selected list + clear checklist selection
+    return {"event_ids": remaining}, {"value": []}
+
