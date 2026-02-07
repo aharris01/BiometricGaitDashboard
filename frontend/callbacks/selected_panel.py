@@ -20,13 +20,19 @@ def toggle_selected_panel_mode(_n, mode_store):
 
 
 @callback(
+    Output("btn-selected-select-mode", "className"),
     Output("btn-selected-select-mode", "children"),
     Input("metrics_selected_panel_mode_store", "data"),
     prevent_initial_call=False,
 )
-def update_select_button_label(mode_store):
+def style_select_toggle_button(mode_store):
     mode = (mode_store or {}).get("mode", "view")
-    return "Done" if mode == "select" else "Select"
+
+    base = "ok-btn"  # reuse existing style
+    active = f"{base} toggle-btn-active" if mode == "select" else base
+
+    return active, "Select"
+
 
 
 @callback(
