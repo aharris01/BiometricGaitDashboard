@@ -365,6 +365,13 @@
      margin-bottom: 12px;
    }
    
+   /* Optional: match checklist item font size to the filter summary */
+   .filter_box label,
+   .filter_box label span,
+   .filter_box .dash-checkbox-label,
+   .selected-event-btn {
+     font-size: 13px;
+   }
    /* =========================================================
       Responsive
       ========================================================= */
@@ -388,4 +395,19 @@
        max-height: none;
      }
    }
+
+   /* =========================================================
+      Selected panel checklist (Select mode)
+      Match font size with "by participant"
+      ========================================================= */
+
+   #metrics-selected-list label,
+   #metrics-selected-list label span {
+     font-size: 13px;
+   }
    
+   #metrics-selected-list label {
+    padding: 6px 8px;
+    line-height: 1.2;
+  }
+  

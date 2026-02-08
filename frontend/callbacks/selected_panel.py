@@ -57,6 +57,7 @@ def render_selected_list(selected_store, mode_store, checklist_value_store):
                     html.Button(
                         eid,
                         id={"type": "selected_event", "event_id": eid},
+                        className="selected-event-btn",
                         style={
                             "width": "100%",
                             "textAlign": "left",
