@@ -185,7 +185,7 @@ class MetricsGraph:
             ],
             style={
                 "width": "100%",
-                "maxWidth": "1100px",
+                "maxWidth": "90vw",
                 "display": "flex",
                 "flexDirection": "column",
                 "alignItems": "flex-start",

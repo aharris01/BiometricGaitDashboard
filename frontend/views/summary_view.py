@@ -190,7 +190,7 @@ class SummaryView:
                         Graph(
                             id="p100-graph",
                             figure=p100_figure,
-                            style={"maxWidth": "700px", "height": "520px"},
+                            style={"maxWidth": "90vw", "height": "80vh"},
                         ),
                     ],
                     style={"flex": "1"},
@@ -204,7 +204,7 @@ class SummaryView:
                         html.Div(
                             children=self._render_all_step_grid(),
                             style={
-                                "maxHeight": "560px",
+                                "maxHeight": "80vh",
                                 "overflowY": "auto",
                                 "paddingRight": "6px",
                             },
