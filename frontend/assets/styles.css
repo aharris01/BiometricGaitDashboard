@@ -294,7 +294,12 @@
    .arrow-btn:hover {
      background: #f3f4f6;
    }
-   
+
+   .arrow-btn:disabled {
+     opacity: 0.4;
+     cursor: not-allowed;
+   }
+  
    /* =========================================================
       Collapsible Filters (Steam-style)
       ========================================================= */
@@ -405,7 +410,7 @@
    #metrics-selected-list label span {
      font-size: 13px;
    }
-   
+
    #metrics-selected-list label {
     padding: 6px 8px;
     line-height: 1.2;

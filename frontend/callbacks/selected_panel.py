@@ -34,6 +34,15 @@ def style_select_toggle_button(mode_store):
     return active, "Select"
 
 
+@callback(
+    Output("btn-remove-selected", "disabled"),
+    Input("metrics_selected_panel_mode_store", "data"),
+    prevent_initial_call=False,
+)
+def disable_remove_button(mode_store):
+    mode = (mode_store or {}).get("mode", "view")
+    return mode != "select"
+
 
 @callback(
     Output("metrics-selected-list", "children"),
