@@ -90,3 +90,16 @@ def register(app, *, cmap):
 
         return {"event_ids": new_existing}, {"value": remaining_checked}
 
+
+    @app.callback(
+        Output("metrics_filter_participant_open_store", "data"),
+        Output("metrics_filter_participant_details", "open"),
+        Input("metrics_filter_participant_summary", "n_clicks"),
+        State("metrics_filter_participant_open_store", "data"),
+        prevent_initial_call=True,
+    )
+    def toggle_participant_filter_open(_n, open_data):
+        # open_data is either True/False (or missing)
+        is_open = bool(open_data) if open_data is not None else True
+        new_open = not is_open
+        return new_open, new_open
