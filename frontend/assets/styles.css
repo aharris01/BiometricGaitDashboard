@@ -237,6 +237,29 @@
      font-weight: 600;
    }
    
+   /* Selected list buttons (view mode) */
+   .selected-event-btn {
+     width: 100%;
+     text-align: left;
+     padding: 8px 10px;
+     border: 1px solid #e5e7eb;
+     border-radius: 8px;
+     background: white;
+     cursor: pointer;
+     font-size: 13px; /* matches "by participant" */
+   }
+
+   .selected-event-btn:hover {
+     background: #f3f4f6;
+   }
+
+   /* Active (currently shown in Event Summary View) */
+   .selected-event-btn.active {
+     background: #e5e7eb;
+     border-color: #9ca3af;
+     font-weight: 600;
+   }
+
    /* Make filter input/placeholder text match .mode-btn too */
    .metrics-panel .Select-control,
    .metrics-panel .Select-placeholder,

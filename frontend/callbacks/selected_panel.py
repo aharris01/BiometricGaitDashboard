@@ -1,6 +1,6 @@
 # frontend/callbacks/selected_panel.py
 
-from dash import Input, Output, State, callback, html, dcc, ctx
+from dash import Input, Output, State, callback, html, dcc, ctx, ALL
 from dash.exceptions import PreventUpdate
 from typing import Any, cast
 
@@ -45,15 +45,38 @@ def disable_remove_button(mode_store):
 
 
 @callback(
+    Output("event-id-store", "data", allow_duplicate=True),
+    Input({"type": "selected_event", "event_id": ALL}, "n_clicks"),
+    State({"type": "selected_event", "event_id": ALL}, "id"),
+    State("metrics_selected_panel_mode_store", "data"),
+    prevent_initial_call=True,
+)
+def pick_event_from_selected_list(_clicks, ids, mode_store):
+    mode = (mode_store or {}).get("mode", "view")
+
+    # Only allow changing summary by clicking items when Select is OFF
+    if mode != "view":
+        raise PreventUpdate
+
+    triggered = ctx.triggered_id
+    if not triggered or "event_id" not in triggered:
+        raise PreventUpdate
+
+    return {"event_id": triggered["event_id"]}
+
+
+@callback(
     Output("metrics-selected-list", "children"),
     Input("metrics_selected_events_store", "data"),
     Input("metrics_selected_panel_mode_store", "data"),
+    Input("event-id-store", "data"),
     State("metrics_selected_checklist_store", "data"),
     prevent_initial_call=False,
 )
-def render_selected_list(selected_store, mode_store, checklist_value_store):
+def render_selected_list(selected_store, mode_store, event_store, checklist_value_store):
     event_ids = (selected_store or {}).get("event_ids", [])
     mode = (mode_store or {}).get("mode", "view")
+    active_event_id = (event_store or {}).get("event_id")
 
     if not event_ids:
         return "(selected items here)"
@@ -66,16 +89,7 @@ def render_selected_list(selected_store, mode_store, checklist_value_store):
                     html.Button(
                         eid,
                         id={"type": "selected_event", "event_id": eid},
-                        className="selected-event-btn",
-                        style={
-                            "width": "100%",
-                            "textAlign": "left",
-                            "padding": "8px 10px",
-                            "border": "1px solid #e5e7eb",
-                            "borderRadius": "8px",
-                            "background": "white",
-                            "cursor": "pointer",
-                        },
+                        className="selected-event-btn active" if eid == active_event_id else "selected-event-btn",
                     ),
                     style={"marginBottom": "8px"},
                 )
