@@ -638,3 +638,89 @@ def test_get_swipe_event_summary_plot_data_scans_and_computes(tmp_path, fake_db)
         7,
         "in",
     )
+
+
+# -------------------------------------------------------------------
+# Local metrics accessors & summary plot data
+# -------------------------------------------------------------------
+# These tests cover:
+#   - get_local_metric()
+#   - metric-specific accessors built on top of it
+#   - partial metric availability in get_swipe_event_summary_plot_data()
+#   - preference for DB-backed metrics over filesystem fallback
+# -------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_local_metrics_generic_and_specific_accessors(sal, fake_db):
+    fake_db.get_local_metrics.return_value = [
+        {
+            "event_id": "E1",
+            "average_bounding_box_size": 10.5,
+            "step_count": 3,
+        },
+        {
+            "event_id": "E2",
+            "average_bounding_box_size": None,
+            "step_count": 0,
+        },
+    ]
+
+    avg_boxes = sal.get_average_bounding_box_sizes()
+    steps = sal.get_footstep_counts()
+
+    assert avg_boxes == {"E1": 10.5, "E2": None}
+    assert steps == {"E1": 3, "E2": 0}
+
+    fake_db.get_local_metrics.assert_called()
+
+
+@pytest.mark.unit
+def test_get_local_metric_db_failure_returns_none(sal, fake_db):
+    fake_db.get_local_metrics.side_effect = Exception("db error")
+
+    out = sal.get_local_metric("average_bounding_box_size")
+
+    assert out is None
+
+
+@pytest.mark.unit
+def test_summary_plot_data_with_partial_db_metrics(sal, fake_db):
+    fake_db.get_local_metrics.return_value = [
+        {
+            "event_id": "EVT1",
+            "average_bounding_box_size": 12.0,
+            "step_count": None,
+        }
+    ]
+
+    out = sal.get_swipe_event_summary_plot_data()
+
+    assert out == {
+        "EVT1": {
+            "event_id": "EVT1",
+            "avg_box_size": 12.0,
+            "footstep_count": None,
+        }
+    }
+
+
+@pytest.mark.unit
+def test_summary_plot_data_prefers_db_metrics_over_filesystem(sal, fake_db):
+    fake_db.get_local_metrics.return_value = [
+        {
+            "event_id": "EVT2",
+            "average_bounding_box_size": 5.0,
+            "step_count": 2,
+        }
+    ]
+
+    out = sal.get_swipe_event_summary_plot_data()
+
+    assert out == {
+        "EVT2": {
+            "event_id": "EVT2",
+            "avg_box_size": 5.0,
+            "footstep_count": 2,
+        }
+    }
