@@ -71,42 +71,42 @@ def build_layout():
                         data={"event_id": None},
                         storage_type="session",
                     ),
-                    Store(id="footsteps-store", 
-                          data=None, 
-                          storage_type="session"
-                    ),
+                    Store(id="footsteps-store", data=None, storage_type="session"),
                     Store(
                         id="selected-step-store",
                         data={"step_id": None},
                         storage_type="session",
                     ),
                     Store(
-                        id="metrics_filter_participant_state", 
-                        data={"prev": []}, 
-                        storage_type="session"
+                        id="metrics_filter_participant_state",
+                        data={"prev": []},
+                        storage_type="session",
                     ),
-                    Store(id="metrics_scatter_selection_store", 
-                          data={"event_ids": []}, 
-                          storage_type="session"
+                    Store(
+                        id="metrics_scatter_selection_store",
+                        data={"event_ids": []},
+                        storage_type="session",
                     ),
-                    Store(id="metrics_selected_events_store", 
-                          data={"event_ids": []}, 
-                          storage_type="session"
+                    Store(
+                        id="metrics_selected_events_store",
+                        data={"event_ids": []},
+                        storage_type="session",
                     ),
-                    Store(id="metrics_selected_panel_mode_store", 
-                          data={"mode": "view"}, 
-                          storage_type="session"
+                    Store(
+                        id="metrics_selected_panel_mode_store",
+                        data={"mode": "view"},
+                        storage_type="session",
                     ),
-                    Store(id="metrics_selected_checklist_state", 
-                          data={"prev": []}, 
-                          storage_type="session"
+                    Store(
+                        id="metrics_selected_checklist_state",
+                        data={"prev": []},
+                        storage_type="session",
                     ),
-                    Store(id="metrics_selected_checklist_store", 
-                          data={"value": []}, 
-                          storage_type="session"
+                    Store(
+                        id="metrics_selected_checklist_store",
+                        data={"value": []},
+                        storage_type="session",
                     ),
-
-
                     # popup for pipeline
                     ConfirmDialog(
                         id="pipeline-dialog",

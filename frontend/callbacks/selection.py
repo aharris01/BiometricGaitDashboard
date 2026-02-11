@@ -52,7 +52,6 @@ def register(app, *, cmap):
 
         return fig, {"step_id": step_id}
 
-
     @app.callback(
         Output("metrics_selected_events_store", "data", allow_duplicate=True),
         Output("metrics_selected_checklist_store", "data", allow_duplicate=True),
@@ -63,7 +62,9 @@ def register(app, *, cmap):
         State("metrics_scatter_selection_store", "data"),
         prevent_initial_call=True,
     )
-    def remove_selected_events(_n, mode_store, selected_store, checklist_store, scatter_selection_store):
+    def remove_selected_events(
+        _n, mode_store, selected_store, checklist_store, scatter_selection_store
+    ):
         mode = (mode_store or {}).get("mode", "view")
         existing = (selected_store or {}).get("event_ids", [])
         if not existing:
@@ -86,10 +87,11 @@ def register(app, *, cmap):
         remaining_checked = []
         if mode == "select":
             prev_checked = (checklist_store or {}).get("value", []) or []
-            remaining_checked = [v for v in prev_checked if v != "__all__" and v in new_existing]
+            remaining_checked = [
+                v for v in prev_checked if v != "__all__" and v in new_existing
+            ]
 
         return {"event_ids": new_existing}, {"value": remaining_checked}
-
 
     @app.callback(
         Output("metrics_filter_participant_open_store", "data"),

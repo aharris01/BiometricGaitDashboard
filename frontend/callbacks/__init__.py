@@ -8,7 +8,6 @@ from . import selected_panel  # noqa: F401
 from . import selected_checklist_select_all  # noqa: F401
 
 
-
 def register_all(app, *, cmap):
     register_views(app, cmap=cmap)
     register_selection(app, cmap=cmap)

@@ -1,7 +1,16 @@
 # frontend/views/filters.py
 from dash import html, dcc
 
-def collapsible_checklist(*, title: str, component_id: str, options=None, open=False, details_id=None, summary_id=None):
+
+def collapsible_checklist(
+    *,
+    title: str,
+    component_id: str,
+    options=None,
+    open=False,
+    details_id=None,
+    summary_id=None
+):
     return html.Details(
         id=details_id,
         open=open,

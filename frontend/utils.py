@@ -21,5 +21,8 @@ def parse_date_str(s: str) -> bool:
     except ValueError:
         return False
 
-def with_select_all(options: Optional[List[Dict[str, Any]]], *, label="Select all", value="__all__"):
+
+def with_select_all(
+    options: Optional[List[Dict[str, Any]]], *, label="Select all", value="__all__"
+):
     return [{"label": label, "value": value}] + (options or [])

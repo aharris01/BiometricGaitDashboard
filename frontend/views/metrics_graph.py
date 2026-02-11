@@ -99,7 +99,6 @@ class MetricsGraph:
             # tests / offline mode: no backend available
             participant_options = with_select_all([])
 
-
         return html.Div(
             children=[
                 html.Div(
@@ -109,7 +108,11 @@ class MetricsGraph:
                         html.Div(
                             className="metrics-panel metrics-panel--filters",
                             children=[
-                                dcc.Store(id="metrics_filter_participant_open_store", data=True, storage_type="session"),
+                                dcc.Store(
+                                    id="metrics_filter_participant_open_store",
+                                    data=True,
+                                    storage_type="session",
+                                ),
                                 # Header row
                                 html.Div(
                                     className="panel-header",
@@ -122,8 +125,7 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
-
-                                # Collapsible participant filter                                
+                                # Collapsible participant filter
                                 collapsible_checklist(
                                     title="by participant",
                                     component_id="metrics_filter_participant",
@@ -132,10 +134,8 @@ class MetricsGraph:
                                     details_id="metrics_filter_participant_details",
                                     summary_id="metrics_filter_participant_summary",
                                 ),
-
                             ],
                         ),
-
                         # 2) Scatter plot (center)
                         html.Div(
                             className="metrics-plot",
@@ -178,9 +178,8 @@ class MetricsGraph:
                                         html.Button(
                                             "Select",
                                             id="btn-selected-select-mode",
-                                            className="ok-btn",   # reuse same style as OK
+                                            className="ok-btn",  # reuse same style as OK
                                         ),
-
                                     ],
                                 ),
                                 html.Div(

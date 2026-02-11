@@ -73,7 +73,9 @@ def pick_event_from_selected_list(_clicks, ids, mode_store):
     State("metrics_selected_checklist_store", "data"),
     prevent_initial_call=False,
 )
-def render_selected_list(selected_store, mode_store, event_store, checklist_value_store):
+def render_selected_list(
+    selected_store, mode_store, event_store, checklist_value_store
+):
     event_ids = (selected_store or {}).get("event_ids", [])
     mode = (mode_store or {}).get("mode", "view")
     active_event_id = (event_store or {}).get("event_id")
@@ -89,7 +91,11 @@ def render_selected_list(selected_store, mode_store, event_store, checklist_valu
                     html.Button(
                         eid,
                         id={"type": "selected_event", "event_id": eid},
-                        className="selected-event-btn active" if eid == active_event_id else "selected-event-btn",
+                        className=(
+                            "selected-event-btn active"
+                            if eid == active_event_id
+                            else "selected-event-btn"
+                        ),
                     ),
                     style={"marginBottom": "8px"},
                 )
@@ -103,9 +109,9 @@ def render_selected_list(selected_store, mode_store, event_store, checklist_valu
     # optional: preserve current checklist selection if present
     current_values = (checklist_value_store or {}).get("value", [])
 
-    options = cast(Any, with_select_all(
-        [{"label": eid, "value": eid} for eid in event_ids]
-    ))
+    options = cast(
+        Any, with_select_all([{"label": eid, "value": eid} for eid in event_ids])
+    )
 
     return html.Div(
         children=[

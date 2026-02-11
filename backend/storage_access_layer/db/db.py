@@ -190,17 +190,21 @@ class DB:
             return session.scalars(query).all()
 
     def get_local_metrics(self):
-        query = select(
-            LocalMetrics.event_id,
-            LocalMetrics.average_bounding_box_size,
-            LocalMetrics.step_count,
-            ManifestSwipeEvent.participant,
-        ).join(
-            ManifestSwipeEvent,
-            ManifestSwipeEvent.event_id == LocalMetrics.event_id,
-        ).group_by(
-            LocalMetrics.event_id,
-            ManifestSwipeEvent.participant,
+        query = (
+            select(
+                LocalMetrics.event_id,
+                LocalMetrics.average_bounding_box_size,
+                LocalMetrics.step_count,
+                ManifestSwipeEvent.participant,
+            )
+            .join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == LocalMetrics.event_id,
+            )
+            .group_by(
+                LocalMetrics.event_id,
+                ManifestSwipeEvent.participant,
+            )
         )
 
         with self._get_session() as session:

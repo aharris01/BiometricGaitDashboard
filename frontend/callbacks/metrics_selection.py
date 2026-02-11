@@ -66,4 +66,3 @@ def add_selected_events(_n, selection_store, selected_store):
             merged.append(eid)
 
     return {"event_ids": merged}
-

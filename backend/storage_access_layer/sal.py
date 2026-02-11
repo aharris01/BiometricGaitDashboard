@@ -16,7 +16,9 @@ import numpy as np
 from . import validators as v
 from .db.db import DB
 
-DATAROOT = Path(os.environ.get("DATAROOT", os.environ.get("dataroot", ".")))  # Defaults to root
+DATAROOT = Path(
+    os.environ.get("DATAROOT", os.environ.get("dataroot", "."))
+)  # Defaults to root
 # Lowercase alias so tests can monkeypatch `sal_mod.dataroot`
 dataroot = DATAROOT
 
@@ -46,7 +48,6 @@ def uri_to_path(uri: str) -> Path:
         path = path[1:]
 
     return Path(path)
-
 
 
 class SAL:
