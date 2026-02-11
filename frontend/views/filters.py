@@ -9,7 +9,7 @@ def collapsible_checklist(
     options=None,
     open=False,
     details_id=None,
-    summary_id=None
+    summary_id=None,
 ):
     return html.Details(
         id=details_id,
