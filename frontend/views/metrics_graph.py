@@ -93,8 +93,11 @@ class MetricsGraph:
     def render(self):
         scatter_plot = self._build_scatter()
 
-
-        participant_options = with_select_all(get_participants(logger=None))
+        try:
+            participant_options = with_select_all(get_participants(logger=None))
+        except PreventUpdate:
+            # tests / offline mode: no backend available
+            participant_options = with_select_all([])
 
 
         return html.Div(

@@ -30,6 +30,9 @@ def uri_to_path(uri: str) -> Path:
     """
     s = str(uri)
 
+    if "://" in s and not s.startswith("file://"):
+        raise ValueError(f"Unsupported URI scheme in {uri!r}; expected file://")
+
     if not s.startswith("file://"):
         return Path(s)
 
@@ -360,7 +363,7 @@ class SAL:
 
         # Make relative to dataroot if possible
         try:
-            rel = p.relative_to(dataroot)
+            rel = p.relative_to(Path(dataroot))
             parts = rel.parts
         except ValueError:
             parts = p.parts
