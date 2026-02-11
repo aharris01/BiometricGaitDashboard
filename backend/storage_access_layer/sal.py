@@ -16,27 +16,32 @@ import numpy as np
 from . import validators as v
 from .db.db import DB
 
-DATAROOT = Path(os.environ.get("dataroot", "."))  # Defaults to root
+DATAROOT = Path(os.environ.get("DATAROOT", os.environ.get("dataroot", ".")))  # Defaults to root
 # Lowercase alias so tests can monkeypatch `sal_mod.dataroot`
 dataroot = DATAROOT
 
 
 def uri_to_path(uri: str) -> Path:
     """
-    Convert a file:// URI (stored in the DB) to a real filesystem Path,
-    working on both Windows and Unix-like systems.
+    Convert either:
+      - a file:// URI (stored in DB), OR
+      - a plain filesystem path
+    into a real Path.
     """
-    parsed = urlparse(str(uri))
+    s = str(uri)
 
-    if parsed.scheme != "file":
-        raise ValueError(f"Unsupported URI scheme in {uri!r}; expected file://")
+    if not s.startswith("file://"):
+        return Path(s)
 
-    path = unquote(parsed.path)  # e.g. "/Users/me/..." or "/C:/Users/me/..."
+    parsed = urlparse(s)
+    path = unquote(parsed.path)
 
+    # Windows: "/C:/Users/..." -> "C:/Users/..."
     if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
         path = path[1:]
 
     return Path(path)
+
 
 
 class SAL:
@@ -420,6 +425,9 @@ class SAL:
     def get_footstep_counts(self):
         return self.get_local_metric("step_count")
 
+    def get_participants_by_event(self):
+        return self.get_local_metric("participant")
+
     # ---- Summary composition ----
 
     def get_swipe_event_summary_plot_data(self):
@@ -447,6 +455,14 @@ class SAL:
         if steps is not None:
             for event_id, value in steps.items():
                 summary_plot_data.setdefault(event_id, {})["footstep_count"] = (
+                    int(value) if value is not None else None
+                )
+
+        # ---- Merge get participant ----
+        parts = self.get_participants_by_event()
+        if parts is not None:
+            for event_id, value in parts.items():
+                summary_plot_data.setdefault(event_id, {})["participant"] = (
                     int(value) if value is not None else None
                 )
 
