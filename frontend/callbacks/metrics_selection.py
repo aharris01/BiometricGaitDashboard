@@ -1,4 +1,4 @@
-from dash import Input, Output, State, callback, html, ctx
+from dash import Input, Output, State, callback, ctx
 from dash.exceptions import PreventUpdate
 
 

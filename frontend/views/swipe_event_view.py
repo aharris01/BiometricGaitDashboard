@@ -1,6 +1,5 @@
 # frontend/views/swipe_event_view.py
-from dash.dcc import Dropdown
-from dash.html import Div, Button
+from dash.html import Div
 
 CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
 
