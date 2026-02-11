@@ -23,10 +23,12 @@ dataroot = DATAROOT
 
 def uri_to_path(uri: str) -> Path:
     """
-    Convert either:
-      - a file:// URI (stored in DB), OR
-      - a plain filesystem path
-    into a real Path.
+    Accept:
+      - file:// URIs
+      - plain filesystem paths
+
+    Reject:
+      - any other URI scheme (http://, s3://, etc.)
     """
     s = str(uri)
 
@@ -465,9 +467,9 @@ class SAL:
         parts = self.get_participants_by_event()
         if parts is not None:
             for event_id, value in parts.items():
-                summary_plot_data.setdefault(event_id, {})["participant"] = (
-                    int(value) if value is not None else None
-                )
+                if value is None:
+                    continue
+                summary_plot_data.setdefault(event_id, {})["participant"] = int(value)
 
         if summary_plot_data:
             for event_id, data in summary_plot_data.items():
