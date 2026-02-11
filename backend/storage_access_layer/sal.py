@@ -1,20 +1,24 @@
 # backend/storage_access_layer/sal.py
-from __future__ import annotations
 
+# Standard library
 import atexit
 import csv
 import os
 from datetime import date, datetime
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import unquote, urlparse
+from typing import Dict, List, Literal, Optional, Tuple, cast
 
+# Third-party
 import numpy as np
 
+# Local
 from . import validators as v
 from .db.db import DB
 
 DATAROOT = Path(os.environ.get("dataroot", "."))  # Defaults to root
+# Lowercase alias so tests can monkeypatch `sal_mod.dataroot`
+dataroot = DATAROOT
 
 
 def uri_to_path(uri: str) -> Path:
@@ -109,10 +113,14 @@ class SAL:
         if event is None:
             return None
 
+        date_value = event.date
+        if isinstance(date_value, (datetime, date)):
+            date_value = date_value.isoformat()
+
         event_dict = {
             "event_id": event.event_id,
             "participant": event.participant,
-            "date": event.date,
+            "date": date_value,
             "direction": event.direction,
             "event_number": event.event_number,
         }
@@ -331,16 +339,10 @@ class SAL:
         items.sort(key=lambda x: x["id"])
         return items, None
 
-    # accessor function for average bounding box size of a specific event
-    def get_average_bounding_box_size(self, event_id: str) -> Optional[float]:
-        event = self.db.get_swipe_event(event_id)
-        if event is None:
-            return None
-
     # =========================================================
     # Summary plot helpers
     # =========================================================
-    def get_event_id_from_URI(self, file_path: str) -> Optional[str]:
+    def get_event_id_from_URI(self, file_path: str | Path) -> Optional[str]:
         """
         Extract participant/date/direction/event from a metadata.csv path and
         resolve it to the DB event_id.
@@ -353,7 +355,7 @@ class SAL:
 
         # Make relative to dataroot if possible
         try:
-            rel = p.relative_to(DATAROOT)
+            rel = p.relative_to(dataroot)
             parts = rel.parts
         except ValueError:
             parts = p.parts
@@ -378,18 +380,120 @@ class SAL:
             direction,
         )
 
-    def get_swipe_event_summary_plot_data(self):
-        result = self.db.get_local_metrics()
+    # =========================================================
+    # Local metrics accessors
+    # =========================================================
+    # Summary metrics are primarily read from the local database
+    # (local_metrics). A generic column accessor is used to
+    # retrieve individual metrics, while semantic helper
+    # functions expose specific values.
+    #
+    # get_swipe_event_summary_plot_data() composes these accessors
+    # and provides a stable, frontend-facing API. If database
+    # access fails, metrics are recomputed from the filesystem
+    # as a fallback.
+    # =========================================================
+
+    def get_local_metric(self, column_name: str):
+        try:
+            rows = self.db.get_local_metrics()
+        except Exception:
+            return None
+
+        if not isinstance(rows, list):
+            return None
+
         out = {}
-        for r in result:
-            avg = r["average_bounding_box_size"]
-            out[r["event_id"]] = {
-                "event_id": r["event_id"],
-                "participant": int(r["participant"]),
-                "avg_box_size": float(avg) if avg is not None else None,
-                "footstep_count": int(r["step_count"])
-                if r["step_count"] is not None
-                else None,
+        for r in rows:
+            out[r["event_id"]] = r.get(column_name)
+
+        return out
+
+    # ---- Metric-specific accessors ----
+    # Add one accessor per metric stored in local_metrics.
+    # Each accessor should call get_local_metric() with the
+    # corresponding column name.
+
+    def get_average_bounding_box_sizes(self):
+        return self.get_local_metric("average_bounding_box_size")
+
+    def get_footstep_counts(self):
+        return self.get_local_metric("step_count")
+
+    # ---- Summary composition ----
+
+    def get_swipe_event_summary_plot_data(self):
+        summary_plot_data: dict = {}
+
+        # =====================================================
+        # Add new metric accessors here.
+        #
+        # For each new metric:
+        #   1. Call the metric-specific accessor
+        #   2. Merge its values into summary_plot_data below
+        # =====================================================
+
+        avg_boxes = self.get_average_bounding_box_sizes()
+        steps = self.get_footstep_counts()
+
+        # ---- Merge average bounding box size ----
+        if avg_boxes is not None:
+            for event_id, value in avg_boxes.items():
+                summary_plot_data.setdefault(event_id, {})["avg_box_size"] = (
+                    float(value) if value is not None else None
+                )
+
+        # ---- Merge footstep count ----
+        if steps is not None:
+            for event_id, value in steps.items():
+                summary_plot_data.setdefault(event_id, {})["footstep_count"] = (
+                    int(value) if value is not None else None
+                )
+
+        if summary_plot_data:
+            for event_id, data in summary_plot_data.items():
+                data["event_id"] = event_id
+            return summary_plot_data
+
+        # Fallback: filesystem scan
+        return self._compute_metrics_from_filesystem()
+
+    # ---- Filesystem fallback ----
+
+    def _compute_metrics_from_filesystem(self):
+        base = Path(dataroot)
+        out = {}
+
+        for meta_path in base.rglob("metadata.csv"):
+            event_id = self.get_event_id_from_URI(meta_path)
+            if not event_id:
+                continue
+
+            try:
+                with meta_path.open(newline="") as f:
+                    reader = csv.DictReader(f)
+                    areas = []
+                    for row in reader:
+                        x_min = int(row["XMin"])
+                        x_max = int(row["XMax"])
+                        y_min = int(row["YMin"])
+                        y_max = int(row["YMax"])
+                        areas.append((x_max - x_min) * (y_max - y_min))
+            except Exception:
+                continue
+
+            if not areas:
+                continue
+
+            # =================================================
+            # When adding a new metric, update this dictionary
+            # to include the filesystem-derived value for that
+            # metric (if applicable).
+            # =================================================
+            out[event_id] = {
+                "event_id": event_id,
+                "avg_box_size": sum(areas) / len(areas),
+                "footstep_count": len(areas),
             }
 
         return out

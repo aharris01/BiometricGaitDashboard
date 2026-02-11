@@ -6,3 +6,4 @@ coverage
 ruff
 pyright
 dash-testing-stub
+selenium

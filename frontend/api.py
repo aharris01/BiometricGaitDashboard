@@ -14,22 +14,19 @@ def fetch_json(
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as exc:
-        response = exc.response
-
-        body = {
-            "message": None,
-            "details": None,
-        }
-
-        if response is not None:
+        # Gracefully handle cases where the response is missing or not JSON
+        message = None
+        details = None
+        resp = getattr(exc, "response", None)
+        if resp is not None:
             try:
-                payload = response.json()
-                body["message"] = payload.get("message")
-                body["details"] = payload.get("details")
-            except ValueError:
-                # response body was not JSON
+                data = resp.json()
+                message = data.get("message")
+                details = data.get("details")
+            except Exception:
+                # Leave message/details as None if the body is not JSON
                 pass
-
+        body = {"message": message, "details": details}
         if logger:
             logger.error(
                 f"[{context}] Failed to fetch {url}: {body['message']} - {body['details']}"

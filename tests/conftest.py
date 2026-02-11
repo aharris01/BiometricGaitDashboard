@@ -1,101 +1,132 @@
-# tests/backend/conftest.py
-# The purpose of this fixture in conftest is to create a simulated environment in which SQLite scripts can be tested against
-import os
 import datetime
-import pytest
-import numpy as np
 
-from sqlalchemy import create_engine
+import numpy as np
+import pytest
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 
-# DB imports
-from backend.storage_access_layer.db.db import Base
-from backend.storage_access_layer.db.db import SwipeEvent
+from backend.storage_access_layer.db.schema import (
+    LocalBase,
+    ManifestBase,
+    ManifestSwipeEvent,
+    ManifestMetrics,
+    LocalSwipeEvent,
+)
 from backend.storage_access_layer.db.db import DB
 
 
 @pytest.fixture(scope="module")
-def test_db(tmp_path_factory):
-    # create temp npz files
-    tmp = tmp_path_factory.mktemp("npzdata")
+def db_paths(tmp_path_factory):
+    root = tmp_path_factory.mktemp("dbs")
+    return {
+        "local": root / "local.db",
+        "manifest": root / "manifest.db",
+        "dataroot": root / "data",
+    }
 
-    p100_file = tmp / "trial.p100.npz"
-    grf_file = tmp / "trial.grf.npz"
-    trial_file = tmp / "trial.npz"
 
-    a = np.arange(12).reshape(3, 4)
-    g = np.linspace(0, 1, 10)
+@pytest.fixture(scope="module")
+def engine(db_paths):
+    local_uri = f"sqlite:///{db_paths['local'].as_posix()}"
+    manifest_path = db_paths["manifest"].as_posix()
 
-    np.savez(p100_file, p100=a)
-    np.savez(grf_file, grf=g)
-    np.savez(trial_file, footstep_0_p100=np.ones((2, 2)), footstep_0_grf=np.arange(5))
+    engine = create_engine(local_uri, connect_args={"check_same_thread": False})
 
-    p100_path = p100_file.resolve().as_uri()
-    grf_path = grf_file.resolve().as_uri()
-    trial_path = trial_file.resolve().as_uri()
+    @event.listens_for(engine, "connect")
+    def _attach_manifest(dbapi_conn, _):
+        cur = dbapi_conn.cursor()
+        cur.execute("ATTACH DATABASE ? AS manifest", (manifest_path,))
+        cur.close()
 
-    # setup SQLite test DB
-    os.environ["DATABASE_URL"] = "sqlite:///test_temp.db"
-    test_engine = create_engine("sqlite:///test_temp.db")
+    # ensure manifest is attached for metadata creation
+    with engine.begin() as conn:
+        ManifestBase.metadata.create_all(conn)
+        LocalBase.metadata.create_all(conn)
 
-    db = DB(test_engine)
+    yield engine
+    engine.dispose()
 
-    Base.metadata.drop_all(test_engine)
-    Base.metadata.create_all(test_engine)
 
-    # insert rows
-    rows = [
-        SwipeEvent(
-            event_id="test_11111_2025-01-01_in_1_complete",
+@pytest.fixture(scope="module")
+def seeded_db(engine, db_paths):
+    # build tiny data root with files for path checks
+    event_root = db_paths["dataroot"] / "11111" / "2025-01-01" / "in" / "1"
+    event_root.mkdir(parents=True)
+    for name, arr in {
+        "trial.npz": np.array([1, 2, 3]),
+        "trial.p100.npz": np.array([4]),
+        "trial.grf.npz": np.array([5]),
+    }.items():
+        np.savez(event_root / name, arr=arr)
+
+    rows_manifest = [
+        ManifestSwipeEvent(
+            event_id="EV_PRESENT",
             participant=11111,
             date=datetime.date(2025, 1, 1),
             direction="in",
             event_number=1,
-            state="complete",
-            trial_npz_uri=trial_path,
-            trial_p100_npz_uri=p100_path,
-            trial_grf_npz_uri=grf_path,
+            local=1,
         ),
-        SwipeEvent(
-            event_id="test_22222_2025-01-02_out_2_complete",
+        ManifestSwipeEvent(
+            event_id="EV_ABSENT",
             participant=22222,
             date=datetime.date(2025, 1, 2),
             direction="out",
             event_number=2,
-            state="complete",
-            trial_npz_uri=trial_path,
-            trial_p100_npz_uri=p100_path,
-            trial_grf_npz_uri=grf_path,
-        ),
-        SwipeEvent(
-            event_id="test_33333_2025-01-03_in_3_complete",
-            participant=33333,
-            date=datetime.date(2025, 1, 3),
-            direction="in",
-            event_number=3,
-            state="complete",
-            trial_npz_uri=trial_path,
-            trial_p100_npz_uri=p100_path,
-            trial_grf_npz_uri=grf_path,
+            local=0,
         ),
     ]
+    rows_local = [
+        LocalSwipeEvent(
+            event_id="EV_PRESENT",
+            root_path=event_root.as_posix(),
+            present=True,
+            last_seen=datetime.datetime.now(),
+        ),
+    ]
+    rows_metrics = [
+        ManifestMetrics(event_id="EV_PRESENT", avg_bbox_size=3.14, step_count=7),
+    ]
 
-    with Session(test_engine) as s:
-        s.add_all(rows)
+    with Session(engine) as s:
+        s.add_all(rows_manifest)
+        s.add_all(rows_local)
+        s.add_all(rows_metrics)
         s.commit()
 
+    db = DB(engine)
     yield db
-
-    Base.metadata.drop_all(test_engine)
-    test_engine.dispose()
-    if os.path.exists("test_temp.db"):
-        os.remove("test_temp.db")
+    db.close()
 
 
 @pytest.fixture
-def empty_db():
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
+def empty_db(tmp_path):
+    """Fresh isolated DB (local + manifest) for tests that need empties."""
+    root = tmp_path / "empty"
+    root.mkdir()
+    local = root / "local.db"
+    manifest = root / "manifest.db"
+    manifest_path = manifest.as_posix()
+
+    engine = create_engine(
+        f"sqlite:///{local.as_posix()}",
+        connect_args={"check_same_thread": False},
+    )
+
+    @event.listens_for(engine, "connect")
+    def _attach_manifest(dbapi_conn, _):
+        cur = dbapi_conn.cursor()
+        cur.execute("ATTACH DATABASE ? AS manifest", (manifest_path,))
+        cur.close()
+
+    with engine.begin() as conn:
+        ManifestBase.metadata.create_all(conn)
+        LocalBase.metadata.create_all(conn)
+
     db = DB(engine)
-    yield db
-    db.engine.dispose()
+    try:
+        yield db
+    finally:
+        db.close()
+        engine.dispose()

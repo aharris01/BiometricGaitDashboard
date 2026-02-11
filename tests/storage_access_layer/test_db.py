@@ -1,99 +1,76 @@
-# tests/backend/storage_access_layer/test_db.py
-
 import datetime
-import numpy as np
-from pathlib import Path
+
+
 import pytest
 
-from backend.storage_access_layer.db.db import SwipeEvent
-
-
-# Basic insert + fetch test
-
-
-@pytest.mark.unit
-def test_add_and_query_swipe_event(test_db):
-    swipe_event_obj = SwipeEvent(
-        event_id="EV1",
-        participant=123,
-        date=datetime.date(2025, 1, 1),
-        direction="in",
-        event_number=1,
-        state="complete",  # ← REQUIRED
-        trial_npz_uri="test_trial.npz",
-        trial_p100_npz_uri="test_p100.npz",
-        trial_grf_npz_uri="test_grf.npz",
-    )
-
-    test_db.add_swipe_event(swipe_event_obj)
-
-    with test_db._get_session() as s:
-        row = s.get(SwipeEvent, "EV1")
-        assert row is not None
-        assert row.participant == 123
-        assert row.direction == "in"
-        assert row.event_number == 1
-
-
-# full file-path fields
+from backend.storage_access_layer.db.schema import (
+    LocalSwipeEvent,
+    LocalMetrics,
+)
+from backend.storage_access_layer.db.db import copy_metrics_from_manifest_to_local
 
 
 @pytest.mark.unit
-def test_swipe_event_full_paths(tmp_path, test_db):
-    fp = tmp_path / "trial.npz"
-    fp_p100 = tmp_path / "p100.npz"
-    fp_grf = tmp_path / "grf.npz"
-
-    np.savez(fp, arr=[1])
-    np.savez(fp_p100, arr=[2])
-    np.savez(fp_grf, arr=[3])
-
-    with test_db._get_session() as s:
-        ev = SwipeEvent(
-            event_id="EV_FULL",
-            participant=111,
-            date=datetime.date(2025, 1, 1),
-            direction="in",
-            event_number=1,
-            state="complete",  # ← REQUIRED
-            trial_npz_uri=str(fp),
-            trial_p100_npz_uri=str(fp_p100),
-            trial_grf_npz_uri=str(fp_grf),
-        )
-        s.add(ev)
-        s.commit()
-
-    with test_db._get_session() as s:
-        row = s.get(SwipeEvent, "EV_FULL")
-        assert Path(row.trial_npz_uri).exists()
-        assert Path(row.trial_p100_npz_uri).exists()
-        assert Path(row.trial_grf_npz_uri).exists()
-
-
-# handle empty query outputs
+def test_get_participants_dates_directions_events(seeded_db):
+    assert seeded_db.get_participants() == [11111]
+    assert seeded_db.get_dates(11111) == [datetime.date(2025, 1, 1)]
+    assert seeded_db.get_directions(11111, datetime.date(2025, 1, 1)) == ["in"]
+    assert seeded_db.get_events(11111, datetime.date(2025, 1, 1), "in") == [1]
 
 
 @pytest.mark.unit
-def test_db_empty_queries(empty_db):
-    db = empty_db
-
-    # Create raw session manually because get_session didn't work here for some reason
-    assert db.get_participants() == []
-    assert db.get_dates(99999) == []
-    assert db.get_directions(99999, datetime.date(2020, 1, 1)) == []
-    assert db.get_events(99999, datetime.date(2020, 1, 1), "in") == []
-
-
-# SwipeEventId not found
+def test_get_swipe_event_builds_paths(seeded_db, tmp_path):
+    event = seeded_db.get_swipe_event("EV_PRESENT")
+    assert event is not None
+    # expected_root = Path(seeded_db.get_local_event_ids()[0]).name  # event_id
+    assert event.event_id == "EV_PRESENT"
+    assert event.trial_npz_uri.endswith("trial.npz")
+    assert event.trial_p100_npz_uri.endswith("trial.p100.npz")
+    assert event.trial_grf_npz_uri.endswith("trial.grf.npz")
 
 
 @pytest.mark.unit
-def test_swipe_eventid_not_found(empty_db):
-    db = empty_db
-    out = db.get_swipe_event_id(
+def test_get_swipe_event_id_missing(empty_db):
+    out = empty_db.get_swipe_event_id(
         participant=99999,
-        date=datetime.date(2025, 1, 1),
-        event=10,
+        date=datetime.date(2020, 1, 1),
+        event=1,
         direction="in",
     )
     assert out is None
+
+
+@pytest.mark.unit
+def test_add_swipe_event_inserts_local_record(empty_db, tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    obj = LocalSwipeEvent(
+        event_id="NEW_EVENT",
+        root_path=str(root),
+        present=True,
+        last_seen=datetime.datetime.now(),
+    )
+    empty_db.add_swipe_event(obj)
+    assert "NEW_EVENT" in empty_db.get_local_event_ids()
+
+
+@pytest.mark.unit
+def test_copy_metrics_upserts(seeded_db):
+    # first call inserts
+    inserted = copy_metrics_from_manifest_to_local(seeded_db)
+    assert inserted in (0, 1)
+    # second call updates, rowcount still >=0 (sqlite returns 0 on no-op update)
+    again = copy_metrics_from_manifest_to_local(seeded_db)
+    assert again in (0, 1)
+    with seeded_db._get_session() as s:
+        row = s.get(LocalMetrics, "EV_PRESENT")
+        assert row.average_bounding_box_size == 3.14
+        assert row.step_count == 7
+
+
+@pytest.mark.unit
+def test_empty_queries_return_lists(empty_db):
+    assert empty_db.get_participants() == []
+    assert empty_db.get_dates(123) == []
+    assert empty_db.get_directions(123, datetime.date(2020, 1, 1)) == []
+    assert empty_db.get_events(123, datetime.date(2020, 1, 1), "in") == []

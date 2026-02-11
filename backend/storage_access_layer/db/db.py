@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from sqlalchemy import Engine, create_engine, event, exists, and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy import text, cast, Float
+from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from sqlalchemy import select, distinct
