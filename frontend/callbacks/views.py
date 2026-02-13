@@ -11,13 +11,10 @@ def register(app, *, cmap):
     @callback(
         Output("metrics-graph-container", "children"),
         # This should load without any input
-        Input("page-load", "interval"),
+        Input("page-load", "n_intervals"),
         prevent_initial_call=False,
     )
-    def display_metrics_graph(store_data):
-        if not store_data or not store_data.get("event_id"):
-            print("views.py: no event_id found in event-id-store")
-
+    def display_metrics_graph(_n):
         metrics = get_swipe_event_summary_metrics(logger=app.logger)
         return MetricsGraph(metrics).render()
 

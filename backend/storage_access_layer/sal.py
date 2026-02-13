@@ -16,23 +16,34 @@ import numpy as np
 from . import validators as v
 from .db.db import DB
 
-DATAROOT = Path(os.environ.get("dataroot", "."))  # Defaults to root
+DATAROOT = Path(
+    os.environ.get("DATAROOT", os.environ.get("dataroot", "."))
+)  # Defaults to root
 # Lowercase alias so tests can monkeypatch `sal_mod.dataroot`
 dataroot = DATAROOT
 
 
 def uri_to_path(uri: str) -> Path:
     """
-    Convert a file:// URI (stored in the DB) to a real filesystem Path,
-    working on both Windows and Unix-like systems.
-    """
-    parsed = urlparse(str(uri))
+    Accept:
+      - file:// URIs
+      - plain filesystem paths
 
-    if parsed.scheme != "file":
+    Reject:
+      - any other URI scheme (http://, s3://, etc.)
+    """
+    s = str(uri)
+
+    if "://" in s and not s.startswith("file://"):
         raise ValueError(f"Unsupported URI scheme in {uri!r}; expected file://")
 
-    path = unquote(parsed.path)  # e.g. "/Users/me/..." or "/C:/Users/me/..."
+    if not s.startswith("file://"):
+        return Path(s)
 
+    parsed = urlparse(s)
+    path = unquote(parsed.path)
+
+    # Windows: "/C:/Users/..." -> "C:/Users/..."
     if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
         path = path[1:]
 
@@ -355,7 +366,7 @@ class SAL:
 
         # Make relative to dataroot if possible
         try:
-            rel = p.relative_to(dataroot)
+            rel = p.relative_to(Path(dataroot))
             parts = rel.parts
         except ValueError:
             parts = p.parts
@@ -420,6 +431,9 @@ class SAL:
     def get_footstep_counts(self):
         return self.get_local_metric("step_count")
 
+    def get_participants_by_event(self):
+        return self.get_local_metric("participant")
+
     # ---- Summary composition ----
 
     def get_swipe_event_summary_plot_data(self):
@@ -449,6 +463,14 @@ class SAL:
                 summary_plot_data.setdefault(event_id, {})["footstep_count"] = (
                     int(value) if value is not None else None
                 )
+
+        # ---- Merge get participant ----
+        parts = self.get_participants_by_event()
+        if parts is not None:
+            for event_id, value in parts.items():
+                if value is None:
+                    continue
+                summary_plot_data.setdefault(event_id, {})["participant"] = int(value)
 
         if summary_plot_data:
             for event_id, data in summary_plot_data.items():

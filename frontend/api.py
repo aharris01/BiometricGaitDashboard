@@ -31,6 +31,7 @@ def fetch_json(
             logger.error(
                 f"[{context}] Failed to fetch {url}: {body['message']} - {body['details']}"
             )
+
         raise PreventUpdate
 
 

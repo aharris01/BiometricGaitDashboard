@@ -553,7 +553,7 @@ def test_get_event_summary_invalid_uri(sal, fake_db):
 @pytest.mark.unit
 def test_uri_to_path_invalid_scheme_raises():
     with pytest.raises(ValueError):
-        uri_to_path("not-a-uri-at-all")
+        uri_to_path("http://not-file")
 
 
 @pytest.mark.unit

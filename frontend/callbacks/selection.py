@@ -51,3 +51,57 @@ def register(app, *, cmap):
         fig["layout"]["shapes"] = new_shapes
 
         return fig, {"step_id": step_id}
+
+    @app.callback(
+        Output("metrics_selected_events_store", "data", allow_duplicate=True),
+        Output("metrics_selected_checklist_store", "data", allow_duplicate=True),
+        Input("btn-remove-selected", "n_clicks"),  # your "◀" button
+        State("metrics_selected_panel_mode_store", "data"),
+        State("metrics_selected_events_store", "data"),
+        State("metrics_selected_checklist_store", "data"),
+        State("metrics_scatter_selection_store", "data"),
+        prevent_initial_call=True,
+    )
+    def remove_selected_events(
+        _n, mode_store, selected_store, checklist_store, scatter_selection_store
+    ):
+        mode = (mode_store or {}).get("mode", "view")
+        existing = (selected_store or {}).get("event_ids", [])
+        if not existing:
+            raise PreventUpdate
+
+        remove_ids = []
+        if mode == "select":
+            vals = (checklist_store or {}).get("value", []) or []
+            remove_ids = [v for v in vals if v != "__all__"]
+
+        if not remove_ids:
+            remove_ids = (scatter_selection_store or {}).get("event_ids", []) or []
+
+        if not remove_ids:
+            remove_ids = [existing[-1]]
+
+        remove_set = set(remove_ids)
+        new_existing = [eid for eid in existing if eid not in remove_set]
+
+        remaining_checked = []
+        if mode == "select":
+            prev_checked = (checklist_store or {}).get("value", []) or []
+            remaining_checked = [
+                v for v in prev_checked if v != "__all__" and v in new_existing
+            ]
+
+        return {"event_ids": new_existing}, {"value": remaining_checked}
+
+    @app.callback(
+        Output("metrics_filter_participant_open_store", "data"),
+        Output("metrics_filter_participant_details", "open"),
+        Input("metrics_filter_participant_summary", "n_clicks"),
+        State("metrics_filter_participant_open_store", "data"),
+        prevent_initial_call=True,
+    )
+    def toggle_participant_filter_open(_n, open_data):
+        # open_data is either True/False (or missing)
+        is_open = bool(open_data) if open_data is not None else True
+        new_open = not is_open
+        return new_open, new_open

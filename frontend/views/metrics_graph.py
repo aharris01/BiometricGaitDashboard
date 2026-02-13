@@ -1,7 +1,10 @@
 from __future__ import annotations
 from dash import html, dcc, callback, Output, Input
 from dash.exceptions import PreventUpdate
-from frontend.views.filters import ParticipantMultiSelect, DateSelector
+from frontend.views.filters import collapsible_checklist
+from frontend.utils import with_select_all
+from frontend.api import get_participants
+
 import json
 import plotly.graph_objects as go
 
@@ -90,12 +93,11 @@ class MetricsGraph:
     def render(self):
         scatter_plot = self._build_scatter()
 
-        # UI-only demo options (replace with real data later)
-        participant_options = [
-            {"label": "100", "value": 100},
-            {"label": "101", "value": 101},
-            {"label": "102", "value": 102},
-        ]
+        try:
+            participant_options = with_select_all(get_participants(logger=None))
+        except PreventUpdate:
+            # tests / offline mode: no backend available
+            participant_options = with_select_all([])
 
         return html.Div(
             children=[
@@ -106,7 +108,12 @@ class MetricsGraph:
                         html.Div(
                             className="metrics-panel metrics-panel--filters",
                             children=[
-                                # Header row: title (left) + OK button (right)
+                                dcc.Store(
+                                    id="metrics_filter_participant_open_store",
+                                    data=True,
+                                    storage_type="session",
+                                ),
+                                # Header row
                                 html.Div(
                                     className="panel-header",
                                     children=[
@@ -118,15 +125,14 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
-                                DateSelector(id="metrics-filter-date"),
-                                html.Div(
-                                    className="metrics-panel-scroll",
-                                    children=[
-                                        ParticipantMultiSelect(
-                                            id="metrics-filter-participant",
-                                            options=participant_options,
-                                        ),
-                                    ],
+                                # Collapsible participant filter
+                                collapsible_checklist(
+                                    title="by participant",
+                                    component_id="metrics_filter_participant",
+                                    options=participant_options,
+                                    open=True,
+                                    details_id="metrics_filter_participant_details",
+                                    summary_id="metrics_filter_participant_summary",
                                 ),
                             ],
                         ),
@@ -141,7 +147,10 @@ class MetricsGraph:
                                 dcc.Graph(
                                     id="box-size-scatter-plot",
                                     figure=scatter_plot,
-                                    config={"displayModeBar": True},
+                                    config={
+                                        "displayModeBar": True,
+                                        "modeBarButtonsToAdd": ["select2d", "lasso2d"],
+                                    },
                                     style={"height": "520px"},
                                 ),
                             ],
@@ -166,7 +175,11 @@ class MetricsGraph:
                                     className="panel-header",
                                     children=[
                                         html.H3("Selected", className="panel-title"),
-                                        html.Div(),  # spacer to match header layout
+                                        html.Button(
+                                            "Select",
+                                            id="btn-selected-select-mode",
+                                            className="ok-btn",  # reuse same style as OK
+                                        ),
                                     ],
                                 ),
                                 html.Div(

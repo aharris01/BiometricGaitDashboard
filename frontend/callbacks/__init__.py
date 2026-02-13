@@ -1,12 +1,15 @@
-# frontend/callbacks/__init__.py
-from .dropdowns import register as register_dropdowns
 from .views import register as register_views
 from .selection import register as register_selection
-from .modes import register as register_modes  # NEW
+from .modes import register as register_modes
+from .metrics_filters import register as register_metrics_filters
+from . import filters  # noqa: F401
+from . import metrics_selection  # noqa: F401
+from . import selected_panel  # noqa: F401
+from . import selected_checklist_select_all  # noqa: F401
 
 
 def register_all(app, *, cmap):
-    register_dropdowns(app)
     register_views(app, cmap=cmap)
     register_selection(app, cmap=cmap)
-    register_modes(app)  # NEW
+    register_metrics_filters(app)
+    register_modes(app)

@@ -163,8 +163,8 @@
    
    /* left/right panels: DO NOT CLIP POPUPS */
    .metrics-panel {
-     min-height: 560px;  /* align with plot height */
-     overflow: visible;  /* allow calendar popup to overflow outside */
+     min-height: 560px; /* align with plot height */
+     overflow: visible; /* allow popup to overflow outside */
      position: relative; /* better stacking context */
    }
    
@@ -216,6 +216,13 @@
      background: #dbeafe;
    }
    
+   /* NEW: toggle active style (for Selected panel Select button) */
+   .toggle-btn-active {
+     border-color: #93c5fd;
+     background: #eff6ff;
+     color: #1d4ed8;
+   }
+   
    /* Filter field blocks (used by frontend/views/filters.py components) */
    .metrics-field {
      display: flex;
@@ -230,6 +237,29 @@
      font-weight: 600;
    }
    
+   /* Selected list buttons (view mode) */
+   .selected-event-btn {
+     width: 100%;
+     text-align: left;
+     padding: 8px 10px;
+     border: 1px solid #e5e7eb;
+     border-radius: 8px;
+     background: white;
+     cursor: pointer;
+     font-size: 13px; /* matches "by participant" */
+   }
+
+   .selected-event-btn:hover {
+     background: #f3f4f6;
+   }
+
+   /* Active (currently shown in Event Summary View) */
+   .selected-event-btn.active {
+     background: #e5e7eb;
+     border-color: #9ca3af;
+     font-weight: 600;
+   }
+
    /* Make filter input/placeholder text match .mode-btn too */
    .metrics-panel .Select-control,
    .metrics-panel .Select-placeholder,
@@ -287,7 +317,89 @@
    .arrow-btn:hover {
      background: #f3f4f6;
    }
+
+   .arrow-btn:disabled {
+     opacity: 0.4;
+     cursor: not-allowed;
+   }
+  
+   /* =========================================================
+      Collapsible Filters (Steam-style)
+      ========================================================= */
    
+   /* Summary header (clickable bar) */
+   .filter_summary {
+     cursor: pointer;
+     user-select: none;
+   
+     padding: 10px 12px;
+     background: #374151; /* dark gray-blue */
+     color: #e5e7eb;
+   
+     border-radius: 6px;
+     font-weight: 600;
+     font-size: 13px;
+   }
+   
+   /* Remove default browser marker */
+   details > summary::-webkit-details-marker {
+     display: none;
+   }
+   
+   /* Custom arrow (content removed earlier, so this is harmless) */
+   details > summary::before {
+     display: inline-block;
+     margin-right: 8px;
+     transition: transform 0.15s ease;
+     color: #9ca3af;
+   }
+   
+   /* Rotate arrow when open */
+   details[open] > summary::before {
+     transform: rotate(90deg);
+   }
+   
+   /* Collapsible content box */
+   .filter_box {
+     margin-top: 8px;
+   
+     border: 1px solid #e5e7eb;
+     border-radius: 8px;
+     background: #ffffff;
+   
+     padding: 6px;
+     max-height: 260px;
+     overflow-y: auto;
+   }
+   
+   /* Checklist items */
+   .filter_box label {
+     cursor: pointer;
+     border-radius: 6px;
+   }
+   
+   /* Hover effect (subtle) */
+   .filter_box label:hover {
+     background: #f3f4f6;
+   }
+   
+   /* Checkbox alignment */
+   .filter_box input[type="checkbox"] {
+     margin-right: 10px;
+   }
+   
+   /* Optional: keep spacing consistent inside metrics panel */
+   .metrics-panel .filter_box {
+     margin-bottom: 12px;
+   }
+   
+   /* Optional: match checklist item font size to the filter summary */
+   .filter_box label,
+   .filter_box label span,
+   .filter_box .dash-checkbox-label,
+   .selected-event-btn {
+     font-size: 13px;
+   }
    /* =========================================================
       Responsive
       ========================================================= */
@@ -311,4 +423,19 @@
        max-height: none;
      }
    }
-   
+
+   /* =========================================================
+      Selected panel checklist (Select mode)
+      Match font size with "by participant"
+      ========================================================= */
+
+   #metrics-selected-list label,
+   #metrics-selected-list label span {
+     font-size: 13px;
+   }
+
+   #metrics-selected-list label {
+    padding: 6px 8px;
+    line-height: 1.2;
+  }
+  
