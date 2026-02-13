@@ -29,7 +29,7 @@
      z-index: 1000;
    
      width: 100%;
-     max-width: 1100px;
+     max-width: 100vw;
      padding: 12px 16px;
      box-sizing: border-box;
    
@@ -79,7 +79,7 @@
       ========================================================= */
    .content {
      width: 100%;
-     max-width: 1100px;
+     max-width: 100vw;
      padding: 16px;
      box-sizing: border-box;
    
@@ -93,7 +93,7 @@
       ========================================================= */
    .dropdown-container {
      width: 100%;
-     max-width: 900px;
+     max-width: 90vw;
    
      display: flex;
      gap: 12px;
@@ -119,7 +119,7 @@
    #metrics-graph-container,
    #summary-container {
      width: 100%;
-     max-width: 1700px;
+     max-width: 95vw;
    }
    
    #metrics-graph-container > div,
@@ -403,7 +403,7 @@
    /* =========================================================
       Responsive
       ========================================================= */
-   @media (max-width: 900px) {
+   @media (max-width: 95vw) {
      .metrics-row {
        grid-template-columns: 1fr;
      }
