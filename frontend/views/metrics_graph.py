@@ -72,24 +72,6 @@ class MetricsGraph:
 
         return fig
 
-    @callback(
-        Output("metrics-graph-click-data", "children"),
-        Output("event-id-store", "data", allow_duplicate=True),
-        Input("box-size-scatter-plot", "clickData"),
-        prevent_initial_call=True,
-    )
-    def on_click_display_event_id(self):
-        if self is None:
-            raise PreventUpdate
-        # Data point click logging
-        print(self)
-
-        click_data_json = json.dumps(self)
-        click_data = json.loads(click_data_json)
-        if click_data is not None:
-            event_id = click_data["points"][0]["text"]
-            return [self, {"event_id": event_id}]
-
     def render(self):
         scatter_plot = self._build_scatter()
 
