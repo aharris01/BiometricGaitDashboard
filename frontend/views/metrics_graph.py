@@ -89,7 +89,7 @@ class MetricsGraph:
                 x=x_vals,
                 y=y_vals,
                 mode="markers",
-                text=event_ids,
+                text=event_ids,  # event_id used by click/lasso callbacks
                 hovertemplate=(
                     "<b>Event:</b> %{text}<br>"
                     + f"<b>{self.AXIS_LABELS.get(x_key, x_key)}:</b> %{{x}}<br>"
@@ -107,9 +107,7 @@ class MetricsGraph:
         )
         return fig
 
-
     def render(self):
-        # Initial plot uses defaults; your callback will rebuild on OK click
         scatter_plot = self._build_scatter("avg_box_size", "footstep_count", height=440)
 
         try:
@@ -117,7 +115,6 @@ class MetricsGraph:
         except PreventUpdate:
             participant_options = with_select_all([])
 
-        # Pylance workaround (Dash typings are picky)
         axis_options = cast(Any, MetricsGraph.AXIS_OPTIONS)
 
         return html.Div(
@@ -160,7 +157,7 @@ class MetricsGraph:
                         html.Div(
                             className="metrics-plot",
                             children=[
-                                # ONE LINE: Scatter plot  X: [..]  Y: [..]
+                                # ONE LINE: Scatter plot  X: [..]  ⇄  Y: [..]
                                 html.Div(
                                     style={
                                         "display": "flex",
@@ -172,9 +169,10 @@ class MetricsGraph:
                                     children=[
                                         html.H3(
                                             "Scatter plot",
-                                            className="panel-title",  # match Filters size
+                                            className="panel-title",
                                             style={"margin": "0"},
                                         ),
+                                        # X
                                         html.Div(
                                             style={
                                                 "display": "flex",
@@ -200,6 +198,18 @@ class MetricsGraph:
                                                 ),
                                             ],
                                         ),
+                                        # Swap button (between X and Y)
+                                        html.Button(
+                                            "⇄",
+                                            id="btn-swap-axes",
+                                            className="mode-btn",
+                                            style={
+                                                "height": "32px",
+                                                "padding": "0 10px",
+                                                "fontSize": "14px",
+                                            },
+                                        ),
+                                        # Y
                                         html.Div(
                                             style={
                                                 "display": "flex",
@@ -283,7 +293,7 @@ class MetricsGraph:
             ],
             style={
                 "width": "100%",
-                "maxWidth": "1100px",
+                "maxWidth": "1350px",
                 "display": "flex",
                 "flexDirection": "column",
                 "alignItems": "flex-start",

@@ -79,7 +79,7 @@
       ========================================================= */
    .content {
      width: 100%;
-     max-width: 1350px;
+     max-width: 1600px;
      padding: 16px;
      box-sizing: border-box;
    
@@ -147,7 +147,7 @@
       ========================================================= */
    .metrics-row {
      display: grid;
-     grid-template-columns: 200px 2fr 56px 240px; /* filters | plot | arrows | selected */
+     grid-template-columns: 200px 4fr 56px 240px; /* filters | plot | arrows | selected */
      gap: 12px;
      width: 100%;
      align-items: start;
