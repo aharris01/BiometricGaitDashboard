@@ -1,6 +1,7 @@
 from dash import Input, Output, State, callback
 from dash.exceptions import PreventUpdate
 
+
 @callback(
     Output("metrics_x_axis", "value"),
     Output("metrics_y_axis", "value"),

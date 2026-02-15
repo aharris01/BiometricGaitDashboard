@@ -14,9 +14,7 @@ def register(app):
         State("metrics_filter_participant_open_store", "data"),
         prevent_initial_call=True,
     )
-    def apply_participant_filter(
-        _n, x_key, y_key, selected_participants, is_open
-    ):
+    def apply_participant_filter(_n, x_key, y_key, selected_participants, is_open):
         metrics = get_swipe_event_summary_metrics(logger=app.logger) or {}
 
         x_key = x_key or "avg_box_size"

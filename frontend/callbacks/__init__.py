@@ -11,7 +11,6 @@ from . import swap_axes  # noqa: F401
 from . import axes  # noqa: F401
 
 
-
 def register_all(app, *, cmap):
     register_views(app, cmap=cmap)
     register_selection(app, cmap=cmap)

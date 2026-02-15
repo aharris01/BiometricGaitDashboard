@@ -152,7 +152,6 @@ class MetricsGraph:
                                 ),
                             ],
                         ),
-
                         # 2) Scatter plot (center)
                         html.Div(
                             className="metrics-plot",
@@ -248,7 +247,6 @@ class MetricsGraph:
                                 ),
                             ],
                         ),
-
                         # 3) Arrow buttons (middle)
                         html.Div(
                             className="metrics-arrows",
@@ -261,7 +259,6 @@ class MetricsGraph:
                                 ),
                             ],
                         ),
-
                         # 4) Selected list (right)
                         html.Div(
                             className="metrics-panel metrics-panel--selected",
