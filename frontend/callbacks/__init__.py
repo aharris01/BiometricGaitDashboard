@@ -8,6 +8,7 @@ from . import scatter_click  # noqa: F401
 from . import selected_panel  # noqa: F401
 from . import selected_checklist_select_all  # noqa: F401
 from . import swap_axes  # noqa: F401
+from . import axes  # noqa: F401
 
 
 
