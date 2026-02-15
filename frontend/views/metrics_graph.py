@@ -89,7 +89,7 @@ class MetricsGraph:
                 x=x_vals,
                 y=y_vals,
                 mode="markers",
-                text=event_ids,  # event_id used by your click/selection callbacks
+                text=event_ids,
                 hovertemplate=(
                     "<b>Event:</b> %{text}<br>"
                     + f"<b>{self.AXIS_LABELS.get(x_key, x_key)}:</b> %{{x}}<br>"
@@ -105,8 +105,8 @@ class MetricsGraph:
             yaxis_title=self.AXIS_LABELS.get(y_key, y_key),
             margin=dict(l=30, r=20, t=10, b=40),
         )
-
         return fig
+
 
     def render(self):
         # Initial plot uses defaults; your callback will rebuild on OK click
