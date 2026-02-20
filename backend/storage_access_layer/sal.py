@@ -15,7 +15,7 @@ import numpy as np
 # Local
 from . import validators as v
 from .db.db import DB
-from .db.schema import ManifestMetrics
+from .db.schema import ManifestMetrics, ManifestSwipeEvent
 from sqlalchemy import select
 
 DATAROOT = Path(
@@ -444,7 +444,29 @@ class SAL:
         # just getting the metric names from the manfestmetrics table, not necessary to get event_id
         return [col for col in columns if col != "event_id"]
 
-    def get_swipe_event_summary_plot_data(self, x: str, y: str):
+    def _apply_summary_filters(self, query, filters: dict | None):
+        """
+        Apply dataset-level filters to summary plot query.
+
+        Filters operate on dataset selection (WHERE clause),
+        not on metric projection (SELECT clause).
+        """
+
+        if not filters:
+            return query
+
+        # ---- Participant filter ----
+        if "participants" in filters:
+            participants = filters["participants"]
+
+            if participants:
+                query = query.where(ManifestSwipeEvent.participant.in_(participants))
+
+        return query
+
+    def get_swipe_event_summary_plot_data(
+        self, x: str, y: str, filters: dict | None = None
+    ):
         # ------------------------------------------------------------------
         # Validate requested metrics
         #
@@ -472,7 +494,12 @@ class SAL:
                 ManifestMetrics.event_id,
                 getattr(ManifestMetrics, x),
                 getattr(ManifestMetrics, y),
+            ).join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
             )
+
+            query = self._apply_summary_filters(query, filters)
 
             results = session.execute(query).all()
 

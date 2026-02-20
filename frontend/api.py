@@ -7,10 +7,15 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
 
 def fetch_json(
-    url: str, *, timeout: int = 5, context: str = "api_request", logger=None
+    url: str,
+    *,
+    params: dict | None = None,
+    timeout: int = 5,
+    context: str = "api_request",
+    logger=None,
 ):
     try:
-        resp = requests.get(url, timeout=timeout)
+        resp = requests.get(url, params=params, timeout=timeout)
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as exc:
@@ -79,9 +84,20 @@ def get_event_full(event_id: str, *, logger=None):
     )
 
 
-def get_swipe_event_summary_metrics(x: str, y: str, *, logger=None):
+def get_swipe_event_summary_metrics(
+    x_key,
+    y_key,
+    filters=None,
+    logger=None,
+):
+    params = {"x": x_key, "y": y_key}
+
+    if filters and "participants" in filters:
+        params["participants"] = ",".join(map(str, filters["participants"]))
+
     return fetch_json(
-        f"{API_BASE_URL}/api/events/summaryplot?x={x}&y={y}",
+        f"{API_BASE_URL}/api/events/summaryplot",
+        params=params,
         context="get_swipe_event_summary_metrics",
         logger=logger,
     )

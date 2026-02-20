@@ -16,24 +16,46 @@ def register(app):
         prevent_initial_call=True,
     )
     def apply_participant_filter(_n, x_key, y_key, selected_participants, is_open):
+        # -------------------------------------------------------------
+        # Require both axes to be selected before querying backend
+        # -------------------------------------------------------------
         if not x_key or not y_key:
             raise PreventUpdate
 
+        # -------------------------------------------------------------
+        # Build backend filter dictionary
+        #
+        # We no longer filter locally.
+        # Instead, we pass filters to the backend and let SQL handle it.
+        # -------------------------------------------------------------
+        filters = {}
+
+        if is_open and selected_participants and "__all__" not in selected_participants:
+            filters["participants"] = selected_participants
+
+        # -------------------------------------------------------------
+        # Fetch filtered dataset from backend
+        #
+        # Backend now:
+        # - joins swipe_event + global_metrics
+        # - applies participant filter in SQL
+        # - returns only requested x/y metrics
+        # -------------------------------------------------------------
         metrics = (
             get_swipe_event_summary_metrics(
                 x_key,
                 y_key,
+                filters=filters or None,  # <-- NEW
                 logger=app.logger,
             )
             or {}
         )
 
-        if is_open and selected_participants and "__all__" not in selected_participants:
-            selected_set = set(selected_participants)
-            metrics = {
-                event_id: m
-                for event_id, m in metrics.items()
-                if m.get("participant") in selected_set
-            }
-
-        return MetricsGraph(metrics)._build_scatter(x_key=x_key, y_key=y_key)
+        # -------------------------------------------------------------
+        # No local filtering anymore.
+        # Scatter just renders what backend returned.
+        # -------------------------------------------------------------
+        return MetricsGraph(metrics)._build_scatter(
+            x_key=x_key,
+            y_key=y_key,
+        )

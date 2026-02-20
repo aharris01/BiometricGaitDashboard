@@ -89,6 +89,7 @@ def api_swipe_event_summary_plot():
     try:
         x = request.args.get("x")
         y = request.args.get("y")
+        participants_raw = request.args.get("participants")
 
         if not x or not y:
             return make_error(
@@ -97,7 +98,23 @@ def api_swipe_event_summary_plot():
                 "Both x and y metrics must be provided",
             )
 
-        data = get_sal().get_swipe_event_summary_plot_data(x=x, y=y)
+        filters = {}
+
+        if participants_raw:
+            participants = [
+                int(p.strip())
+                for p in participants_raw.split(",")
+                if p.strip().isdigit()
+            ]
+            if participants:
+                filters["participants"] = participants
+
+        data = get_sal().get_swipe_event_summary_plot_data(
+            x=x,
+            y=y,
+            filters=filters or None,
+        )
+
         return jsonify(data)
 
     except ValueError as e:
