@@ -1,7 +1,6 @@
 # frontend/views/metrics_graph.py
 from __future__ import annotations
 
-from typing import Any, cast
 
 from dash import html, dcc
 from dash.exceptions import PreventUpdate
