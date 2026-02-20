@@ -131,6 +131,9 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
+                                # --------------------------
+                                # PARTICIPANT SECTION
+                                # --------------------------
                                 collapsible_checklist(
                                     title="by participant",
                                     component_id="metrics_filter_participant",
@@ -138,6 +141,59 @@ class MetricsGraph:
                                     open=True,
                                     details_id="metrics_filter_participant_details",
                                     summary_id="metrics_filter_participant_summary",
+                                ),
+                                # --------------------------
+                                # DATE SECTION (MATCHED)
+                                # --------------------------
+                                html.Div(
+                                    className="collapsible-container",
+                                    children=[
+                                        html.Details(
+                                            open=True,
+                                            className="collapsible-details",
+                                            children=[
+                                                html.Summary(
+                                                    "by date",
+                                                    className="collapsible-summary",
+                                                ),
+                                                html.Div(
+                                                    className="collapsible-content",
+                                                    children=[
+                                                        html.Label("Year"),
+                                                        dcc.Dropdown(
+                                                            id="metrics_filter_year",
+                                                            options=[],
+                                                            value=None,
+                                                            clearable=True,
+                                                            placeholder="Select year",
+                                                        ),
+                                                        html.Label(
+                                                            "Month",
+                                                            style={"marginTop": "8px"},
+                                                        ),
+                                                        dcc.Dropdown(
+                                                            id="metrics_filter_month",
+                                                            options=[],
+                                                            value=None,
+                                                            clearable=True,
+                                                            placeholder="Select month",
+                                                        ),
+                                                        html.Label(
+                                                            "Day",
+                                                            style={"marginTop": "8px"},
+                                                        ),
+                                                        dcc.Dropdown(
+                                                            id="metrics_filter_day",
+                                                            options=[],
+                                                            value=None,
+                                                            clearable=True,
+                                                            placeholder="Select day",
+                                                        ),
+                                                    ],
+                                                ),
+                                            ],
+                                        ),
+                                    ],
                                 ),
                             ],
                         ),

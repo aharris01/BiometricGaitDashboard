@@ -58,6 +58,41 @@ def get_dates(participant: int, *, logger=None):
     return [{"label": str(d), "value": str(d)} for d in data["items"]]
 
 
+def get_date_part(
+    part: str,
+    participants: list[int] | None = None,
+    year: int | None = None,
+    month: int | None = None,
+    logger=None,
+):
+    params = {}
+
+    if participants:
+        params["participants"] = ",".join(str(p) for p in participants)
+
+    if year:
+        params["year"] = year
+
+    if month:
+        params["month"] = month
+
+    if part == "year":
+        url = f"{API_BASE_URL}/api/events/years"
+    elif part == "month":
+        url = f"{API_BASE_URL}/api/events/months"
+    elif part == "day":
+        url = f"{API_BASE_URL}/api/events/days"
+    else:
+        return []
+
+    return fetch_json(
+        url,
+        params=params,
+        context=f"get_{part}s",
+        logger=logger,
+    )
+
+
 def get_directions(participant: int, datestr: str, *, logger=None):
     data = fetch_json(
         f"{API_BASE_URL}/api/participants/{participant}/dates/{datestr}/directions",
@@ -92,8 +127,18 @@ def get_swipe_event_summary_metrics(
 ):
     params = {"x": x_key, "y": y_key}
 
-    if filters and "participants" in filters:
-        params["participants"] = ",".join(map(str, filters["participants"]))
+    if filters:
+        if "participants" in filters:
+            params["participants"] = ",".join(map(str, filters["participants"]))
+
+        if "year" in filters:
+            params["year"] = filters["year"]
+
+        if "month" in filters:
+            params["month"] = filters["month"]
+
+        if "day" in filters:
+            params["day"] = filters["day"]
 
     return fetch_json(
         f"{API_BASE_URL}/api/events/summaryplot",
