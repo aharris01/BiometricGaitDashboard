@@ -14,11 +14,6 @@ from frontend.api import get_participants
 
 class MetricsGraph:
     # Axis configuration
-    AXIS_OPTIONS = [
-        {"label": "Average BBox Size", "value": "avg_box_size"},
-        {"label": "Footstep Count", "value": "footstep_count"},
-        {"label": "Participant ID", "value": "participant"},
-    ]
 
     AXIS_LABELS = {
         "avg_box_size": "Average Bounding Box Size",
@@ -52,13 +47,7 @@ class MetricsGraph:
         )
         return fig
 
-    def _build_scatter(
-        self,
-        x_key: str = "avg_box_size",
-        y_key: str = "footstep_count",
-        *,
-        height: int = 440,
-    ) -> go.Figure:
+    def _build_scatter(self, x_key: str, y_key: str, *, height: int = 440) -> go.Figure:
         if not self.metrics:
             return self._placeholder_figure(
                 "Summary scatter not available (no metrics data).", height=height
@@ -108,14 +97,15 @@ class MetricsGraph:
         return fig
 
     def render(self):
-        scatter_plot = self._build_scatter("avg_box_size", "footstep_count", height=440)
+        scatter_plot = self._placeholder_figure(
+            "Select X and Y metrics to display scatter.",
+            height=440,
+        )
 
         try:
             participant_options = with_select_all(get_participants(logger=None))
         except PreventUpdate:
             participant_options = with_select_all([])
-
-        axis_options = cast(Any, MetricsGraph.AXIS_OPTIONS)
 
         return html.Div(
             children=[
@@ -189,9 +179,9 @@ class MetricsGraph:
                                                 ),
                                                 dcc.Dropdown(
                                                     id="metrics_x_axis",
-                                                    options=axis_options,
-                                                    value="avg_box_size",
-                                                    clearable=False,
+                                                    options=[],
+                                                    value=None,
+                                                    clearable=True,
                                                     className="metrics-axis-dropdown",
                                                     style={"width": "180px"},
                                                 ),
@@ -226,9 +216,9 @@ class MetricsGraph:
                                                 ),
                                                 dcc.Dropdown(
                                                     id="metrics_y_axis",
-                                                    options=axis_options,
-                                                    value="footstep_count",
-                                                    clearable=False,
+                                                    options=[],
+                                                    value=None,
+                                                    clearable=True,
                                                     className="metrics-axis-dropdown",
                                                     style={"width": "180px"},
                                                 ),

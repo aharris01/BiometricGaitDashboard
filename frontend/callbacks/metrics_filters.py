@@ -2,6 +2,7 @@
 from dash import Input, Output, State, callback
 from frontend.api import get_swipe_event_summary_metrics
 from frontend.views.metrics_graph import MetricsGraph
+from dash.exceptions import PreventUpdate
 
 
 def register(app):
@@ -15,10 +16,17 @@ def register(app):
         prevent_initial_call=True,
     )
     def apply_participant_filter(_n, x_key, y_key, selected_participants, is_open):
-        metrics = get_swipe_event_summary_metrics(logger=app.logger) or {}
+        if not x_key or not y_key:
+            raise PreventUpdate
 
-        x_key = x_key or "avg_box_size"
-        y_key = y_key or "footstep_count"
+        metrics = (
+            get_swipe_event_summary_metrics(
+                x_key,
+                y_key,
+                logger=app.logger,
+            )
+            or {}
+        )
 
         if is_open and selected_participants and "__all__" not in selected_participants:
             selected_set = set(selected_participants)

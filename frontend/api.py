@@ -79,9 +79,9 @@ def get_event_full(event_id: str, *, logger=None):
     )
 
 
-def get_swipe_event_summary_metrics(logger=None):
+def get_swipe_event_summary_metrics(x: str, y: str, *, logger=None):
     return fetch_json(
-        f"{API_BASE_URL}/api/events/summaryplot",
+        f"{API_BASE_URL}/api/events/summaryplot?x={x}&y={y}",
         context="get_swipe_event_summary_metrics",
         logger=logger,
     )
@@ -92,5 +92,13 @@ def get_event_footstep_p100s(event_id: str, *, logger=None):
     return fetch_json(
         f"{API_BASE_URL}/api/events/{event_id}/footsteps/p100s",
         context="get_event_footstep_p100s",
+        logger=logger,
+    )
+
+
+def get_available_metrics(*, logger=None):
+    return fetch_json(
+        f"{API_BASE_URL}/api/events/metrics",
+        context="get_available_metrics",
         logger=logger,
     )

@@ -1,5 +1,5 @@
 # backend/src/routes/events.py
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
 from backend.src.utils.http import make_error
 from backend.src.utils.sal import get_sal
@@ -87,11 +87,30 @@ def api_event_footstep_detail(event_id: str, step_id: int):
 @events_bp.get("/api/events/summaryplot")
 def api_swipe_event_summary_plot():
     try:
-        data = get_sal().get_swipe_event_summary_plot_data()
-        if not data:
+        x = request.args.get("x")
+        y = request.args.get("y")
+
+        if not x or not y:
             return make_error(
-                500, "internal_error", "could not generate summary data for plot"
+                400,
+                "bad_request",
+                "Both x and y metrics must be provided",
             )
+
+        data = get_sal().get_swipe_event_summary_plot_data(x=x, y=y)
         return jsonify(data)
+
+    except ValueError as e:
+        return make_error(400, "bad_request", str(e))
+
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@events_bp.get("/api/events/metrics")
+def api_available_metrics():
+    try:
+        metrics = get_sal().get_available_metrics()
+        return jsonify({"items": metrics})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))

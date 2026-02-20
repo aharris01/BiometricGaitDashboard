@@ -2,7 +2,7 @@
 from dash import Input, Output, callback
 from dash.exceptions import PreventUpdate
 
-from frontend.api import get_event_full, get_swipe_event_summary_metrics
+from frontend.api import get_event_full
 from frontend.views.metrics_graph import MetricsGraph
 from frontend.views.summary_view import SummaryView
 
@@ -10,13 +10,11 @@ from frontend.views.summary_view import SummaryView
 def register(app, *, cmap):
     @callback(
         Output("metrics-graph-container", "children"),
-        # This should load without any input
         Input("page-load", "n_intervals"),
         prevent_initial_call=False,
     )
     def display_metrics_graph(_n):
-        metrics = get_swipe_event_summary_metrics(logger=app.logger)
-        return MetricsGraph(metrics).render()
+        return MetricsGraph({}).render()
 
     @callback(
         Output("summary-container", "children"),
