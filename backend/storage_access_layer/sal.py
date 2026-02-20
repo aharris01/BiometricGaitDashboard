@@ -512,7 +512,12 @@ class SAL:
         output = {}
 
         for row in results:
-            row_dict = dict(row._mapping)
+            # Support for unit tests
+            if hasattr(row, "_mapping"):
+                row_dict = dict(row._mapping)
+            else:
+                row_dict = dict(row)
+
             event_id = row_dict.pop("event_id")
             output[event_id] = row_dict
 

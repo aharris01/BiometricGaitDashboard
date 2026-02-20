@@ -22,10 +22,12 @@ class StubResponse:
 
 
 def make_fake_get(response_data, *, status_ok=True, captured=None):
-    def fake_get(url, timeout):
+    def fake_get(url, params=None, timeout=None):
         if captured is not None:
             captured["url"] = url
+            captured[params] = params
             captured["timeout"] = timeout
+
         return StubResponse(response_data, status_ok=status_ok)
 
     return fake_get

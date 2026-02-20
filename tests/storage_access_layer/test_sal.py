@@ -13,7 +13,6 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import numpy as np
 import pytest
 
-import backend.storage_access_layer.sal as sal_mod
 from backend.storage_access_layer.sal import SAL, uri_to_path
 
 
