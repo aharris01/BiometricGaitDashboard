@@ -15,6 +15,8 @@ import numpy as np
 # Local
 from . import validators as v
 from .db.db import DB
+from .db.schema import ManifestMetrics, ManifestSwipeEvent
+from sqlalchemy import select
 
 DATAROOT = Path(
     os.environ.get("DATAROOT", os.environ.get("dataroot", "."))
@@ -435,52 +437,93 @@ class SAL:
         return self.get_local_metric("participant")
 
     # ---- Summary composition ----
+    from .db.schema import ManifestMetrics
 
-    def get_swipe_event_summary_plot_data(self):
-        summary_plot_data: dict = {}
+    def get_available_metrics(self) -> list[str]:
+        columns = ManifestMetrics.__table__.columns.keys()
+        # just getting the metric names from the manfestmetrics table, not necessary to get event_id
+        return [col for col in columns if col != "event_id"]
 
-        # =====================================================
-        # Add new metric accessors here.
+    def _apply_summary_filters(self, query, filters: dict | None):
+        """
+        Apply dataset-level filters to summary plot query.
+
+        Filters operate on dataset selection (WHERE clause),
+        not on metric projection (SELECT clause).
+        """
+
+        if not filters:
+            return query
+
+        # ---- Participant filter ----
+        if "participants" in filters:
+            participants = filters["participants"]
+
+            if participants:
+                query = query.where(ManifestSwipeEvent.participant.in_(participants))
+
+        return query
+
+    def get_swipe_event_summary_plot_data(
+        self, x: str, y: str, filters: dict | None = None
+    ):
+        # ------------------------------------------------------------------
+        # Validate requested metrics
         #
-        # For each new metric:
-        #   1. Call the metric-specific accessor
-        #   2. Merge its values into summary_plot_data below
-        # =====================================================
+        # The frontend must provide two metric names (x and y).
+        # We verify that both exist in the ManifestMetrics table
+        # to prevent invalid or arbitrary column access.
+        # ------------------------------------------------------------------
+        available = self.get_available_metrics()
 
-        avg_boxes = self.get_average_bounding_box_sizes()
-        steps = self.get_footstep_counts()
+        if x not in available:
+            raise ValueError(f"Invalid metric requested for x-axis: {x}")
 
-        # ---- Merge average bounding box size ----
-        if avg_boxes is not None:
-            for event_id, value in avg_boxes.items():
-                summary_plot_data.setdefault(event_id, {})["avg_box_size"] = (
-                    float(value) if value is not None else None
-                )
+        if y not in available:
+            raise ValueError(f"Invalid metric requested for y-axis: {y}")
 
-        # ---- Merge footstep count ----
-        if steps is not None:
-            for event_id, value in steps.items():
-                summary_plot_data.setdefault(event_id, {})["footstep_count"] = (
-                    int(value) if value is not None else None
-                )
+        # ------------------------------------------------------------------
+        # Build dynamic SELECT query
+        #
+        # Only select event_id and the requested metric columns.
+        # This ensures the response payload contains exactly the
+        # metrics needed for scatter plotting.
+        # ------------------------------------------------------------------
+        with self.db._get_session() as session:
+            query = select(
+                ManifestMetrics.event_id,
+                getattr(ManifestMetrics, x),
+                getattr(ManifestMetrics, y),
+            ).join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+            )
 
-        # ---- Merge get participant ----
-        parts = self.get_participants_by_event()
-        if parts is not None:
-            for event_id, value in parts.items():
-                if value is None:
-                    continue
-                summary_plot_data.setdefault(event_id, {})["participant"] = int(value)
+            query = self._apply_summary_filters(query, filters)
 
-        if summary_plot_data:
-            for event_id, data in summary_plot_data.items():
-                data["event_id"] = event_id
-            return summary_plot_data
+            results = session.execute(query).all()
 
-        # Fallback: filesystem scan
-        return self._compute_metrics_from_filesystem()
+        # ------------------------------------------------------------------
+        # Format results
+        #
+        # Convert each SQLAlchemy row into a dictionary keyed by event_id.
+        # The inner dictionary contains only the requested metrics.
+        # ------------------------------------------------------------------
+        output = {}
 
-    # ---- Filesystem fallback ----
+        for row in results:
+            # Support for unit tests
+            if hasattr(row, "_mapping"):
+                row_dict = dict(row._mapping)
+            else:
+                row_dict = dict(row)
+
+            event_id = row_dict.pop("event_id")
+            output[event_id] = row_dict
+
+        return output
+
+    # Legacy fallback — not used in runtime summary
 
     def _compute_metrics_from_filesystem(self):
         base = Path(dataroot)

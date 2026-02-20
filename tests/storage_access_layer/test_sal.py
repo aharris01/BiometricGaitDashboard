@@ -13,7 +13,6 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import numpy as np
 import pytest
 
-import backend.storage_access_layer.sal as sal_mod
 from backend.storage_access_layer.sal import SAL, uri_to_path
 
 
@@ -579,65 +578,38 @@ def test_get_event_id_from_URI_calls_get_swipe_event_id(sal, fake_db):
 
 
 @pytest.mark.unit
-def test_get_swipe_event_summary_plot_data_scans_and_computes(tmp_path, fake_db):
-    # Point SAL's module-level dataroot at tmp_path so rglob finds our file
-    sal_mod.dataroot = str(tmp_path)
-    s = SAL(db=fake_db)
+def test_get_swipe_event_summary_plot_data_db_projection(sal, fake_db):
+    """
+    Summary plot should return only requested metric columns
+    from ManifestMetrics via DB session.
+    """
 
-    fake_db.get_swipe_event_id.return_value = "EVT999"
+    # Mock available metrics
+    sal.get_available_metrics = MagicMock(return_value=["avg_bbox_size", "step_count"])
 
-    meta = tmp_path / "data" / "100" / "2024-01-01" / "in" / "7" / "metadata.csv"
-    meta.parent.mkdir(parents=True, exist_ok=True)
-    with meta.open("w", newline="") as f:
-        w = csv.DictWriter(
-            f,
-            fieldnames=[
-                "FootstepID",
-                "StartFrame",
-                "EndFrame",
-                "XMin",
-                "XMax",
-                "YMin",
-                "YMax",
-            ],
-        )
-        w.writeheader()
-        # bbox areas: 10*5=50 and 4*2=8 => avg = 29
-        w.writerow(
-            {
-                "FootstepID": "0",
-                "StartFrame": "0",
-                "EndFrame": "1",
-                "XMin": "0",
-                "XMax": "10",
-                "YMin": "0",
-                "YMax": "5",
-            }
-        )
-        w.writerow(
-            {
-                "FootstepID": "1",
-                "StartFrame": "2",
-                "EndFrame": "3",
-                "XMin": "1",
-                "XMax": "5",
-                "YMin": "2",
-                "YMax": "4",
-            }
-        )
+    # Mock DB session behavior
+    fake_session = MagicMock()
+    fake_session.execute.return_value.all.return_value = [
+        {
+            "event_id": "EVT1",
+            "avg_bbox_size": 10.5,
+            "step_count": 3,
+        }
+    ]
 
-    out = s.get_swipe_event_summary_plot_data()
+    fake_db._get_session.return_value.__enter__.return_value = fake_session
 
-    assert "EVT999" in out
-    assert out["EVT999"]["footstep_count"] == 2
-    assert out["EVT999"]["avg_box_size"] == 29
-
-    fake_db.get_swipe_event_id.assert_called_once_with(
-        100,
-        dt.date(2024, 1, 1),
-        7,
-        "in",
+    out = sal.get_swipe_event_summary_plot_data(
+        x="avg_bbox_size",
+        y="step_count",
     )
+
+    assert out == {
+        "EVT1": {
+            "avg_bbox_size": 10.5,
+            "step_count": 3,
+        }
+    }
 
 
 # -------------------------------------------------------------------
@@ -685,42 +657,29 @@ def test_get_local_metric_db_failure_returns_none(sal, fake_db):
 
 
 @pytest.mark.unit
-def test_summary_plot_data_with_partial_db_metrics(sal, fake_db):
-    fake_db.get_local_metrics.return_value = [
+def test_summary_plot_data_with_filters(sal, fake_db):
+    sal.get_available_metrics = MagicMock(return_value=["avg_bbox_size", "step_count"])
+
+    fake_session = MagicMock()
+    fake_session.execute.return_value.all.return_value = [
         {
-            "event_id": "EVT1",
-            "average_bounding_box_size": 12.0,
-            "step_count": None,
+            "event_id": "EVT100",
+            "avg_bbox_size": 12.0,
+            "step_count": 5,
         }
     ]
 
-    out = sal.get_swipe_event_summary_plot_data()
+    fake_db._get_session.return_value.__enter__.return_value = fake_session
+
+    out = sal.get_swipe_event_summary_plot_data(
+        x="avg_bbox_size",
+        y="step_count",
+        filters={"participants": [100]},
+    )
 
     assert out == {
-        "EVT1": {
-            "event_id": "EVT1",
-            "avg_box_size": 12.0,
-            "footstep_count": None,
-        }
-    }
-
-
-@pytest.mark.unit
-def test_summary_plot_data_prefers_db_metrics_over_filesystem(sal, fake_db):
-    fake_db.get_local_metrics.return_value = [
-        {
-            "event_id": "EVT2",
-            "average_bounding_box_size": 5.0,
-            "step_count": 2,
-        }
-    ]
-
-    out = sal.get_swipe_event_summary_plot_data()
-
-    assert out == {
-        "EVT2": {
-            "event_id": "EVT2",
-            "avg_box_size": 5.0,
-            "footstep_count": 2,
+        "EVT100": {
+            "avg_bbox_size": 12.0,
+            "step_count": 5,
         }
     }
