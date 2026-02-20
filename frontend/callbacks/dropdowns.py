@@ -96,7 +96,31 @@ def register(app):
     def manage_dropdown_cascade(values, ids):
         if not ctx.triggered_id:
             return no_update, no_update
-        return _calculate_cascade_state(ctx.triggered_id, ids, values, app.logger)
+
+        # --- sort by level (highest -> lowest) to make logic stable ---
+        indexed = list(enumerate(zip(ids, values)))
+        indexed_sorted = sorted(
+            indexed, key=lambda t: (t[1][0].get("level", 0)), reverse=True
+        )
+
+        ids_sorted = [pair[0] for _, pair in indexed_sorted]
+        values_sorted = [pair[1] for _, pair in indexed_sorted]
+        orig_indices = [i for i, _ in indexed_sorted]
+
+        # run your existing logic on sorted lists
+        new_values_sorted, new_options_sorted = _calculate_cascade_state(
+            ctx.triggered_id, ids_sorted, values_sorted, app.logger
+        )
+
+        # --- unsort back to Dash’s original order ---
+        n = len(ids)
+        new_values = [no_update] * n
+        new_options = [no_update] * n
+        for sorted_pos, original_pos in enumerate(orig_indices):
+            new_values[original_pos] = new_values_sorted[sorted_pos]
+            new_options[original_pos] = new_options_sorted[sorted_pos]
+
+        return new_values, new_options
 
     @callback(
         Output("none", "data"),

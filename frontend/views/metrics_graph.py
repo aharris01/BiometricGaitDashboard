@@ -1,19 +1,29 @@
+# frontend/views/metrics_graph.py
 from __future__ import annotations
-from dash import html, dcc, callback, Output, Input
+
+
+from dash import html, dcc
 from dash.exceptions import PreventUpdate
+import plotly.graph_objects as go
+
 from frontend.views.filters import collapsible_checklist
 from frontend.utils import with_select_all
 from frontend.api import get_participants
 
-import json
-import plotly.graph_objects as go
-
 
 class MetricsGraph:
+    # Axis configuration
+
+    AXIS_LABELS = {
+        "avg_box_size": "Average Bounding Box Size",
+        "footstep_count": "Footstep Count",
+        "participant": "Participant ID",
+    }
+
     def __init__(self, swipe_event_metrics: dict | None = None):
         self.metrics = swipe_event_metrics or {}
 
-    def _placeholder_figure(self, text: str, height: int = 520) -> go.Figure:
+    def _placeholder_figure(self, text: str, height: int = 440) -> go.Figure:
         fig = go.Figure()
         fig.update_layout(
             height=height,
@@ -36,18 +46,30 @@ class MetricsGraph:
         )
         return fig
 
-    def get_swipe_event_id_on_click(self, event_id):
-        print("Scatter plot click: " + event_id)
-
-    def _build_scatter(self) -> go.Figure:
+    def _build_scatter(self, x_key: str, y_key: str, *, height: int = 440) -> go.Figure:
         if not self.metrics:
             return self._placeholder_figure(
-                "Summary scatter not available (no metrics data)."
+                "Summary scatter not available (no metrics data).", height=height
             )
 
-        event_ids = list(self.metrics.keys())
-        x_vals = [self.metrics[e]["avg_box_size"] for e in event_ids]
-        y_vals = [self.metrics[e]["footstep_count"] for e in event_ids]
+        event_ids: list[str] = []
+        x_vals: list[float] = []
+        y_vals: list[float] = []
+
+        for eid, m in self.metrics.items():
+            x = m.get(x_key)
+            y = m.get(y_key)
+            if x is None or y is None:
+                continue
+            event_ids.append(eid)
+            x_vals.append(float(x))
+            y_vals.append(float(y))
+
+        if not event_ids:
+            return self._placeholder_figure(
+                "No points available for selected X/Y (missing values).",
+                height=height,
+            )
 
         fig = go.Figure()
         fig.add_trace(
@@ -55,48 +77,33 @@ class MetricsGraph:
                 x=x_vals,
                 y=y_vals,
                 mode="markers",
-                text=event_ids,
+                text=event_ids,  # event_id used by click/lasso callbacks
                 hovertemplate=(
                     "<b>Event:</b> %{text}<br>"
-                    + "<b>Average Box Size:</b> %{x}<br>"
-                    + "<b>Footstep Count:</b> %{y}"
+                    + f"<b>{self.AXIS_LABELS.get(x_key, x_key)}:</b> %{{x}}<br>"
+                    + f"<b>{self.AXIS_LABELS.get(y_key, y_key)}:</b> %{{y}}"
                     + "<extra></extra>"
                 ),
             )
         )
-        fig.update_layout(
-            xaxis_title="Average Bounding Box Size",
-            yaxis_title="Footstep Count",
-            margin=dict(l=30, r=20, t=20, b=40),
-        )
 
+        fig.update_layout(
+            height=height,
+            xaxis_title=self.AXIS_LABELS.get(x_key, x_key),
+            yaxis_title=self.AXIS_LABELS.get(y_key, y_key),
+            margin=dict(l=30, r=20, t=10, b=40),
+        )
         return fig
 
-    @callback(
-        Output("metrics-graph-click-data", "children"),
-        Output("event-id-store", "data", allow_duplicate=True),
-        Input("box-size-scatter-plot", "clickData"),
-        prevent_initial_call=True,
-    )
-    def on_click_display_event_id(self):
-        if self is None:
-            raise PreventUpdate
-        # Data point click logging
-        print(self)
-
-        click_data_json = json.dumps(self)
-        click_data = json.loads(click_data_json)
-        if click_data is not None:
-            event_id = click_data["points"][0]["text"]
-            return [self, {"event_id": event_id}]
-
     def render(self):
-        scatter_plot = self._build_scatter()
+        scatter_plot = self._placeholder_figure(
+            "Select X and Y metrics to display scatter.",
+            height=440,
+        )
 
         try:
             participant_options = with_select_all(get_participants(logger=None))
         except PreventUpdate:
-            # tests / offline mode: no backend available
             participant_options = with_select_all([])
 
         return html.Div(
@@ -113,7 +120,6 @@ class MetricsGraph:
                                     data=True,
                                     storage_type="session",
                                 ),
-                                # Header row
                                 html.Div(
                                     className="panel-header",
                                     children=[
@@ -125,7 +131,6 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
-                                # Collapsible participant filter
                                 collapsible_checklist(
                                     title="by participant",
                                     component_id="metrics_filter_participant",
@@ -140,9 +145,85 @@ class MetricsGraph:
                         html.Div(
                             className="metrics-plot",
                             children=[
-                                html.H3(
-                                    "Bounding box size scatter plot",
-                                    style={"marginBottom": "6px", "marginTop": "4px"},
+                                # ONE LINE: Scatter plot  X: [..]  ⇄  Y: [..]
+                                html.Div(
+                                    style={
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "gap": "16px",
+                                        "marginBottom": "8px",
+                                        "flexWrap": "wrap",
+                                    },
+                                    children=[
+                                        html.H3(
+                                            "Scatter plot",
+                                            className="panel-title",
+                                            style={"margin": "0"},
+                                        ),
+                                        # X
+                                        html.Div(
+                                            style={
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                "gap": "6px",
+                                            },
+                                            children=[
+                                                html.Span(
+                                                    "X:",
+                                                    style={
+                                                        "fontWeight": "600",
+                                                        "fontSize": "13px",
+                                                        "color": "#374151",
+                                                    },
+                                                ),
+                                                dcc.Dropdown(
+                                                    id="metrics_x_axis",
+                                                    options=[],
+                                                    value=None,
+                                                    clearable=True,
+                                                    className="metrics-axis-dropdown",
+                                                    style={"width": "180px"},
+                                                ),
+                                            ],
+                                        ),
+                                        # Swap button (between X and Y)
+                                        html.Button(
+                                            "⇄",
+                                            id="btn-swap-axes",
+                                            className="mode-btn",
+                                            style={
+                                                "height": "32px",
+                                                "padding": "0 10px",
+                                                "fontSize": "14px",
+                                            },
+                                        ),
+                                        # Y
+                                        html.Div(
+                                            style={
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                "gap": "6px",
+                                            },
+                                            children=[
+                                                html.Span(
+                                                    "Y:",
+                                                    style={
+                                                        "fontWeight": "600",
+                                                        "fontSize": "13px",
+                                                        "color": "#374151",
+                                                    },
+                                                ),
+                                                dcc.Dropdown(
+                                                    id="metrics_y_axis",
+                                                    options=[],
+                                                    value=None,
+                                                    clearable=True,
+                                                    className="metrics-axis-dropdown",
+                                                    style={"width": "180px"},
+                                                ),
+                                            ],
+                                        ),
+                                    ],
                                 ),
                                 dcc.Graph(
                                     id="box-size-scatter-plot",
@@ -151,7 +232,7 @@ class MetricsGraph:
                                         "displayModeBar": True,
                                         "modeBarButtonsToAdd": ["select2d", "lasso2d"],
                                     },
-                                    style={"height": "520px"},
+                                    style={"width": "100%", "height": "440px"},
                                 ),
                             ],
                         ),
@@ -178,7 +259,7 @@ class MetricsGraph:
                                         html.Button(
                                             "Select",
                                             id="btn-selected-select-mode",
-                                            className="ok-btn",  # reuse same style as OK
+                                            className="ok-btn",
                                         ),
                                     ],
                                 ),

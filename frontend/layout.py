@@ -83,6 +83,11 @@ def build_layout():
                         storage_type="session",
                     ),
                     Store(
+                        id="metrics_axes_store",
+                        data={"x": "avg_box_size", "y": "footstep_count"},
+                        storage_type="session",
+                    ),
+                    Store(
                         id="metrics_scatter_selection_store",
                         data={"event_ids": []},
                         storage_type="session",

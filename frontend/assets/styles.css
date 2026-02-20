@@ -147,7 +147,7 @@
       ========================================================= */
    .metrics-row {
      display: grid;
-     grid-template-columns: 200px 1fr 56px 240px; /* filters | plot | arrows | selected */
+     grid-template-columns: 200px 4fr 56px 240px; /* filters | plot | arrows | selected */
      gap: 12px;
      width: 100%;
      align-items: start;
@@ -439,3 +439,63 @@
     line-height: 1.2;
   }
   
+  /* =========================================================
+     Scatter header row (title + X/Y dropdowns)
+     ========================================================= */
+  .plot-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 0 8px 0;
+  }
+
+  .plot-controls {
+    display: flex;
+  align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .axis-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 600;
+  }
+
+  .axis-dropdown {
+    min-width: 180px;
+  }
+
+  /* Make scatter shorter */
+  .scatter-graph {
+    width: 100%;
+    height: 440px;
+  }
+
+  /* Make axis dropdown text same size as filter checklist (13px) */
+  .metrics-axis-dropdown .Select-control,
+  .metrics-axis-dropdown .Select-value-label,
+  .metrics-axis-dropdown .Select-placeholder {
+    font-size: 13px !important;
+  }
+
+  /* =========================================================
+     Make X/Y dropdown text match collapse checklist (13px)
+     ========================================================= */
+
+  /* Selected value */
+  .metrics-axis-dropdown .Select-value-label,
+  .metrics-axis-dropdown .Select-placeholder {
+    font-size: 13px !important;
+  }
+
+  /* Dropdown menu items */
+  .metrics-axis-dropdown .Select-menu-outer,
+  .metrics-axis-dropdown .Select-option {
+    font-size: 13px !important;
+  }
+

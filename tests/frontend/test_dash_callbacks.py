@@ -22,10 +22,12 @@ class StubResponse:
 
 
 def make_fake_get(response_data, *, status_ok=True, captured=None):
-    def fake_get(url, timeout):
+    def fake_get(url, params=None, timeout=None):
         if captured is not None:
             captured["url"] = url
+            captured["params"] = params
             captured["timeout"] = timeout
+
         return StubResponse(response_data, status_ok=status_ok)
 
     return fake_get
@@ -92,3 +94,136 @@ def test_require_values_all_present_ok():
         direction="in",
         event=1,
     )
+
+
+# ------------------------------------------------------------
+# Tests for increasing coverage (frontend/api.py)
+# ------------------------------------------------------------
+
+
+class FakeLogger:
+    # Simple logger stub to verify error logging branch
+    def __init__(self):
+        self.logged = False
+
+    def error(self, msg):
+        self.logged = True
+
+
+@pytest.mark.unit
+def test_get_dates(monkeypatch):
+    # Ensure get_dates correctly formats API response into dropdown options
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": ["2024-01-01"]}),
+    )
+
+    out = api.get_dates(1)
+
+    assert out == [{"label": "2024-01-01", "value": "2024-01-01"}]
+
+
+@pytest.mark.unit
+def test_get_directions(monkeypatch):
+    # Ensure get_directions correctly maps returned direction values
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": ["in", "out"]}),
+    )
+
+    out = api.get_directions(1, "2024-01-01")
+
+    assert out == [
+        {"label": "in", "value": "in"},
+        {"label": "out", "value": "out"},
+    ]
+
+
+@pytest.mark.unit
+def test_get_events(monkeypatch):
+    # Ensure get_events converts integer events into dropdown options
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": [1, 2]}),
+    )
+
+    out = api.get_events(1, "2024-01-01", "in")
+
+    assert out == [
+        {"label": "1", "value": 1},
+        {"label": "2", "value": 2},
+    ]
+
+
+@pytest.mark.unit
+def test_get_swipe_event_summary_metrics(monkeypatch):
+    # Ensure summary metric request builds correct query parameters
+    captured = {}
+
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"EVT1": {"avg_box_size": 10}}, captured=captured),
+    )
+
+    out = api.get_swipe_event_summary_metrics(
+        "avg_box_size",
+        "footstep_count",
+        filters={"participants": [100, 200]},
+    )
+
+    # Confirm participant filter was added to URL
+    assert captured["params"]["participants"] == "100,200"
+    assert captured["params"]["x"] == "avg_box_size"
+    assert captured["params"]["y"] == "footstep_count"
+
+    # Confirm returned data is passed through unchanged
+    assert out == {"EVT1": {"avg_box_size": 10}}
+
+
+@pytest.mark.unit
+def test_get_available_metrics(monkeypatch):
+    # Ensure available metrics endpoint returns raw JSON payload
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": ["avg_box_size", "footstep_count"]}),
+    )
+
+    out = api.get_available_metrics()
+
+    assert out == {"items": ["avg_box_size", "footstep_count"]}
+
+
+@pytest.mark.unit
+def test_get_event_footstep_p100s(monkeypatch):
+    # Ensure footstep thumbnail endpoint returns raw JSON payload
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": []}),
+    )
+
+    out = api.get_event_footstep_p100s("evt-1")
+
+    assert out == {"items": []}
+
+
+@pytest.mark.unit
+def test_fetch_json_logs_on_error(monkeypatch):
+    # Ensure fetch_json logs error details when a request fails
+    logger = FakeLogger()
+
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({}, status_ok=False),
+    )
+
+    with pytest.raises(PreventUpdate):
+        api.fetch_json("http://example.com", logger=logger)
+
+    assert logger.logged is True
