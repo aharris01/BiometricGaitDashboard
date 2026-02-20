@@ -1,6 +1,6 @@
 import pytest
 from dash import html
-from frontend.views.metrics_graph import MetricsGraph
+from frontend.views.swipe_event_view.metrics_graph import MetricsGraph
 import plotly.graph_objects as go
 
 

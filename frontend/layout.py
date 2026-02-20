@@ -2,7 +2,7 @@
 from dash.dcc import Interval, Store, ConfirmDialog
 from dash.html import Div, Button, H2, Span
 
-from frontend.views.swipe_event_view import SwipeEventView
+from frontend.views.swipe_event_view.swipe_event_view import SwipeEventView
 from frontend.views.footstep_view import FootstepView
 
 
@@ -94,6 +94,11 @@ def build_layout():
                     ),
                     Store(
                         id="metrics_selected_events_store",
+                        data={"event_ids": []},
+                        storage_type="session",
+                    ),
+                    Store(
+                        id="metrics_confirmed_events_store",
                         data={"event_ids": []},
                         storage_type="session",
                     ),

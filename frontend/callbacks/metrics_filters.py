@@ -1,7 +1,7 @@
 # frontend/callbacks/metrics_filters.py
 from dash import Input, Output, State, callback
 from frontend.api import get_swipe_event_summary_metrics
-from frontend.views.metrics_graph import MetricsGraph
+from frontend.views.swipe_event_view.metrics_graph import MetricsGraph
 from dash.exceptions import PreventUpdate
 
 

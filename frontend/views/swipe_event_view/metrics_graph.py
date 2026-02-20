@@ -256,10 +256,24 @@ class MetricsGraph:
                                     className="panel-header",
                                     children=[
                                         html.H3("Selected", className="panel-title"),
-                                        html.Button(
-                                            "Select",
-                                            id="btn-selected-select-mode",
-                                            className="ok-btn",
+                                        html.Div(
+                                            style={
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                "gap": "8px",
+                                            },
+                                            children=[
+                                                html.Button(
+                                                    "Confirm",
+                                                    id="btn-selected-confirm",
+                                                    className="ok-btn",
+                                                ),
+                                                html.Button(
+                                                    "Select",
+                                                    id="btn-selected-select-mode",
+                                                    className="ok-btn",
+                                                ),
+                                            ],
                                         ),
                                     ],
                                 ),

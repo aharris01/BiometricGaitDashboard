@@ -7,7 +7,7 @@ from dash.dcc import Graph
 import plotly.express as px
 import plotly.graph_objects as go
 
-from frontend.views.summary_view import SummaryView
+from frontend.views.swipe_event_view.summary_view import SummaryView
 
 
 def children_list(component: Any) -> list[Any]:
