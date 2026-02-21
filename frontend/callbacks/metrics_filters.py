@@ -13,9 +13,21 @@ def register(app):
         Input("metrics_y_axis", "value"),
         State("metrics_filter_participant", "value"),
         State("metrics_filter_participant_open_store", "data"),
+        State("metrics_scatter_selection_store", "data"),
+        State("metrics_selected_events_store", "data"),
+        State("event-id-store", "data"),
         prevent_initial_call=True,
     )
-    def apply_participant_filter(_n, x_key, y_key, selected_participants, is_open):
+    def apply_participant_filter(
+        _n,
+        x_key,
+        y_key,
+        selected_participants,
+        is_open,
+        scatter_selection_store,
+        selected_events_store,
+        event_store,
+    ):
         # -------------------------------------------------------------
         # Require both axes to be selected before querying backend
         # -------------------------------------------------------------
@@ -55,7 +67,14 @@ def register(app):
         # No local filtering anymore.
         # Scatter just renders what backend returned.
         # -------------------------------------------------------------
+        pending_event_ids = (scatter_selection_store or {}).get("event_ids", [])
+        selected_event_ids = (selected_events_store or {}).get("event_ids", [])
+        active_event_id = (event_store or {}).get("event_id")
+
         return MetricsGraph(metrics)._build_scatter(
             x_key=x_key,
             y_key=y_key,
+            pending_event_ids=pending_event_ids,
+            selected_event_ids=selected_event_ids,
+            active_event_id=active_event_id,
         )
