@@ -281,7 +281,7 @@ class SAL:
         step_p100 = vol.max(axis=0)  # (H, W)
         step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
 
-        return step_p100.tolist(), step_grf.tolist(), None
+        return step_p100, step_grf.tolist(), None
 
     def get_all_footstep_p100(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
