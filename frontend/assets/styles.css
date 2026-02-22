@@ -499,3 +499,33 @@
     font-size: 13px !important;
   }
 
+  .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    align-items: start;
+  }
+  
+  .summary-panel,
+  .summary-plot {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+  }
+  
+  .summary-plot {
+    min-height: 560px;
+  }
+  
+  .summary-panel {
+    min-height: 560px;
+    overflow: hidden;
+  }
+  
+  .summary-panel-scroll {
+    max-height: 560px;
+    overflow-y: auto;
+    padding-right: 6px;
+  }

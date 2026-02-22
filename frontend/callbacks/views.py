@@ -22,14 +22,11 @@ def register(app, *, cmap):
         Input("event-id-store", "data"),
         prevent_initial_call=False,
     )
-    def display_summary_graph(store_data: dict):
-        if not store_data:
-            raise PreventUpdate
-        elif not isinstance(store_data, str) and not store_data.get("event_id"):
+    def load_event_and_render_default(store_data):
+        if not store_data or not store_data.get("event_id"):
             raise PreventUpdate
 
         event_id = store_data["event_id"]
-
         full = get_event_full(event_id, logger=app.logger)
 
         p100 = full.get("p100", [])
@@ -37,14 +34,22 @@ def register(app, *, cmap):
         footsteps = full.get("footsteps", [])
         footstep_details = full.get("footstep_details", [])
 
+        # default: show_all ON, step_index 0
         view = SummaryView(
             event_id,
             cmap,
             p100,
             grf,
             footsteps,
-            step_p100s=footstep_details,  # thumbnails are here now
+            step_p100s=footstep_details,
+            show_all=True,
+            step_index=0,
         ).render()
 
-        # store everything so selection.py can use it without API calls
-        return view, {"footsteps": footsteps, "footstep_details": footstep_details}
+        return view, {
+            "event_id": event_id,
+            "p100": p100,
+            "grf": grf,
+            "footsteps": footsteps,
+            "footstep_details": footstep_details,
+        }
