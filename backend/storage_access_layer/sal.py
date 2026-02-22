@@ -356,12 +356,7 @@ class SAL:
     # Summary plot helpers
     # =========================================================
     def get_event_id_from_URI(self, file_path: str | Path) -> Optional[str]:
-        """
-        Extract participant/date/direction/event from a metadata.csv path and
-        resolve it to the DB event_id.
 
-        Supports both Windows-style paths (data\\100\\...) and Unix-style (data/100/...).
-        """
         # Normalize Windows separators so this works on macOS/Linux too (and in unit tests)
         normalized = str(file_path).replace("\\", "/")
         p = Path(normalized)
