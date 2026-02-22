@@ -603,7 +603,6 @@ class SAL:
 
             if not areas:
                 continue
-
             # =================================================
             # When adding a new metric, update this dictionary
             # to include the filesystem-derived value for that
