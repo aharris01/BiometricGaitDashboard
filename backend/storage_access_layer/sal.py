@@ -356,7 +356,6 @@ class SAL:
     # Summary plot helpers
     # =========================================================
     def get_event_id_from_URI(self, file_path: str | Path) -> Optional[str]:
-
         # Normalize Windows separators so this works on macOS/Linux too (and in unit tests)
         normalized = str(file_path).replace("\\", "/")
         p = Path(normalized)
@@ -551,7 +550,6 @@ class SAL:
         part: str,
         filters: dict | None = None,
     ) -> list[int]:
-
         if part not in {"year", "month", "day"}:
             raise ValueError("Invalid date part")
 

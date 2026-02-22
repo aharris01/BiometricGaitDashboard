@@ -28,7 +28,6 @@ def register(app):
         month,
         day,
     ):
-
         # -------------------------------------------------------------
         # Require both axes to be selected before querying backend
         # -------------------------------------------------------------
