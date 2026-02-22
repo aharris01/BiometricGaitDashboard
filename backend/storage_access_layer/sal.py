@@ -432,7 +432,6 @@ class SAL:
         return self.get_local_metric("participant")
 
     # ---- Summary composition ----
-    from .db.schema import ManifestMetrics
 
     def get_available_metrics(self) -> list[str]:
         columns = ManifestMetrics.__table__.columns.keys()
