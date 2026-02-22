@@ -100,7 +100,7 @@ def register(app):
         # --- sort by level (highest -> lowest) to make logic stable ---
         indexed = list(enumerate(zip(ids, values)))
         indexed_sorted = sorted(
-            indexed, key=lambda t: (t[1][0].get("level", 0)), reverse=True
+            indexed, key=lambda t: t[1][0].get("level", 0), reverse=True
         )
 
         ids_sorted = [pair[0] for _, pair in indexed_sorted]
