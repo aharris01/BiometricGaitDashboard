@@ -119,7 +119,7 @@ def register(app):
         Output("metrics_filter_month", "options"),
         Output("metrics_filter_month", "value"),
         Input("metrics_filter_year", "value"),
-        Input("metrics_filter_participant", "value"),  # <-- ADD THIS
+        Input("metrics_filter_participant", "value"),
     )
     def populate_month_dropdown(year, selected_participants):
         if not year:
@@ -149,7 +149,7 @@ def register(app):
         Output("metrics_filter_day", "value"),
         Input("metrics_filter_month", "value"),
         Input("metrics_filter_year", "value"),
-        Input("metrics_filter_participant", "value"),  # <-- ADD THIS
+        Input("metrics_filter_participant", "value"),
     )
     def populate_day_dropdown(month, year, selected_participants):
         if not year or not month:
