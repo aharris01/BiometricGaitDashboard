@@ -483,49 +483,72 @@
     font-size: 13px !important;
   }
 
-  /* =========================================================
-     Make X/Y dropdown text match collapse checklist (13px)
-     ========================================================= */
+/* =========================================================
+   Make X/Y dropdown text match collapse checklist (13px)
+   ========================================================= */
 
-  /* Selected value */
-  .metrics-axis-dropdown .Select-value-label,
-  .metrics-axis-dropdown .Select-placeholder {
-    font-size: 13px !important;
-  }
+/* Selected value */
+.metrics-axis-dropdown .Select-value-label,
+.metrics-axis-dropdown .Select-placeholder {
+  font-size: 13px !important;
+}
 
-  /* Dropdown menu items */
-  .metrics-axis-dropdown .Select-menu-outer,
-  .metrics-axis-dropdown .Select-option {
-    font-size: 13px !important;
-  }
+/* Dropdown menu items */
+.metrics-axis-dropdown .Select-menu-outer,
+.metrics-axis-dropdown .Select-option {
+  font-size: 13px !important;
+}
 
-  .summary-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    width: 100%;
-    align-items: start;
-  }
-  
-  .summary-panel,
-  .summary-plot {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-  }
-  
-  .summary-plot {
-    min-height: 560px;
-  }
-  
-  .summary-panel {
-    min-height: 560px;
-    overflow: hidden;
-  }
-  
-  .summary-panel-scroll {
-    max-height: 560px;
-    overflow-y: auto;
-    padding-right: 6px;
-  }
+
+/* =========================================================
+   Summary Layout
+   ========================================================= */
+
+.summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  align-items: start;
+}
+
+/* Left & Right panels */
+.summary-panel,
+.summary-plot {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+/* Left panel height */
+.summary-plot {
+  min-height: 560px;
+}
+
+/* Right panel */
+.summary-panel {
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* prevents outer overflow */
+}
+
+/* Scroll area inside right panel */
+.summary-panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;   /* 🔥 prevents horizontal scrollbar */
+  padding-right: 6px;
+}
+
+/* Ensure graphs never overflow container */
+.summary-panel-scroll .dash-graph {
+  width: 100% !important;
+}
+
+/* Prevent grid items from stretching beyond container */
+.summary-panel-scroll > div {
+  max-width: 100%;
+}

@@ -349,6 +349,7 @@ class SummaryView:
                                 "alignItems": "center",
                                 "gap": "16px",
                                 "marginTop": "8px",
+                                "width": "100%",
                             },
                             children=[
                                 dcc.Checklist(
@@ -356,13 +357,20 @@ class SummaryView:
                                     options=[{"label": "Show all", "value": "all"}],
                                     value=["all"] if self.show_all else [],
                                 ),
-                                dcc.Slider(
-                                    id="summary-step-slider",
-                                    min=0,
-                                    max=max(len(step_ids) - 1, 0),
-                                    step=1,
-                                    value=index,
-                                    disabled=(len(step_ids) <= 1),
+                                html.Div(
+                                    style={"flex": "1", "minWidth": "320px"},
+                                    children=[
+                                        dcc.Slider(
+                                            id="summary-step-slider",
+                                            min=0,
+                                            max=max(len(step_ids) - 1, 0),
+                                            step=1,
+                                            value=index,
+                                            disabled=(len(step_ids) <= 1),
+                                            marks=None,
+                                            tooltip={"placement": "bottom", "always_visible": False},
+                                        )
+                                    ],
                                 ),
                             ],
                         ),
