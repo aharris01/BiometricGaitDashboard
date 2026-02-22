@@ -99,6 +99,7 @@ jobs:
       - name: Format Check
         run: |
           source .venv/bin/activate
+          ruff --version
           ruff format --check
         shell: bash
   unittest:
