@@ -456,8 +456,6 @@ class SAL:
         if not filters:
             return query
 
-        from sqlalchemy import extract
-
         if "year" in filters:
             year = filters["year"]
             if year:
