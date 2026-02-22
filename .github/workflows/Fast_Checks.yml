@@ -36,12 +36,6 @@ jobs:
           pip install ruff pyright pytest pytest-cov
         shell: bash
         
-      - name: Format (ruff format)
-        run: |
-          source .venv/bin/activate
-          ruff format .
-        shell: bash
-        
       - name: Lint (ruff)
         run: |
           source .venv/bin/activate
