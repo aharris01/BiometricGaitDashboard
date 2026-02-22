@@ -41,6 +41,11 @@ jobs:
           source .venv/bin/activate
           ruff check .
         shell: bash
+      - name: Format (ruff format)
+        run: |
+          source .venv/bin/activate
+          ruff format .
+        shell: bash
   typecheck:
     runs-on: ubuntu-latest
     steps:
