@@ -133,7 +133,7 @@ class MetricsGraph:
                                 ),
                                 # Participants uses the custom 'collapsible_checklist()' component,
                                 # while Dates uses native html.Details. This is intentional because the participant filter relies on a callback that
-                                # injects a dcc.Checklist via 'children', so replacing it with a html.details
+                                # injects a dcc.Checklist via 'children'py, so replacing it with a html.details
                                 # component would require refactoring the callback to output 'options' instead.
                                 # Do not convert this to native html.Details without updating frontend/callbacks/filters.py accordingly. -jon
                                 # --------------------------
