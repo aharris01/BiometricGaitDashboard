@@ -192,6 +192,73 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
+                                # --------------------------
+                                # STEP COUNT SECTION
+                                # --------------------------
+                                html.Details(
+                                    open=False,
+                                    style={"width": "100%"},
+                                    children=[
+                                        html.Summary("by step count", className="filter_summary"),
+                                        html.Div(
+                                            className="filter_box_no_scroll",
+                                            children=[
+                                                html.Label("Min steps"),
+                                                dcc.Input(
+                                                    id="metrics_filter_steps_min",
+                                                    type="number",
+                                                    min=0,
+                                                    step=1,
+                                                    placeholder="e.g. 1",
+                                                    style={"width": "100%", "marginBottom": "8px"},
+                                                ),
+                                                html.Label("Max steps"),
+                                                dcc.Input(
+                                                    id="metrics_filter_steps_max",
+                                                    type="number",
+                                                    min=0,
+                                                    step=1,
+                                                    placeholder="e.g. 20",
+                                                    style={"width": "100%"},
+                                                ),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+
+                                # --------------------------
+                                # AVG BOX SIZE SECTION
+                                # --------------------------
+                                html.Details(
+                                    open=False,
+                                    style={"width": "100%"},
+                                    children=[
+                                        html.Summary("by average box size", className="filter_summary"),
+                                        html.Div(
+                                            className="filter_box_no_scroll",
+                                            children=[
+                                                html.Label("Min avg box size"),
+                                                dcc.Input(
+                                                    id="metrics_filter_box_min",
+                                                    type="number",
+                                                    min=0,
+                                                    step=0.1,
+                                                    placeholder="e.g. 50",
+                                                    style={"width": "100%", "marginBottom": "8px"},
+                                                ),
+                                                html.Label("Max avg box size"),
+                                                dcc.Input(
+                                                    id="metrics_filter_box_max",
+                                                    type="number",
+                                                    min=0,
+                                                    step=0.1,
+                                                    placeholder="e.g. 400",
+                                                    style={"width": "100%"},
+                                                ),
+                                            ],
+                                        ),
+                                    ],
+                                ),
                             ],
                         ),
                         # 2) Scatter plot (center)

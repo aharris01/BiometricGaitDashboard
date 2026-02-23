@@ -139,6 +139,18 @@ def get_swipe_event_summary_metrics(
 
         if "day" in filters:
             params["day"] = filters["day"]
+        
+        if "steps_min" in filters:
+            params["steps_min"] = filters["steps_min"]
+
+        if "steps_max" in filters:
+            params["steps_max"] = filters["steps_max"]
+
+        if "box_min" in filters:
+            params["box_min"] = filters["box_min"]
+
+        if "box_max" in filters:
+            params["box_max"] = filters["box_max"]
 
     return fetch_json(
         f"{API_BASE_URL}/api/events/summaryplot",
