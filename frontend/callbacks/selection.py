@@ -1,5 +1,5 @@
 # frontend/callbacks/selection.py
-from dash import Input, Output, State, ALL, ctx
+from dash import Input, Output, State, ALL, MATCH, ctx
 from dash.exceptions import PreventUpdate
 
 PINK = "rgba(255,0,255,0.9)"
@@ -8,31 +8,36 @@ GREEN = "rgba(0,200,0,0.95)"
 
 def register(app, *, cmap):
     @app.callback(
-        Output("p100-graph", "figure"),
-        Output("selected-step-store", "data"),
-        Input({"type": "step-p100", "step_id": ALL}, "clickData"),
-        State("p100-graph", "figure"),
+        Output({"type": "p100-graph", "event_id": MATCH}, "figure"),
+        Input({"type": "step-thumb", "event_id": MATCH, "step_id": ALL}, "n_clicks"),
+        State({"type": "p100-graph", "event_id": MATCH}, "figure"),
         State("footsteps-store", "data"),
         prevent_initial_call=True,
     )
     def click_thumbnail_highlight_bbox(_all_clicks, p100_fig, footsteps_store):
         triggered = ctx.triggered_id
-        if not triggered or "step_id" not in triggered:
+        if (
+            not triggered
+            or "step_id" not in triggered
+            or "event_id" not in triggered
+        ):
             raise PreventUpdate
 
+        event_id = str(triggered["event_id"])
         step_id = triggered["step_id"]
 
         if not p100_fig or not footsteps_store:
             raise PreventUpdate
 
-        footsteps = footsteps_store.get("footsteps", [])
+        footsteps_by_event = footsteps_store.get("by_event", {})
+        footsteps = footsteps_by_event.get(event_id, [])
         if not footsteps:
             raise PreventUpdate
 
         # rebuild shapes: selected -> green, others -> pink
         new_shapes = []
         for box in footsteps:
-            color = GREEN if box.get("id") == step_id else PINK
+            color = GREEN if str(box.get("id")) == str(step_id) else PINK
             new_shapes.append(
                 dict(
                     type="rect",
@@ -50,7 +55,23 @@ def register(app, *, cmap):
         fig.setdefault("layout", {})
         fig["layout"]["shapes"] = new_shapes
 
-        return fig, {"step_id": step_id}
+        return fig
+
+    @app.callback(
+        Output("selected-step-store", "data"),
+        Input({"type": "step-thumb", "event_id": ALL, "step_id": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def store_selected_step(_all_clicks):
+        triggered = ctx.triggered_id
+        if (
+            not triggered
+            or "step_id" not in triggered
+            or "event_id" not in triggered
+        ):
+            raise PreventUpdate
+
+        return {"event_id": str(triggered["event_id"]), "step_id": triggered["step_id"]}
 
     @app.callback(
         Output("metrics_selected_events_store", "data", allow_duplicate=True),

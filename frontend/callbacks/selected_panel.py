@@ -46,9 +46,15 @@ def disable_remove_button(mode_store):
 @callback(
     Output("btn-selected-confirm", "disabled"),
     Input("metrics_selected_events_store", "data"),
+    Input("metrics_selected_panel_mode_store", "data"),
     prevent_initial_call=False,
 )
-def disable_confirm_button(selected_store):
+def disable_confirm_button(selected_store, mode_store):
+    mode = (mode_store or {}).get("mode", "view")
+    if mode == "select":
+        # In select mode, allow confirming checklist choices (including empty).
+        return False
+
     event_ids = (selected_store or {}).get("event_ids", [])
     return not bool(event_ids)
 
@@ -65,8 +71,6 @@ def disable_confirm_button(selected_store):
 )
 def confirm_selected_events(_n, selected_store, mode_store, checklist_store):
     event_ids = (selected_store or {}).get("event_ids", [])
-    if not event_ids:
-        raise PreventUpdate
 
     mode = (mode_store or {}).get("mode", "view")
     confirmed = list(event_ids)
@@ -76,16 +80,15 @@ def confirm_selected_events(_n, selected_store, mode_store, checklist_store):
         checked = [
             v for v in (checklist_store or {}).get("value", []) if v and v != "__all__"
         ]
-        if not checked:
-            raise PreventUpdate
+        if checked:
+            checked_set = set(checked)
+            confirmed = [eid for eid in event_ids if eid in checked_set]
+        else:
+            # No checklist marks means "confirm the current draft list as-is".
+            confirmed = list(event_ids)
 
-        checked_set = set(checked)
-        confirmed = [eid for eid in event_ids if eid in checked_set]
-
-    if not confirmed:
-        raise PreventUpdate
-
-    return {"event_ids": confirmed}, {"mode": "view"}, {"event_id": confirmed[0]}
+    next_event_store = {"event_id": confirmed[0]} if confirmed else {"event_id": None}
+    return {"event_ids": confirmed}, {"mode": "view"}, next_event_store
 
 
 @callback(

@@ -24,6 +24,12 @@ class SummaryView:
         self.footsteps = footsteps or []
         self.step_p100s = step_p100s or []
 
+    def _p100_graph_id(self):
+        return {"type": "p100-graph", "event_id": str(self.event_id)}
+
+    def _grf_graph_id(self):
+        return {"type": "grf-graph", "event_id": str(self.event_id)}
+
     def _placeholder_figure(self, text, height=520):
         fig = go.Figure()
         fig.update_layout(
@@ -121,7 +127,11 @@ class SummaryView:
                                     },
                                 )
                             ],
-                            id={"type": "step-thumb", "step_id": step_id},
+                            id={
+                                "type": "step-thumb",
+                                "event_id": str(self.event_id),
+                                "step_id": step_id,
+                            },
                             n_clicks=0,
                             style={"height": "240px", "cursor": "pointer"},
                             title=f"Open footstep {step_id}",
@@ -194,7 +204,7 @@ class SummaryView:
                             style={"marginBottom": "4px", "marginTop": "8px"},
                         ),
                         Graph(
-                            id="p100-graph",
+                            id=self._p100_graph_id(),
                             figure=p100_figure,
                             style={"maxWidth": "700px", "height": "520px"},
                         ),
@@ -224,7 +234,7 @@ class SummaryView:
         # Bottom row: full GRF
         if grf_figure is not None:
             left_grf = Graph(
-                id="grf-graph",
+                id=self._grf_graph_id(),
                 figure=grf_figure,
                 style={"maxWidth": "900px", "height": "300px"},
             )
@@ -258,6 +268,7 @@ class SummaryView:
         )
 
         return html.Div(
+            id={"type": "summary-view", "event_id": str(self.event_id)},
             children=[top_row, bottom_row],
             style={
                 "width": "100%",
