@@ -371,7 +371,7 @@ def test_get_footstep_data_ok(tmp_path, sal, fake_db):
 
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert err is None
-    assert p100 == np.max(vol, axis=0).tolist()
+    assert p100 is np.max(vol, axis=0)
     assert grf == vol.reshape(vol.shape[0], -1).sum(axis=1).tolist()
 
 

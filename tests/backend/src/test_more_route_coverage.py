@@ -61,11 +61,6 @@ class FakeSAL:
             None,
         )
 
-    def get_all_footstep_details(self, event_id: str):
-        if event_id == "nofile_details":
-            return None, "missing_file"
-        return ([{"id": 0, "p100": [[1]], "grf": [0.5, 0.6]}], None)
-
 
 @pytest.fixture
 def client():
@@ -133,8 +128,8 @@ def test_event_full_footsteps_missing_file_returns_empty_footsteps(client):
 
 
 @pytest.mark.unit
-def test_event_full_details_missing_file_returns_empty_details(client):
-    resp = client.get("/api/events/nofile_details/full")
+def test_event_full_payload_is_summary_essentials_only(client):
+    resp = client.get("/api/events/evt-in-1/full")
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["footstep_details"] == []  # route converts missing_file to empty list
+    assert "footstep_details" not in data

@@ -39,7 +39,6 @@ def register(app, *, cmap):
         p100 = full.get("p100", [])
         grf = full.get("grf", [])
         footsteps = full.get("footsteps", [])
-        footstep_details = full.get("footstep_details", [])
 
         view = SummaryView(
             event_id,
@@ -47,8 +46,8 @@ def register(app, *, cmap):
             p100,
             grf,
             footsteps,
-            step_p100s=footstep_details,  # thumbnails are here now
+            step_p100s=footsteps,  # grid only needs step ids for image URLs
         ).render()
 
         # store everything so selection.py can use it without API calls
-        return view, {"footsteps": footsteps, "footstep_details": footstep_details}
+        return view, {"footsteps": footsteps}

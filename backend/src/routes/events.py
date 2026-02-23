@@ -10,7 +10,7 @@ events_bp = Blueprint("events", __name__)
 
 @events_bp.get("/api/events/<event_id>/full")
 def api_event_full(event_id: str):
-    """Return all data needed for the Swipe Summary view in one request."""
+    """Return summary essentials in one request (main plots + footstep metadata)."""
     try:
         sal = get_sal()
 
@@ -33,13 +33,6 @@ def api_event_full(event_id: str):
         if footsteps_err == "missing_file":
             footsteps = []
 
-        # send ALL step thumbnails + per-step GRF in the same response
-        footstep_details, details_err = sal.get_all_footstep_details(event_id)
-        if details_err == "missing_event":
-            return make_error(404, "not_found", "event not found")
-        if details_err == "missing_file":
-            footstep_details = []
-
         return jsonify(
             {
                 "event": event,
@@ -47,7 +40,6 @@ def api_event_full(event_id: str):
                 "p100": p100,
                 "grf": grf,
                 "footsteps": footsteps,
-                "footstep_details": footstep_details,
             }
         )
     except Exception:
