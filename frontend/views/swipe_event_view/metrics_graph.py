@@ -184,7 +184,11 @@ class MetricsGraph:
                 x=x_vals,
                 y=y_vals,
                 mode="markers",
-                marker={"size": 10, "color": marker_colors, "opacity": marker_opacities},
+                marker={
+                    "size": 10,
+                    "color": marker_colors,
+                    "opacity": marker_opacities,
+                },
                 selectedpoints=selectedpoints,
                 text=event_ids,  # event_id used by click/lasso callbacks
                 hovertemplate=(

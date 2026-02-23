@@ -44,7 +44,9 @@ def register(app, *, cmap):
         State("summary-pagination-store", "data"),
         prevent_initial_call=False,
     )
-    def update_summary_pagination(confirmed_store: dict, _n_load: int, page_store: dict):
+    def update_summary_pagination(
+        confirmed_store: dict, _n_load: int, page_store: dict
+    ):
         total = len(_ordered_event_ids(confirmed_store))
         current_visible = _visible_count_from_store(page_store)
 
@@ -57,6 +59,7 @@ def register(app, *, cmap):
     @callback(
         Output("summary-pagination-controls", "style"),
         Output("btn-load-more-summaries", "disabled"),
+        Output("summary-pagination-load-wrap", "style"),
         Input("metrics_confirmed_events_store", "data"),
         Input("summary-pagination-store", "data"),
         prevent_initial_call=False,
@@ -64,7 +67,7 @@ def register(app, *, cmap):
     def display_summary_pagination_controls(confirmed_store: dict, page_store: dict):
         total = len(_ordered_event_ids(confirmed_store))
         if total == 0:
-            return {"display": "none"}, True
+            return {"display": "none"}, True, {"display": "none"}
 
         visible_count = min(total, _visible_count_from_store(page_store))
         all_loaded = visible_count >= total
@@ -79,6 +82,7 @@ def register(app, *, cmap):
                 "width": "100%",
             },
             all_loaded,
+            {"display": "none"} if all_loaded else {"display": "block"},
         )
 
     @callback(

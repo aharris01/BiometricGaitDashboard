@@ -36,6 +36,7 @@ def SwipeEventView():
                         id="summary-pagination-loading",
                         type="circle",
                         children=Div(
+                            id="summary-pagination-load-wrap",
                             children=[
                                 Button(
                                     "Load more",

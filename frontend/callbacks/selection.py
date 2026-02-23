@@ -16,11 +16,7 @@ def register(app, *, cmap):
     )
     def click_thumbnail_highlight_bbox(_all_clicks, p100_fig, footsteps_store):
         triggered = ctx.triggered_id
-        if (
-            not triggered
-            or "step_id" not in triggered
-            or "event_id" not in triggered
-        ):
+        if not triggered or "step_id" not in triggered or "event_id" not in triggered:
             raise PreventUpdate
 
         event_id = str(triggered["event_id"])
@@ -64,11 +60,7 @@ def register(app, *, cmap):
     )
     def store_selected_step(_all_clicks):
         triggered = ctx.triggered_id
-        if (
-            not triggered
-            or "step_id" not in triggered
-            or "event_id" not in triggered
-        ):
+        if not triggered or "step_id" not in triggered or "event_id" not in triggered:
             raise PreventUpdate
 
         return {"event_id": str(triggered["event_id"]), "step_id": triggered["step_id"]}
