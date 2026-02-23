@@ -103,6 +103,11 @@ def build_layout():
                         storage_type="session",
                     ),
                     Store(
+                        id="summary-pagination-store",
+                        data={"visible_count": 5},
+                        storage_type="session",
+                    ),
+                    Store(
                         id="metrics_selected_panel_mode_store",
                         data={"mode": "view"},
                         storage_type="session",
