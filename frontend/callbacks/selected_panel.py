@@ -1,5 +1,7 @@
 # frontend/callbacks/selected_panel.py
 
+from typing import Any, cast
+
 from dash import Input, Output, State, callback, html, dcc, ctx, ALL
 from dash.exceptions import PreventUpdate
 
@@ -171,7 +173,7 @@ def render_selected_list(
         children=[
             dcc.Checklist(
                 id="metrics_selected_checklist",
-                options=options,
+                options=cast(Any, options),
                 value=current_values,
                 inputStyle={"marginRight": "10px"},
                 labelStyle={

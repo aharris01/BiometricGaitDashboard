@@ -48,7 +48,7 @@ def SwipeEventView():
                                     id="summary-pagination-loading-sink",
                                     className="hidden",
                                 ),
-                            ]
+                            ],
                         ),
                     ),
                 ],
