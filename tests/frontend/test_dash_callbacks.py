@@ -227,3 +227,89 @@ def test_fetch_json_logs_on_error(monkeypatch):
         api.fetch_json("http://example.com", logger=logger)
 
     assert logger.logged is True
+
+
+@pytest.mark.unit
+def test_fetch_json_non_json_error_body(monkeypatch):
+    class BadJSONResponse:
+        def raise_for_status(self):
+            raise requests.HTTPError("error")
+
+        def json(self):
+            raise ValueError("not json")
+
+    def fake_get(*args, **kwargs):
+        return BadJSONResponse()
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    with pytest.raises(PreventUpdate):
+        api.fetch_json("http://example.com/api")
+
+
+@pytest.mark.unit
+def test_get_date_part_invalid_part():
+    out = api.get_date_part("invalid_part")
+    assert out == []
+
+
+@pytest.mark.unit
+def test_get_date_part_with_filters(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": [2024]}, captured=captured),
+    )
+
+    out = api.get_date_part(
+        "year",
+        participants=[1, 2],
+        year=2024,
+        month=5,
+    )
+
+    assert captured["params"]["participants"] == "1,2"
+    assert captured["params"]["year"] == 2024
+    assert captured["params"]["month"] == 5
+    assert out == {"items": [2024]}
+
+
+@pytest.mark.unit
+def test_fetch_json_error_with_json_body(monkeypatch):
+    class ErrorResponse:
+        def __init__(self):
+            self._json = {"message": "bad", "details": "more"}
+
+        def raise_for_status(self):
+            err = requests.HTTPError("error")
+            err.response = self
+            raise err
+
+        def json(self):
+            return self._json
+
+    def fake_get(*args, **kwargs):
+        return ErrorResponse()
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    with pytest.raises(PreventUpdate):
+        api.fetch_json("http://example.com/api")
+
+
+@pytest.mark.unit
+def test_get_date_part_day(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": [1]}, captured=captured),
+    )
+
+    out = api.get_date_part("day")
+
+    assert captured["url"].endswith("/api/events/days")
+    assert out == {"items": [1]}

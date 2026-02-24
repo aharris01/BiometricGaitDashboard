@@ -372,6 +372,12 @@
      overflow-y: auto;
    }
    
+   .filter_box_no_scroll {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 6px;
+   }
    /* Checklist items */
    .filter_box label {
      cursor: pointer;
