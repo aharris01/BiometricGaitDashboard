@@ -116,6 +116,9 @@ def api_swipe_event_summary_plot():
         y = request.args.get("y")
         participants_raw = request.args.get("participants")
 
+        year = request.args.get("year", type=int)
+        month = request.args.get("month", type=int)
+        day = request.args.get("day", type=int)
         if not x or not y:
             return make_error(
                 400,
@@ -133,6 +136,14 @@ def api_swipe_event_summary_plot():
             ]
             if participants:
                 filters["participants"] = participants
+        if year:
+            filters["year"] = year
+
+        if month:
+            filters["month"] = month
+
+        if day:
+            filters["day"] = day
 
         data = get_sal().get_swipe_event_summary_plot_data(
             x=x,
@@ -147,6 +158,114 @@ def api_swipe_event_summary_plot():
 
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@events_bp.get("/api/events/years")
+def api_swipe_event_years():
+    try:
+        participants_raw = request.args.get("participants")
+
+        filters = {}
+
+        if participants_raw:
+            participants = [
+                int(p.strip())
+                for p in participants_raw.split(",")
+                if p.strip().isdigit()
+            ]
+            if participants:
+                filters["participants"] = participants
+
+        years = get_sal().get_distinct_date_part(
+            part="year",
+            filters=filters or None,
+        )
+
+        return jsonify(years)
+
+    except Exception as e:
+        return make_error(
+            500,
+            "internal_error",
+            "failed to retrieve distinct years",
+            str(e),
+        )
+
+
+@events_bp.get("/api/events/months")
+def api_swipe_event_months():
+    try:
+        participants_raw = request.args.get("participants")
+        year = request.args.get("year", type=int)
+
+        filters = {}
+
+        if participants_raw:
+            participants = [
+                int(p.strip())
+                for p in participants_raw.split(",")
+                if p.strip().isdigit()
+            ]
+            if participants:
+                filters["participants"] = participants
+
+        if year:
+            filters["year"] = year
+
+        months = get_sal().get_distinct_date_part(
+            part="month",
+            filters=filters or None,
+        )
+
+        return jsonify(months)
+
+    except Exception as e:
+        return make_error(
+            500,
+            "internal_error",
+            "failed to retrieve distinct months",
+            str(e),
+        )
+
+
+@events_bp.get("/api/events/days")
+def api_swipe_event_days():
+    try:
+        participants_raw = request.args.get("participants")
+        year = request.args.get("year", type=int)
+        month = request.args.get("month", type=int)
+
+        filters = {}
+
+        if participants_raw:
+            participants = [
+                int(p.strip())
+                for p in participants_raw.split(",")
+                if p.strip().isdigit()
+            ]
+            if participants:
+                filters["participants"] = participants
+
+        if year:
+            filters["year"] = year
+
+        if month:
+            filters["month"] = month
+
+        days = get_sal().get_distinct_date_part(
+            part="day",
+            filters=filters or None,
+        )
+
+        return jsonify(days)
+
+    except Exception as e:
+        return make_error(
+            500,
+            "internal_error",
+            "failed to retrieve distinct days",
+            str(e),
+        )
 
 
 @events_bp.get("/api/events/metrics")

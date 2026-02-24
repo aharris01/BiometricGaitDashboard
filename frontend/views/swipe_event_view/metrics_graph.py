@@ -244,13 +244,66 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
+                                # Participants uses the custom 'collapsible_checklist()' component,
+                                # while Dates uses native html.Details. This is intentional because the participant filter relies on a callback that
+                                # injects a dcc.Checklist via 'children'py, so replacing it with a html.details
+                                # component would require refactoring the callback to output 'options' instead.
+                                # Do not convert this to native html.Details without updating frontend/callbacks/filters.py accordingly. -jon
+                                # --------------------------
+                                # PARTICIPANT SECTION collapsible_checklist()
+                                # --------------------------
                                 collapsible_checklist(
                                     title="by participant",
                                     component_id="metrics_filter_participant",
                                     options=participant_options,
-                                    open=True,
+                                    open=False,
                                     details_id="metrics_filter_participant_details",
                                     summary_id="metrics_filter_participant_summary",
+                                ),
+                                # --------------------------
+                                # DATE SECTION html.details
+                                # --------------------------
+                                html.Details(
+                                    open=False,
+                                    style={"width": "100%"},
+                                    children=[
+                                        # Use SAME class as participant
+                                        html.Summary(
+                                            "by date",
+                                            className="filter_summary",
+                                        ),
+                                        html.Div(
+                                            className="filter_box_no_scroll",
+                                            children=[
+                                                html.Label("Year"),
+                                                dcc.Dropdown(
+                                                    id="metrics_filter_year",
+                                                    options=[],
+                                                    value=None,
+                                                    clearable=True,
+                                                    placeholder="Select year",
+                                                    style={"marginBottom": "8px"},
+                                                ),
+                                                html.Label("Month"),
+                                                dcc.Dropdown(
+                                                    id="metrics_filter_month",
+                                                    options=[],
+                                                    value=None,
+                                                    clearable=True,
+                                                    placeholder="Select month",
+                                                    style={"marginBottom": "8px"},
+                                                ),
+                                                html.Label("Day"),
+                                                dcc.Dropdown(
+                                                    id="metrics_filter_day",
+                                                    options=[],
+                                                    value=None,
+                                                    clearable=True,
+                                                    placeholder="Select day",
+                                                ),
+                                            ],
+                                        ),
+                                    ],
                                 ),
                             ],
                         ),

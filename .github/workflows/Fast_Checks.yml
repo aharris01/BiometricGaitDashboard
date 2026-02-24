@@ -35,12 +35,13 @@ jobs:
           pip install -r requirements-dev.txt
           pip install ruff pyright pytest pytest-cov
         shell: bash
-
+        
       - name: Lint (ruff)
         run: |
           source .venv/bin/activate
           ruff check .
         shell: bash
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -98,6 +99,7 @@ jobs:
       - name: Format Check
         run: |
           source .venv/bin/activate
+          ruff --version
           ruff format --check
         shell: bash
   unittest:

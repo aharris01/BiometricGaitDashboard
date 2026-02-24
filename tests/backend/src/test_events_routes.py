@@ -90,3 +90,173 @@ def test_event_full_missing_event_returns_404():
     with app.test_client() as client:
         resp = client.get("/api/events/missing/full")
         assert resp.status_code == 404
+
+
+class FakeSALFootstepMissingEvent(FakeSAL):
+    def get_all_footstep_p100(self, event_id: str):
+        return (None, "missing_event")
+
+
+@pytest.mark.unit
+def test_event_footsteps_p100s_missing_event_returns_404():
+    app = create_app(sal=FakeSALFootstepMissingEvent())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/footsteps/p100s")
+        assert resp.status_code == 404
+
+
+class FakeSALFootstepMissingFile(FakeSAL):
+    def get_all_footstep_p100(self, event_id: str):
+        return (None, "missing_file")
+
+
+@pytest.mark.unit
+def test_event_footsteps_p100s_missing_file_returns_empty_list():
+    app = create_app(sal=FakeSALFootstepMissingFile())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/footsteps/p100s")
+        assert resp.status_code == 200
+        assert resp.get_json()["items"] == []
+
+
+class FakeSALFootstepDetail(FakeSAL):
+    def get_footstep_data(self, event_id: str, step_id: int):
+        return ([1, 2], [0.1, 0.2], None)
+
+
+@pytest.mark.unit
+def test_event_footstep_detail_ok():
+    app = create_app(sal=FakeSALFootstepDetail())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/footsteps/0")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "p100" in data
+        assert "grf" in data
+
+
+class FakeSALFootstepDetailMissingEvent(FakeSAL):
+    def get_footstep_data(self, event_id: str, step_id: int):
+        return (None, None, "missing_event")
+
+
+@pytest.mark.unit
+def test_event_footstep_detail_missing_event():
+    app = create_app(sal=FakeSALFootstepDetailMissingEvent())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/footsteps/0")
+        assert resp.status_code == 404
+
+
+class FakeSALFootstepDetailMissingFile(FakeSAL):
+    def get_footstep_data(self, event_id: str, step_id: int):
+        return (None, None, "missing_file")
+
+
+@pytest.mark.unit
+def test_event_footstep_detail_missing_file():
+    app = create_app(sal=FakeSALFootstepDetailMissingFile())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/footsteps/0")
+        assert resp.status_code == 404
+
+
+class FakeSALSummaryPlot(FakeSAL):
+    def get_swipe_event_summary_plot_data(self, x, y, filters):
+        return [{"x": 1, "y": 2}]
+
+
+@pytest.mark.unit
+def test_summary_plot_ok():
+    app = create_app(sal=FakeSALSummaryPlot())
+    with app.test_client() as client:
+        resp = client.get("/api/events/summaryplot?x=a&y=b")
+        assert resp.status_code == 200
+
+
+@pytest.mark.unit
+def test_summary_plot_missing_metrics():
+    app = create_app(sal=FakeSALSummaryPlot())
+    with app.test_client() as client:
+        resp = client.get("/api/events/summaryplot?x=a")
+        assert resp.status_code == 400
+
+
+class FakeSALDates(FakeSAL):
+    def get_distinct_date_part(self, part, filters):
+        return [2024]
+
+
+@pytest.mark.unit
+def test_years_endpoint_ok():
+    app = create_app(sal=FakeSALDates())
+    with app.test_client() as client:
+        resp = client.get("/api/events/years")
+        assert resp.status_code == 200
+
+
+class FakeSALGrfMissingEvent(FakeSAL):
+    def get_grf(self, event_id: str):
+        return (None, "missing_event")
+
+
+@pytest.mark.unit
+def test_event_full_grf_missing_event_returns_404():
+    app = create_app(sal=FakeSALGrfMissingEvent())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/full")
+        assert resp.status_code == 404
+
+
+class FakeSALFootstepsMissingEvent(FakeSAL):
+    def get_footsteps(self, event_id: str):
+        return (None, "missing_event")
+
+
+@pytest.mark.unit
+def test_event_full_footsteps_missing_event_returns_404():
+    app = create_app(sal=FakeSALFootstepsMissingEvent())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/full")
+        assert resp.status_code == 404
+
+
+class FakeSALFootstepsMissingFile(FakeSAL):
+    def get_footsteps(self, event_id: str):
+        return (None, "missing_file")
+
+
+@pytest.mark.unit
+def test_event_full_footsteps_missing_file_returns_empty_list():
+    app = create_app(sal=FakeSALFootstepsMissingFile())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/full")
+        assert resp.status_code == 200
+        assert resp.get_json()["footsteps"] == []
+
+
+class FakeSALDetailsMissingEvent(FakeSAL):
+    def get_all_footstep_details(self, event_id: str):
+        return (None, "missing_event")
+
+
+@pytest.mark.unit
+def test_event_full_details_missing_event_returns_404():
+    app = create_app(sal=FakeSALDetailsMissingEvent())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/full")
+        assert resp.status_code == 404
+
+
+class FakeSALDetailsMissingFile(FakeSAL):
+    def get_all_footstep_details(self, event_id: str):
+        return (None, "missing_file")
+
+
+@pytest.mark.unit
+def test_event_full_details_missing_file_returns_empty_list():
+    app = create_app(sal=FakeSALDetailsMissingFile())
+    with app.test_client() as client:
+        resp = client.get("/api/events/evt-1/full")
+        assert resp.status_code == 200
+        assert resp.get_json()["footstep_details"] == []
