@@ -371,7 +371,9 @@ def test_get_footstep_data_ok(tmp_path, sal, fake_db):
 
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert err is None
-    assert p100 is np.max(vol, axis=0)
+    # p100 returns a numpy array; use array comparison instead of identity
+    assert np.array_equal(p100, np.max(vol, axis=0))
+    # grf is returned as a list so regular equality works
     assert grf == vol.reshape(vol.shape[0], -1).sum(axis=1).tolist()
 
 
