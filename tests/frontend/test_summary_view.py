@@ -138,7 +138,9 @@ def test_render_without_step_p100s_shows_empty_message():
     assert isinstance(grid_wrapper, html.Div)
 
     # In empty case, _render_all_step_grid() returns a Div(message)
-    msg_div = children_list(grid_wrapper)[0] if children_list(grid_wrapper) else grid_wrapper
+    msg_div = (
+        children_list(grid_wrapper)[0] if children_list(grid_wrapper) else grid_wrapper
+    )
     assert isinstance(msg_div, html.Div)
 
     msg = msg_div.children
@@ -151,7 +153,7 @@ def test_get_p100_range_defaults_when_empty():
     view = SummaryView(
         event_id="evt",
         cmap=["#000"],
-        p100_data=None,   # empty
+        p100_data=None,  # empty
         grf_data=None,
     )
     assert view._get_p100_range() == (0, 1)
@@ -280,7 +282,7 @@ def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
         grf_data=[0.1, 0.2],
         footsteps=footsteps,
         step_p100s=step_p100s,
-        show_all=False,   # key: single-step mode
+        show_all=False,  # key: single-step mode
         step_index=0,
     )
 
@@ -311,7 +313,7 @@ def test_render_without_grf_uses_grf_placeholder():
         event_id="evt",
         cmap=cmap,
         p100_data=[[1, 2], [3, 4]],
-        grf_data=None,   # triggers GRF placeholder
+        grf_data=None,  # triggers GRF placeholder
         footsteps=[],
         step_p100s=[],
     )
