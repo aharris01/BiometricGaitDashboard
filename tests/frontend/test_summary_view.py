@@ -107,3 +107,231 @@ def test_render_without_p100_uses_placeholder():
     fig = p100_graph.figure
     assert isinstance(fig, go.Figure)
     assert fig.layout.annotations[0].text == "P100 not available for this event."
+
+
+@pytest.mark.unit
+def test_render_without_step_p100s_shows_empty_message():
+    cmap = px.colors.sequential.Jet
+
+    view = SummaryView(
+        event_id="evt-empty-steps",
+        cmap=cmap,
+        p100_data=[[1, 2], [3, 4]],
+        grf_data=[0.1, 0.2],
+        footsteps=[],
+        step_p100s=[],  # <- triggers "No extracted footsteps..." branch
+        show_all=True,
+    )
+
+    root = cast(html.Div, view.render())
+    top_row = children_list(root)[0]
+    top_children = children_list(top_row)
+
+    thumbs_container = top_children[1]
+    thumbs_children = children_list(thumbs_container)
+
+    # Header should exist
+    assert isinstance(thumbs_children[0], html.H4)
+
+    # Second child is whatever _render_all_step_grid() returns (a Div wrapper)
+    grid_wrapper = thumbs_children[1]
+    assert isinstance(grid_wrapper, html.Div)
+
+    # In empty case, _render_all_step_grid() returns a Div(message)
+    msg_div = (
+        children_list(grid_wrapper)[0] if children_list(grid_wrapper) else grid_wrapper
+    )
+    assert isinstance(msg_div, html.Div)
+
+    msg = msg_div.children
+    assert isinstance(msg, str)
+    assert "No extracted footsteps available for this event." in msg
+
+
+@pytest.mark.unit
+def test_get_p100_range_defaults_when_empty():
+    view = SummaryView(
+        event_id="evt",
+        cmap=["#000"],
+        p100_data=None,  # empty
+        grf_data=None,
+    )
+    assert view._get_p100_range() == (0, 1)
+
+
+@pytest.mark.unit
+def test_get_p100_range_finds_max():
+    view = SummaryView(
+        event_id="evt",
+        cmap=["#000"],
+        p100_data=[[0, 2], [3, None]],
+        grf_data=None,
+    )
+    assert view._get_p100_range() == (0, 3)
+
+
+@pytest.mark.unit
+def test_resize_nearest_resizes_shape_and_values():
+    view = SummaryView(event_id="evt", cmap=["#000"], p100_data=[[1]], grf_data=None)
+
+    img = [
+        [1, 2],
+        [3, 4],
+    ]
+
+    out = view._resize_nearest(img, out_h=4, out_w=4)
+    assert len(out) == 4
+    assert len(out[0]) == 4
+
+    # nearest-neighbor should preserve corners
+    assert out[0][0] == 1
+    assert out[0][-1] == 2
+    assert out[-1][0] == 3
+    assert out[-1][-1] == 4
+
+
+@pytest.mark.unit
+def test_global_canvas_for_step_pastes_resized_step_into_bbox():
+    cmap = px.colors.sequential.Jet
+
+    # global p100 canvas is 4x4
+    p100 = [
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+    ]
+
+    # bbox is a 2x2 region at top-left
+    footsteps = [{"id": 7, "x_min": 0, "x_max": 2, "y_min": 0, "y_max": 2}]
+
+    # step thumbnail is 1x1 => should be resized to fill bbox (2x2)
+    step_p100s = [{"id": 7, "p100": [[9]]}]
+
+    view = SummaryView(
+        event_id="evt",
+        cmap=cmap,
+        p100_data=p100,
+        grf_data=None,
+        footsteps=footsteps,
+        step_p100s=step_p100s,
+        show_all=False,
+        step_index=0,
+    )
+
+    canvas = view._global_canvas_for_step(7)
+    assert canvas is not None
+    assert len(canvas) == 4
+    assert len(canvas[0]) == 4
+
+    # bbox (0..1, 0..1) should all be 9
+    assert canvas[0][0] == 9
+    assert canvas[0][1] == 9
+    assert canvas[1][0] == 9
+    assert canvas[1][1] == 9
+
+    # outside bbox stays 0
+    assert canvas[3][3] == 0
+
+
+@pytest.mark.unit
+def test_bbox_shapes_and_annotations_filter_by_step_id():
+    cmap = px.colors.sequential.Jet
+    footsteps = [
+        {"id": 1, "x_min": 0, "x_max": 1, "y_min": 0, "y_max": 1},
+        {"id": 2, "x_min": 1, "x_max": 2, "y_min": 1, "y_max": 2},
+    ]
+
+    view = SummaryView(
+        event_id="evt",
+        cmap=cmap,
+        p100_data=[[1, 2], [3, 4]],
+        grf_data=None,
+        footsteps=footsteps,
+        step_p100s=[],
+    )
+
+    shapes_all = view._bbox_shapes()
+    ann_all = view._bbox_annotations()
+    assert len(shapes_all) == 2
+    assert len(ann_all) == 2
+
+    shapes_one = view._bbox_shapes(only_step_id=2)
+    ann_one = view._bbox_annotations(only_step_id=2)
+    assert len(shapes_one) == 1
+    assert len(ann_one) == 1
+    assert ann_one[0]["text"].startswith("#2")
+
+
+@pytest.mark.unit
+def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
+    cmap = px.colors.sequential.Jet
+    p100 = [
+        [0, 0, 0, 0],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [0, 0, 0, 0],
+    ]
+    footsteps = [{"id": 0, "x_min": 1, "x_max": 3, "y_min": 1, "y_max": 3}]
+    step_p100s = [{"id": 0, "p100": [[5]]}]  # will be resized into bbox
+
+    view = SummaryView(
+        event_id="evt",
+        cmap=cmap,
+        p100_data=p100,
+        grf_data=[0.1, 0.2],
+        footsteps=footsteps,
+        step_p100s=step_p100s,
+        show_all=False,  # key: single-step mode
+        step_index=0,
+    )
+
+    root = cast(html.Div, view.render())
+    top_row = children_list(root)[0]
+    top_children = children_list(top_row)
+    p100_container = top_children[0]
+    p100_graph = children_list(p100_container)[1]
+    assert isinstance(p100_graph, Graph)
+    assert p100_graph.id == "p100-graph"
+
+    fig = p100_graph.figure
+    assert isinstance(fig, go.Figure)
+
+    # single-step mode should hide the colorbar
+    showscale = getattr(fig.layout.coloraxis, "showscale", None)
+    assert showscale is False
+
+    # should also have exactly one bbox shape when filtered to one step
+    assert fig.layout.shapes is not None
+    assert len(fig.layout.shapes) == 1
+
+
+@pytest.mark.unit
+def test_render_without_grf_uses_grf_placeholder():
+    cmap = px.colors.sequential.Jet
+    view = SummaryView(
+        event_id="evt",
+        cmap=cmap,
+        p100_data=[[1, 2], [3, 4]],
+        grf_data=None,  # triggers GRF placeholder
+        footsteps=[],
+        step_p100s=[],
+    )
+
+    root = cast(html.Div, view.render())
+    bottom_row = children_list(root)[1]
+
+    # Your summary tests expect: bottom_row[0] is GRF container
+    bottom_children = children_list(bottom_row)
+    grf_container = bottom_children[0]
+    grf_children = children_list(grf_container)
+
+    # title then graph
+    assert isinstance(grf_children[0], html.H3)
+    grf_graph = grf_children[1]
+    assert isinstance(grf_graph, Graph)
+    assert grf_graph.id == "grf-graph"
+
+    fig = grf_graph.figure
+    assert isinstance(fig, go.Figure)
+    assert fig.layout.annotations[0].text == "GRF not available for this event."
