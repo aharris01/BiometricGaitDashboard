@@ -16,10 +16,6 @@ def register(app):
         State("metrics_filter_year", "value"),
         State("metrics_filter_month", "value"),
         State("metrics_filter_day", "value"),
-        State("metrics_filter_steps_min", "value"),
-        State("metrics_filter_steps_max", "value"),
-        State("metrics_filter_box_min", "value"),
-        State("metrics_filter_box_max", "value"),
         prevent_initial_call=True,
     )
     def apply_participant_filter(
@@ -31,10 +27,6 @@ def register(app):
         year,
         month,
         day,
-        steps_min,
-        steps_max,
-        box_min,
-        box_max,
     ):
         # -------------------------------------------------------------
         # Require both axes to be selected before querying backend
@@ -61,19 +53,7 @@ def register(app):
 
         if day:
             filters["day"] = day
-
-        if steps_min is not None:
-            filters["steps_min"] = steps_min
-
-        if steps_max is not None:
-            filters["steps_max"] = steps_max
-
-        if box_min is not None:
-            filters["box_min"] = box_min
-
-        if box_max is not None:
-            filters["box_max"] = box_max
-
+            
         # -------------------------------------------------------------
         # Fetch filtered dataset from backend
         #
