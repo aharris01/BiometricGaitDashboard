@@ -285,14 +285,10 @@ class SummaryView:
             annotations = self._bbox_annotations()
         else:
             image_data = (
-                self._global_canvas_for_step(step_id)
-                if step_id is not None
-                else None
+                self._global_canvas_for_step(step_id) if step_id is not None else None
             )
             shapes = (
-                self._bbox_shapes(only_step_id=step_id)
-                if step_id is not None
-                else []
+                self._bbox_shapes(only_step_id=step_id) if step_id is not None else []
             )
             annotations = (
                 self._bbox_annotations(only_step_id=step_id)
@@ -368,7 +364,10 @@ class SummaryView:
                                             value=index,
                                             disabled=(len(step_ids) <= 1),
                                             marks=None,
-                                            tooltip={"placement": "bottom", "always_visible": False},
+                                            tooltip={
+                                                "placement": "bottom",
+                                                "always_visible": False,
+                                            },
                                         )
                                     ],
                                 ),

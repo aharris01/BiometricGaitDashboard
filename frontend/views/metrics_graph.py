@@ -199,7 +199,9 @@ class MetricsGraph:
                                     open=False,
                                     style={"width": "100%"},
                                     children=[
-                                        html.Summary("by step count", className="filter_summary"),
+                                        html.Summary(
+                                            "by step count", className="filter_summary"
+                                        ),
                                         html.Div(
                                             className="filter_box_no_scroll",
                                             children=[
@@ -210,7 +212,10 @@ class MetricsGraph:
                                                     min=0,
                                                     step=1,
                                                     placeholder="e.g. 1",
-                                                    style={"width": "100%", "marginBottom": "8px"},
+                                                    style={
+                                                        "width": "100%",
+                                                        "marginBottom": "8px",
+                                                    },
                                                 ),
                                                 html.Label("Max steps"),
                                                 dcc.Input(
@@ -225,7 +230,6 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
-
                                 # --------------------------
                                 # AVG BOX SIZE SECTION
                                 # --------------------------
@@ -233,7 +237,10 @@ class MetricsGraph:
                                     open=False,
                                     style={"width": "100%"},
                                     children=[
-                                        html.Summary("by average box size", className="filter_summary"),
+                                        html.Summary(
+                                            "by average box size",
+                                            className="filter_summary",
+                                        ),
                                         html.Div(
                                             className="filter_box_no_scroll",
                                             children=[
@@ -244,7 +251,10 @@ class MetricsGraph:
                                                     min=0,
                                                     step=0.1,
                                                     placeholder="e.g. 50",
-                                                    style={"width": "100%", "marginBottom": "8px"},
+                                                    style={
+                                                        "width": "100%",
+                                                        "marginBottom": "8px",
+                                                    },
                                                 ),
                                                 html.Label("Max avg box size"),
                                                 dcc.Input(

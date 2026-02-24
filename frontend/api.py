@@ -139,7 +139,7 @@ def get_swipe_event_summary_metrics(
 
         if "day" in filters:
             params["day"] = filters["day"]
-        
+
         if "steps_min" in filters:
             params["steps_min"] = filters["steps_min"]
 

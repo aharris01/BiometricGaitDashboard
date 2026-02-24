@@ -31,7 +31,7 @@ def register(app):
         year,
         month,
         day,
-        steps_min, 
+        steps_min,
         steps_max,
         box_min,
         box_max,
@@ -73,7 +73,7 @@ def register(app):
 
         if box_max is not None:
             filters["box_max"] = box_max
-            
+
         # -------------------------------------------------------------
         # Fetch filtered dataset from backend
         #
