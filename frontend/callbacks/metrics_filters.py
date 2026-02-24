@@ -53,7 +53,7 @@ def register(app):
 
         if day:
             filters["day"] = day
-            
+
         # -------------------------------------------------------------
         # Fetch filtered dataset from backend
         #

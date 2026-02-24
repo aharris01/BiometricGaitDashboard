@@ -278,7 +278,7 @@ class SummaryView:
             index = 0
             step_id = None
 
-        # Left image mode
+        # --- left image mode ---
         if self.show_all:
             image_data = self.p100_data
             shapes = self._bbox_shapes()
@@ -298,9 +298,7 @@ class SummaryView:
 
         if image_data:
             fig = px.imshow(image_data, color_continuous_scale=self.cmap)
-
             z_min, z_max = self._get_p100_range()
-
             fig.update_traces(zmin=z_min, zmax=z_max)
             fig.update_layout(
                 height=560,
@@ -312,83 +310,95 @@ class SummaryView:
                 plot_bgcolor="black",
                 paper_bgcolor="white",
             )
-
             fig.update_xaxes(constrain="domain", scaleanchor="y")
             fig.update_yaxes(autorange="reversed", constrain="domain")
-
-            # hide colorbar in single-step mode (keeps left clean)
             if not self.show_all:
                 fig.update_layout(coloraxis_showscale=False)
         else:
-            fig = self._placeholder_figure("No data.", height=560)
+            fig = self._placeholder_figure(
+                "P100 not available for this event.", height=560
+            )
 
-        return html.Div(
-            className="summary-row",
+        # ---- LEFT COLUMN (P100) ----
+        p100_container = html.Div(
             children=[
-                # LEFT: summary plot + controls
-                html.Div(
-                    className="summary-plot",
-                    children=[
-                        html.H3(
-                            f"Swipe Event Summary: {self.event_id}",
-                            className="panel-title",
-                            style={"margin": "0 0 8px 0"},
-                        ),
-                        Graph(
-                            id="summary-main-graph",
-                            figure=fig,
-                            style={"height": "560px"},
-                        ),
-                        html.Div(
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                                "gap": "16px",
-                                "marginTop": "8px",
-                                "width": "100%",
-                            },
-                            children=[
-                                dcc.Checklist(
-                                    id="summary-show-all",
-                                    options=[{"label": "Show all", "value": "all"}],
-                                    value=["all"] if self.show_all else [],
-                                ),
-                                html.Div(
-                                    style={"flex": "1", "minWidth": "320px"},
-                                    children=[
-                                        dcc.Slider(
-                                            id="summary-step-slider",
-                                            min=0,
-                                            max=max(len(step_ids) - 1, 0),
-                                            step=1,
-                                            value=index,
-                                            disabled=(len(step_ids) <= 1),
-                                            marks=None,
-                                            tooltip={
-                                                "placement": "bottom",
-                                                "always_visible": False,
-                                            },
-                                        )
-                                    ],
-                                ),
-                            ],
-                        ),
-                    ],
+                html.H3(
+                    f"Swipe Event Summary: {self.event_id}",
+                    className="panel-title",
+                    style={"margin": "0 0 8px 0"},
                 ),
-                # RIGHT: KEEP ORIGINAL (grid)
-                html.Div(
-                    className="summary-panel",
-                    children=[
-                        html.H3(
-                            "Footsteps",
-                            className="panel-title",
-                            style={"margin": "0 0 8px 0"},
-                        ),
-                        html.Div(
-                            className="summary-panel-scroll",
-                            children=self._render_all_step_grid(),
-                        ),
-                    ],
+                Graph(
+                    id="p100-graph",
+                    figure=fig,
+                    style={"height": "560px"},
                 ),
             ],
         )
+
+        # ---- RIGHT COLUMN (Footstep thumbnails) ----
+        thumbs_container = html.Div(
+            children=[
+                html.H4(
+                    "Footsteps",
+                    className="panel-title",
+                    style={"margin": "0 0 8px 0"},
+                ),
+                html.Div(self._render_all_step_grid()),
+            ],
+        )
+
+        top_row = html.Div(
+            children=[p100_container, thumbs_container],
+            style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "16px"},
+        )
+
+        # ---- GRF figure (bottom row expects this) ----
+        if self.grf_data:
+            grf_fig = go.Figure()
+            grf_fig.add_trace(go.Scatter(y=self.grf_data, mode="lines"))
+            grf_fig.update_layout(
+                height=260,
+                margin=dict(l=30, r=20, t=10, b=30),
+                xaxis_title="Frame",
+                yaxis_title="GRF",
+            )
+        else:
+            grf_fig = self._placeholder_figure(
+                "GRF not available for this event.", height=260
+            )
+
+        grf_container = html.Div(
+            children=[
+                html.H3("GRF", className="panel-title", style={"margin": "0 0 8px 0"}),
+                Graph(
+                    id="grf-graph",
+                    figure=grf_fig,
+                    style={"height": "260px"},
+                ),
+            ],
+        )
+
+        controls_container = html.Div(
+            children=[
+                dcc.Checklist(
+                    id="summary-show-all",
+                    options=[{"label": "Show all", "value": "all"}],
+                    value=["all"] if self.show_all else [],
+                ),
+                dcc.Slider(
+                    id="summary-step-slider",
+                    min=0,
+                    max=max(len(step_ids) - 1, 0),
+                    step=1,
+                    value=index,
+                    disabled=(len(step_ids) <= 1),
+                    marks=None,
+                    tooltip={"placement": "bottom", "always_visible": False},
+                ),
+            ],
+            style={"display": "flex", "alignItems": "center", "gap": "16px"},
+        )
+
+        bottom_row = html.Div(children=[grf_container, controls_container])
+
+        return html.Div(children=[top_row, bottom_row])
