@@ -61,6 +61,11 @@ class FakeSAL:
             None,
         )
 
+    # new endpoint added later; provide basic compatibility
+    def get_all_footstep_details(self, event_id: str):
+        # return empty list for simplicity; route should include key
+        return [], None
+
 
 @pytest.fixture
 def client():
@@ -128,8 +133,11 @@ def test_event_full_footsteps_missing_file_returns_empty_footsteps(client):
 
 
 @pytest.mark.unit
-def test_event_full_payload_is_summary_essentials_only(client):
+def test_event_full_payload_includes_details_when_supported(client):
+    # previous behaviour returned only summary essentials; new feature adds
+    # footstep_details key when SAL provides it
     resp = client.get("/api/events/evt-in-1/full")
     assert resp.status_code == 200
     data = resp.get_json()
-    assert "footstep_details" not in data
+    assert "footstep_details" in data
+    assert data["footstep_details"] == []  # our fake SAL returns empty list

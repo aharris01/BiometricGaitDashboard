@@ -33,6 +33,15 @@ def api_event_full(event_id: str):
         if footsteps_err == "missing_file":
             footsteps = []
 
+        # include detailed per-step payloads when available
+        details, details_err = sal.get_all_footstep_details(event_id)
+        if details_err == "missing_event":
+            # should rarely happen if summary/footsteps existence already checked,
+            # but mirror other behaviour for consistency with unit tests
+            return make_error(404, "not_found", "event not found")
+        if details_err == "missing_file":
+            details = []
+
         return jsonify(
             {
                 "event": event,
@@ -40,6 +49,7 @@ def api_event_full(event_id: str):
                 "p100": p100,
                 "grf": grf,
                 "footsteps": footsteps,
+                "footstep_details": details,
             }
         )
     except Exception:

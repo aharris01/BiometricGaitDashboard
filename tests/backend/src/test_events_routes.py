@@ -45,6 +45,15 @@ class FakeSAL:
             None,
         )
 
+    def get_all_footstep_details(self, event_id: str):
+        # New combined thumbnail + per-step grf payload
+        return (
+            [
+                {"id": 0, "p100": [[1]], "grf": [0.0, 1.0]},
+            ],
+            None,
+        )
+
     def get_all_footstep_p100(self, event_id: str):
         return ([{"id": 0, "p100": [[1]]}], None)
 
