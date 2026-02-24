@@ -16,7 +16,7 @@ import numpy as np
 from . import validators as v
 from .db.db import DB
 from .db.schema import ManifestMetrics, ManifestSwipeEvent
-from sqlalchemy import select
+from sqlalchemy import select, extract
 
 DATAROOT = Path(
     os.environ.get("DATAROOT", os.environ.get("dataroot", "."))
@@ -356,12 +356,6 @@ class SAL:
     # Summary plot helpers
     # =========================================================
     def get_event_id_from_URI(self, file_path: str | Path) -> Optional[str]:
-        """
-        Extract participant/date/direction/event from a metadata.csv path and
-        resolve it to the DB event_id.
-
-        Supports both Windows-style paths (data\\100\\...) and Unix-style (data/100/...).
-        """
         # Normalize Windows separators so this works on macOS/Linux too (and in unit tests)
         normalized = str(file_path).replace("\\", "/")
         p = Path(normalized)
@@ -437,30 +431,58 @@ class SAL:
         return self.get_local_metric("participant")
 
     # ---- Summary composition ----
-    from .db.schema import ManifestMetrics
 
     def get_available_metrics(self) -> list[str]:
         columns = ManifestMetrics.__table__.columns.keys()
         # just getting the metric names from the manfestmetrics table, not necessary to get event_id
         return [col for col in columns if col != "event_id"]
 
-    def _apply_summary_filters(self, query, filters: dict | None):
-        """
-        Apply dataset-level filters to summary plot query.
-
-        Filters operate on dataset selection (WHERE clause),
-        not on metric projection (SELECT clause).
-        """
-
+    # filter specifically for participant query
+    def _apply_participant_filter(self, query, filters: dict | None):
         if not filters:
             return query
 
-        # ---- Participant filter ----
         if "participants" in filters:
             participants = filters["participants"]
 
             if participants:
                 query = query.where(ManifestSwipeEvent.participant.in_(participants))
+
+        return query
+
+    # filter specifically for date query
+    def _apply_date_filter(self, query, filters: dict | None):
+        if not filters:
+            return query
+
+        if "year" in filters:
+            year = filters["year"]
+            if year:
+                query = query.where(
+                    extract("year", ManifestSwipeEvent.date) == int(year)
+                )
+
+        if "month" in filters:
+            month = filters["month"]
+            if month:
+                query = query.where(
+                    extract("month", ManifestSwipeEvent.date) == int(month)
+                )
+
+        if "day" in filters:
+            day = filters["day"]
+            if day:
+                query = query.where(extract("day", ManifestSwipeEvent.date) == int(day))
+
+        return query
+
+    # full filter applier function. when adding new filters, update this helper.
+    def _apply_summary_filters(self, query, filters: dict | None):
+        if not filters:
+            return query
+
+        query = self._apply_participant_filter(query, filters)
+        query = self._apply_date_filter(query, filters)
 
         return query
 
@@ -523,6 +545,34 @@ class SAL:
 
         return output
 
+    def get_distinct_date_part(
+        self,
+        part: str,
+        filters: dict | None = None,
+    ) -> list[int]:
+        if part not in {"year", "month", "day"}:
+            raise ValueError("Invalid date part")
+
+        with self.db._get_session() as session:
+            query = select(ManifestMetrics.event_id).join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+            )
+
+            query = self._apply_summary_filters(query, filters)
+
+            stmt = (
+                query.with_only_columns(
+                    extract(part, ManifestSwipeEvent.date).label(part)
+                )
+                .distinct()
+                .order_by(part)
+            )
+
+            rows = session.execute(stmt).all()
+
+        return sorted({int(row[0]) for row in rows if row[0] is not None})
+
     # Legacy fallback — not used in runtime summary
 
     def _compute_metrics_from_filesystem(self):
@@ -549,7 +599,6 @@ class SAL:
 
             if not areas:
                 continue
-
             # =================================================
             # When adding a new metric, update this dictionary
             # to include the filesystem-derived value for that
