@@ -7,7 +7,7 @@ from dash.dcc import Graph
 import plotly.express as px
 import plotly.graph_objects as go
 
-from frontend.views.summary_view import SummaryView
+from frontend.views.swipe_event_view.summary_view import SummaryView
 
 
 def children_list(component: Any) -> list[Any]:
@@ -68,7 +68,7 @@ def test_render_with_p100_and_grf_and_thumbnails():
     p100_children = children_list(p100_container)
     p100_graph = p100_children[1]
     assert isinstance(p100_graph, Graph)
-    assert p100_graph.id == "p100-graph"
+    assert p100_graph.id == {"type": "p100-graph", "event_id": "evt-123"}
 
     # ensure at least one thumbnail graph exists
     thumbs_children = children_list(thumbs_container)
@@ -87,7 +87,7 @@ def test_render_with_p100_and_grf_and_thumbnails():
     # title then graph
     assert isinstance(grf_children[0], html.H3)
     assert isinstance(grf_children[1], Graph)
-    assert grf_children[1].id == "grf-graph"
+    assert grf_children[1].id == {"type": "grf-graph", "event_id": "evt-123"}
 
 
 @pytest.mark.unit
@@ -103,7 +103,7 @@ def test_render_without_p100_uses_placeholder():
     p100_container = top_children[0]
     p100_graph = children_list(p100_container)[1]
     assert isinstance(p100_graph, Graph)
-    assert p100_graph.id == "p100-graph"
+    assert p100_graph.id == {"type": "p100-graph", "event_id": "evt-no-p100"}
     fig = p100_graph.figure
     assert isinstance(fig, go.Figure)
     assert fig.layout.annotations[0].text == "P100 not available for this event."

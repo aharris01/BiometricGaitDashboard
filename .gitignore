@@ -8,3 +8,5 @@ __pycache__/
 secrets/
 *.db
 .vscode/
+*.csv
+*.zip

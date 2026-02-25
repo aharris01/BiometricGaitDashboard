@@ -19,6 +19,12 @@ class MetricsGraph:
         "footstep_count": "Footstep Count",
         "participant": "Participant ID",
     }
+    DEFAULT_POINT_COLOR = "#1f77b4"
+    PENDING_POINT_COLOR = "#ff7f0e"
+    SELECTED_POINT_COLOR = "#d62728"
+    ACTIVE_POINT_COLOR = "#2ca02c"
+    DIMMED_POINT_OPACITY = 0.2
+    NORMAL_POINT_OPACITY = 1.0
 
     def __init__(self, swipe_event_metrics: dict | None = None):
         self.metrics = swipe_event_metrics or {}
@@ -46,7 +52,92 @@ class MetricsGraph:
         )
         return fig
 
-    def _build_scatter(self, x_key: str, y_key: str, *, height: int = 440) -> go.Figure:
+    @classmethod
+    def build_marker_colors(
+        cls,
+        event_ids: list[str],
+        *,
+        pending_event_ids: list[str] | None = None,
+        selected_event_ids: list[str] | None = None,
+        active_event_id: str | None = None,
+    ) -> list[str]:
+        normalized_event_ids = [str(eid) for eid in event_ids]
+        pending_set = {str(eid) for eid in (pending_event_ids or [])}
+        selected_set = {str(eid) for eid in (selected_event_ids or [])}
+        normalized_active_id = str(active_event_id) if active_event_id else None
+
+        colors = []
+        for eid in normalized_event_ids:
+            # Priority: active > selected list > pending scatter > default.
+            if eid in selected_set:
+                colors.append(cls.SELECTED_POINT_COLOR)
+            elif eid in pending_set:
+                colors.append(cls.PENDING_POINT_COLOR)
+            else:
+                colors.append(cls.DEFAULT_POINT_COLOR)
+
+        if normalized_active_id:
+            for idx, eid in enumerate(normalized_event_ids):
+                if eid == normalized_active_id:
+                    colors[idx] = cls.ACTIVE_POINT_COLOR
+                    break
+
+        return colors
+
+    @classmethod
+    def build_marker_opacities(
+        cls,
+        event_ids: list[str],
+        *,
+        pending_event_ids: list[str] | None = None,
+        selected_event_ids: list[str] | None = None,
+        active_event_id: str | None = None,
+    ) -> list[float]:
+        normalized_event_ids = [str(eid) for eid in event_ids]
+        pending_set = {str(eid) for eid in (pending_event_ids or [])}
+        selected_set = {str(eid) for eid in (selected_event_ids or [])}
+        normalized_active_id = str(active_event_id) if active_event_id else None
+
+        if not pending_set:
+            return [cls.NORMAL_POINT_OPACITY for _ in normalized_event_ids]
+
+        opacities: list[float] = []
+        for eid in normalized_event_ids:
+            is_emphasized = (
+                eid in pending_set
+                or eid in selected_set
+                or (normalized_active_id is not None and eid == normalized_active_id)
+            )
+            opacities.append(
+                cls.NORMAL_POINT_OPACITY if is_emphasized else cls.DIMMED_POINT_OPACITY
+            )
+
+        return opacities
+
+    @classmethod
+    def build_selectedpoint_indices(
+        cls,
+        event_ids: list[str],
+        *,
+        pending_event_ids: list[str] | None = None,
+    ) -> list[int] | None:
+        pending_set = {str(eid) for eid in (pending_event_ids or [])}
+        if not pending_set:
+            return None
+
+        indices = [idx for idx, eid in enumerate(event_ids) if str(eid) in pending_set]
+        return indices or None
+
+    def _build_scatter(
+        self,
+        x_key: str,
+        y_key: str,
+        *,
+        pending_event_ids: list[str] | None = None,
+        selected_event_ids: list[str] | None = None,
+        active_event_id: str | None = None,
+        height: int = 440,
+    ) -> go.Figure:
         if not self.metrics:
             return self._placeholder_figure(
                 "Summary scatter not available (no metrics data).", height=height
@@ -72,11 +163,33 @@ class MetricsGraph:
             )
 
         fig = go.Figure()
+        marker_colors = self.build_marker_colors(
+            event_ids,
+            pending_event_ids=pending_event_ids,
+            selected_event_ids=selected_event_ids,
+            active_event_id=active_event_id,
+        )
+        marker_opacities = self.build_marker_opacities(
+            event_ids,
+            pending_event_ids=pending_event_ids,
+            selected_event_ids=selected_event_ids,
+            active_event_id=active_event_id,
+        )
+        selectedpoints = self.build_selectedpoint_indices(
+            event_ids,
+            pending_event_ids=pending_event_ids,
+        )
         fig.add_trace(
             go.Scatter(
                 x=x_vals,
                 y=y_vals,
                 mode="markers",
+                marker={
+                    "size": 10,
+                    "color": marker_colors,
+                    "opacity": marker_opacities,
+                },
+                selectedpoints=selectedpoints,
                 text=event_ids,  # event_id used by click/lasso callbacks
                 hovertemplate=(
                     "<b>Event:</b> %{text}<br>"
@@ -309,10 +422,24 @@ class MetricsGraph:
                                     className="panel-header",
                                     children=[
                                         html.H3("Selected", className="panel-title"),
-                                        html.Button(
-                                            "Select",
-                                            id="btn-selected-select-mode",
-                                            className="ok-btn",
+                                        html.Div(
+                                            style={
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                "gap": "8px",
+                                            },
+                                            children=[
+                                                html.Button(
+                                                    "Confirm",
+                                                    id="btn-selected-confirm",
+                                                    className="ok-btn",
+                                                ),
+                                                html.Button(
+                                                    "Select",
+                                                    id="btn-selected-select-mode",
+                                                    className="ok-btn",
+                                                ),
+                                            ],
                                         ),
                                     ],
                                 ),

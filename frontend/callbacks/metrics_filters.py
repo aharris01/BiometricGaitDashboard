@@ -1,7 +1,7 @@
 # frontend/callbacks/metrics_filters.py
 from dash import Input, Output, State, callback
+from frontend.views.swipe_event_view.metrics_graph import MetricsGraph
 from frontend.api import get_swipe_event_summary_metrics, get_date_part
-from frontend.views.metrics_graph import MetricsGraph
 from dash.exceptions import PreventUpdate
 
 
@@ -13,6 +13,9 @@ def register(app):
         Input("metrics_y_axis", "value"),
         State("metrics_filter_participant", "value"),
         State("metrics_filter_participant_open_store", "data"),
+        State("metrics_scatter_selection_store", "data"),
+        State("metrics_selected_events_store", "data"),
+        State("event-id-store", "data"),
         State("metrics_filter_year", "value"),
         State("metrics_filter_month", "value"),
         State("metrics_filter_day", "value"),
@@ -24,6 +27,9 @@ def register(app):
         y_key,
         selected_participants,
         is_open,
+        scatter_selection_store,
+        selected_events_store,
+        event_store,
         year,
         month,
         day,
@@ -76,9 +82,16 @@ def register(app):
         # No local filtering anymore.
         # Scatter just renders what backend returned.
         # -------------------------------------------------------------
+        pending_event_ids = (scatter_selection_store or {}).get("event_ids", [])
+        selected_event_ids = (selected_events_store or {}).get("event_ids", [])
+        active_event_id = (event_store or {}).get("event_id")
+
         return MetricsGraph(metrics)._build_scatter(
             x_key=x_key,
             y_key=y_key,
+            pending_event_ids=pending_event_ids,
+            selected_event_ids=selected_event_ids,
+            active_event_id=active_event_id,
         )
 
     # ==========================================================

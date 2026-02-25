@@ -3,6 +3,7 @@ from dash import html
 from dash.dcc import Graph
 import plotly.express as px
 import plotly.graph_objects as go
+from frontend.api import API_BASE_URL
 
 
 class SummaryView:
@@ -22,6 +23,12 @@ class SummaryView:
         self.grf_data = grf_data or []
         self.footsteps = footsteps or []
         self.step_p100s = step_p100s or []
+
+    def _p100_graph_id(self):
+        return {"type": "p100-graph", "event_id": str(self.event_id)}
+
+    def _grf_graph_id(self):
+        return {"type": "grf-graph", "event_id": str(self.event_id)}
 
     def _placeholder_figure(self, text, height=520):
         fig = go.Figure()
@@ -92,19 +99,11 @@ class SummaryView:
         cards = []
         for item in self.step_p100s:
             step_id = item.get("id")
-            step_p100 = item.get("p100", [])
+            if step_id is None:
+                continue
 
-            if step_p100:
-                fig = px.imshow(step_p100, color_continuous_scale=self.cmap)
-                fig.update_layout(
-                    margin=dict(l=10, r=10, t=10, b=10),
-                    coloraxis_showscale=False,
-                    height=240,
-                )
-                fig.update_xaxes(visible=False)
-                fig.update_yaxes(visible=False, autorange="reversed")
-            else:
-                fig = self._placeholder_figure("Step P100 not available.", height=240)
+            # Backend endpoint that returns image bytes (PNG/WebP)
+            thumb_url = f"{API_BASE_URL}/api/events/{self.event_id}/footsteps/{step_id}/image?size=thumb&format=webp"
 
             cards.append(
                 html.Div(
@@ -113,12 +112,29 @@ class SummaryView:
                             f"Footstep #{step_id}",
                             style={"fontWeight": "600", "marginBottom": "6px"},
                         ),
-                        Graph(
-                            id={"type": "step-p100", "step_id": step_id},
-                            figure=fig,
-                            # clickable thumbnails
-                            config={"displayModeBar": False},
+                        # Clickable wrapper (Dash can listen to n_clicks)
+                        html.Div(
+                            children=[
+                                html.Img(
+                                    src=thumb_url,
+                                    style={
+                                        "width": "100%",
+                                        "height": "240px",
+                                        "objectFit": "contain",
+                                        "imageRendering": "pixelated",
+                                        "background": "#111",
+                                        "borderRadius": "6px",
+                                    },
+                                )
+                            ],
+                            id={
+                                "type": "step-thumb",
+                                "event_id": str(self.event_id),
+                                "step_id": step_id,
+                            },
+                            n_clicks=0,
                             style={"height": "240px", "cursor": "pointer"},
+                            title=f"Open footstep {step_id}",
                         ),
                     ],
                     style={
@@ -188,7 +204,7 @@ class SummaryView:
                             style={"marginBottom": "4px", "marginTop": "8px"},
                         ),
                         Graph(
-                            id="p100-graph",
+                            id=self._p100_graph_id(),
                             figure=p100_figure,
                             style={"maxWidth": "700px", "height": "520px"},
                         ),
@@ -218,7 +234,7 @@ class SummaryView:
         # Bottom row: full GRF
         if grf_figure is not None:
             left_grf = Graph(
-                id="grf-graph",
+                id=self._grf_graph_id(),
                 figure=grf_figure,
                 style={"maxWidth": "900px", "height": "300px"},
             )
@@ -252,6 +268,7 @@ class SummaryView:
         )
 
         return html.Div(
+            id={"type": "summary-view", "event_id": str(self.event_id)},
             children=[top_row, bottom_row],
             style={
                 "width": "100%",
