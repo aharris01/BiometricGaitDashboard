@@ -108,6 +108,11 @@ def build_layout():
                         storage_type="session",
                     ),
                     Store(
+                        id="summary-render-queue-store",
+                        data={"pending_ids": [], "total": 0, "visible_total": 0},
+                        storage_type="session",
+                    ),
+                    Store(
                         id="metrics_selected_panel_mode_store",
                         data={"mode": "view"},
                         storage_type="session",
@@ -129,6 +134,12 @@ def build_layout():
                     ),
                     # page load trigger
                     Interval(id="page-load", max_intervals=1),
+                    Interval(
+                        id="summary-render-interval",
+                        interval=10,
+                        n_intervals=0,
+                        max_intervals=0,
+                    ),
                     # a hidden sink used by the clientside scroll callback output
                     Div(id="scroll-sink", className="hidden"),
                     # hidden sink (unchanged)
