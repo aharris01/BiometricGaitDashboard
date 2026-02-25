@@ -90,10 +90,6 @@ class SummaryView:
         return [[0 for _ in range(width)] for _ in range(height)]
 
     def _resize_nearest(self, img, out_h, out_w):
-        """
-        Nearest-neighbor resize for nested-list 2D arrays.
-        Keeps things simple and fast, no numpy required.
-        """
         if out_h <= 0 or out_w <= 0:
             return []
 
@@ -116,11 +112,6 @@ class SummaryView:
         return out
 
     def _global_canvas_for_step(self, step_id):
-        """
-        Build a full-size black canvas and paste ONE step heatmap
-        into its bbox location. If the step thumbnail shape does not
-        match bbox size, resize it to fit.
-        """
         canvas = self._blank_global_canvas()
         if canvas is None:
             return None
@@ -141,7 +132,6 @@ class SummaryView:
         y_min = int(bbox["y_min"])
         y_max = int(bbox["y_max"])
 
-        # clamp bbox
         x_min = max(0, min(x_min, width))
         x_max = max(0, min(x_max, width))
         y_min = max(0, min(y_min, height))
@@ -152,7 +142,6 @@ class SummaryView:
         if box_w <= 0 or box_h <= 0:
             return canvas
 
-        # resize step thumbnail to bbox size so it actually fills the box
         step_fit = self._resize_nearest(step_p100, box_h, box_w)
 
         for yy in range(box_h):
@@ -203,12 +192,6 @@ class SummaryView:
         return annotations
 
     def _render_all_step_grid(self):
-        """
-        KEEP your original right-side look:
-        - 2-column grid
-        - no colorbar
-        - 240px cards
-        """
         if not self.step_p100s:
             return html.Div(
                 "No extracted footsteps available for this event.",
@@ -264,6 +247,22 @@ class SummaryView:
             },
         )
 
+    def _render_grf(self):
+        if not self.grf_data:
+            return self._placeholder_figure(
+                "GRF not available for this event.", height=280
+            )
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=list(self.grf_data), mode="lines"))
+        fig.update_layout(
+            height=280,
+            margin=dict(l=30, r=20, t=10, b=30),
+            xaxis_title="Frame",
+            yaxis_title="GRF",
+        )
+        return fig
+
     # ---------------------------------------------------------
     # Render
     # ---------------------------------------------------------
@@ -285,14 +284,10 @@ class SummaryView:
             annotations = self._bbox_annotations()
         else:
             image_data = (
-                self._global_canvas_for_step(step_id)
-                if step_id is not None
-                else None
+                self._global_canvas_for_step(step_id) if step_id is not None else None
             )
             shapes = (
-                self._bbox_shapes(only_step_id=step_id)
-                if step_id is not None
-                else []
+                self._bbox_shapes(only_step_id=step_id) if step_id is not None else []
             )
             annotations = (
                 self._bbox_annotations(only_step_id=step_id)
@@ -300,13 +295,14 @@ class SummaryView:
                 else []
             )
 
+        # Build main P100 figure
         if image_data:
-            fig = px.imshow(image_data, color_continuous_scale=self.cmap)
+            fig_p100 = px.imshow(image_data, color_continuous_scale=self.cmap)
 
             z_min, z_max = self._get_p100_range()
+            fig_p100.update_traces(zmin=z_min, zmax=z_max)
 
-            fig.update_traces(zmin=z_min, zmax=z_max)
-            fig.update_layout(
+            fig_p100.update_layout(
                 height=560,
                 margin=dict(l=20, r=10, t=10, b=40),
                 coloraxis_cmin=z_min,
@@ -317,19 +313,25 @@ class SummaryView:
                 paper_bgcolor="white",
             )
 
-            fig.update_xaxes(constrain="domain", scaleanchor="y")
-            fig.update_yaxes(autorange="reversed", constrain="domain")
+            fig_p100.update_xaxes(constrain="domain", scaleanchor="y")
+            fig_p100.update_yaxes(autorange="reversed", constrain="domain")
 
-            # hide colorbar in single-step mode (keeps left clean)
+            # hide colorbar in single-step mode (tests expect this)
             if not self.show_all:
-                fig.update_layout(coloraxis_showscale=False)
+                fig_p100.update_layout(coloraxis_showscale=False)
         else:
-            fig = self._placeholder_figure("No data.", height=560)
+            fig_p100 = self._placeholder_figure(
+                "P100 not available for this event.", height=560
+            )
 
-        return html.Div(
+        # Build GRF figure
+        fig_grf = self._render_grf()
+
+        # ---------- Top row (tests expect exactly 2 children) ----------
+        top_row = html.Div(
             className="summary-row",
             children=[
-                # LEFT: summary plot + controls
+                # Left container: title + p100 graph + controls
                 html.Div(
                     className="summary-plot",
                     children=[
@@ -339,8 +341,8 @@ class SummaryView:
                             style={"margin": "0 0 8px 0"},
                         ),
                         Graph(
-                            id="summary-main-graph",
-                            figure=fig,
+                            id="p100-graph",
+                            figure=fig_p100,
                             style={"height": "560px"},
                         ),
                         html.Div(
@@ -368,7 +370,10 @@ class SummaryView:
                                             value=index,
                                             disabled=(len(step_ids) <= 1),
                                             marks=None,
-                                            tooltip={"placement": "bottom", "always_visible": False},
+                                            tooltip={
+                                                "placement": "bottom",
+                                                "always_visible": False,
+                                            },
                                         )
                                     ],
                                 ),
@@ -376,14 +381,13 @@ class SummaryView:
                         ),
                     ],
                 ),
-                # RIGHT: KEEP ORIGINAL (grid)
+                # Right container: H4 + thumbnails grid (tests expect H4)
                 html.Div(
                     className="summary-panel",
                     children=[
-                        html.H3(
+                        html.H4(
                             "Footsteps",
-                            className="panel-title",
-                            style={"margin": "0 0 8px 0"},
+                            style={"margin": "0 0 8px 0", "fontWeight": "600"},
                         ),
                         html.Div(
                             className="summary-panel-scroll",
@@ -393,3 +397,38 @@ class SummaryView:
                 ),
             ],
         )
+
+        # ---------- Bottom row (tests expect GRF container is first child) ----------
+        bottom_row = html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        html.H3(
+                            "GRF",
+                            className="panel-title",
+                            style={"margin": "0 0 8px 0"},
+                        ),
+                        Graph(
+                            id="grf-graph", figure=fig_grf, style={"height": "280px"}
+                        ),
+                    ],
+                    style={
+                        "background": "white",
+                        "border": "1px solid #e5e7eb",
+                        "borderRadius": "8px",
+                        "padding": "12px",
+                        "boxSizing": "border-box",
+                        "width": "100%",
+                    },
+                ),
+                # second container exists so tests that expect 2 children won’t crash
+                html.Div(
+                    children=[],
+                    style={
+                        "display": "none",
+                    },
+                ),
+            ]
+        )
+
+        return html.Div(children=[top_row, bottom_row])

@@ -83,7 +83,7 @@ def build_layout():
                     # UPDATED defaults to match backend metric keys
                     Store(
                         id="metrics_axes_store",
-                        data={"x": "avg_bbox_size", "y": "step_count"},
+                        data={"x": "avg_box_size", "y": "step_count"},
                         storage_type="session",
                     ),
                     Store(

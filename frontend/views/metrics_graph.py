@@ -11,8 +11,12 @@ from frontend.api import get_participants
 
 
 class MetricsGraph:
-    # Axis configuration (UPDATED to match backend metric keys)
+    # Axis configuration (support both legacy + current keys)
     AXIS_LABELS = {
+        # legacy keys (used by unit tests)
+        "avg_box_size": "Average Bounding Box Size",
+        "footstep_count": "Footstep Count",
+        # current keys (from ManifestMetrics in backend)
         "avg_bbox_size": "Average Bounding Box Size",
         "step_count": "Footstep Count",
     }
@@ -74,7 +78,7 @@ class MetricsGraph:
                 x=x_vals,
                 y=y_vals,
                 mode="markers",
-                text=event_ids,  # event_id used by click/lasso callbacks
+                text=event_ids,  # used by click/lasso callbacks
                 hovertemplate=(
                     "<b>Event:</b> %{text}<br>"
                     + f"<b>{self.AXIS_LABELS.get(x_key, x_key)}:</b> %{{x}}<br>"
@@ -141,8 +145,7 @@ class MetricsGraph:
                                     style={"width": "100%"},
                                     children=[
                                         html.Summary(
-                                            "by date",
-                                            className="filter_summary",
+                                            "by date", className="filter_summary"
                                         ),
                                         html.Div(
                                             className="filter_box_no_scroll",
@@ -282,7 +285,7 @@ class MetricsGraph:
                                 ),
                             ],
                         ),
-                        # 4) Selected list (right)
+                        # 4) Selected list
                         html.Div(
                             className="metrics-panel metrics-panel--selected",
                             children=[

@@ -13,9 +13,12 @@ def register(app, *, cmap):
         Input({"type": "step-p100", "step_id": ALL}, "clickData"),
         State("p100-graph", "figure"),
         State("footsteps-store", "data"),
+        State("summary-show-all", "value"),  # read Show all toggle
         prevent_initial_call=True,
     )
-    def click_thumbnail_highlight_bbox(_all_clicks, p100_fig, footsteps_store):
+    def click_thumbnail_highlight_bbox(
+        _all_clicks, p100_fig, footsteps_store, show_all_value
+    ):
         triggered = ctx.triggered_id
         if not triggered or "step_id" not in triggered:
             raise PreventUpdate
@@ -29,10 +32,20 @@ def register(app, *, cmap):
         if not footsteps:
             raise PreventUpdate
 
-        # rebuild shapes: selected -> green, others -> pink
+        # "Show all" is ON if checklist contains "all"
+        show_all = bool(show_all_value and "all" in show_all_value)
+
+        # ✅ IMPORTANT:
+        # If Show all is OFF, do NOT overwrite shapes.
+        # Single-step mode is controlled by SummaryView + slider.
+        if not show_all:
+            return p100_fig, {"step_id": step_id}
+
+        # Show all is ON → draw all bboxes, highlight clicked one in green
         new_shapes = []
         for box in footsteps:
-            color = GREEN if box.get("id") == step_id else PINK
+            is_selected = box.get("id") == step_id
+            color = GREEN if is_selected else PINK
             new_shapes.append(
                 dict(
                     type="rect",
@@ -101,7 +114,6 @@ def register(app, *, cmap):
         prevent_initial_call=True,
     )
     def toggle_participant_filter_open(_n, open_data):
-        # open_data is either True/False (or missing)
         is_open = bool(open_data) if open_data is not None else True
         new_open = not is_open
         return new_open, new_open

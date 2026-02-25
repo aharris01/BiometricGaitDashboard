@@ -14,7 +14,6 @@ def SwipeEventView():
         children=[
             html.Div(id="metrics-graph-container"),
             html.Div(id="metrics-graph-click-data"),
-
             # ✅ Always show a visible placeholder so the section is not "missing"
             html.Div(
                 id="summary-container",
