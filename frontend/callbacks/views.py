@@ -54,11 +54,15 @@ def _active_event_id_from_store(store_data: dict | str | None) -> str | None:
     return None
 
 
-def _summary_store_payload(by_event: dict[str, list], active_event_id: str | None) -> dict:
+def _summary_store_payload(
+    by_event: dict[str, list], active_event_id: str | None
+) -> dict:
     return {"by_event": by_event, "active_event_id": active_event_id}
 
 
-def _summary_queue_payload(*, pending_ids: list, total: int, visible_total: int) -> dict:
+def _summary_queue_payload(
+    *, pending_ids: list, total: int, visible_total: int
+) -> dict:
     return {"pending_ids": pending_ids, "total": total, "visible_total": visible_total}
 
 
@@ -246,7 +250,9 @@ def register(app, *, cmap):
                 )
 
             event_id = str(pending_ids[0])
-            event_view, footsteps = _render_summary_view(app, event_id=event_id, cmap=cmap)
+            event_view, footsteps = _render_summary_view(
+                app, event_id=event_id, cmap=cmap
+            )
 
             merged_by_event = dict(existing_by_event)
             merged_by_event[event_id] = footsteps
