@@ -34,7 +34,6 @@ def register(app, *, cmap):
         footsteps = full.get("footsteps", [])
         footstep_details = full.get("footstep_details", [])
 
-        # default: show_all ON, step_index 0
         view = SummaryView(
             event_id,
             cmap,

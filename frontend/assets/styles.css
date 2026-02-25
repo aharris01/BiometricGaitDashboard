@@ -510,51 +510,64 @@
    Summary Layout
    ========================================================= */
 
-.summary-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  width: 100%;
-  align-items: start;
-}
-
-/* Left & Right panels */
-.summary-panel,
-.summary-plot {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 12px;
-  box-sizing: border-box;
-}
-
-/* Left panel height */
-.summary-plot {
-  min-height: 560px;
-}
-
-/* Right panel */
-.summary-panel {
-  min-height: 560px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* prevents outer overflow */
-}
-
-/* Scroll area inside right panel */
-.summary-panel-scroll {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;   /* 🔥 prevents horizontal scrollbar */
-  padding-right: 6px;
-}
-
-/* Ensure graphs never overflow container */
-.summary-panel-scroll .dash-graph {
-  width: 100% !important;
-}
-
-/* Prevent grid items from stretching beyond container */
-.summary-panel-scroll > div {
-  max-width: 100%;
-}
+   .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  
+    width: 100%;
+    max-width: 1350px;
+    margin: 0 auto;
+    box-sizing: border-box;
+  
+    align-items: stretch;
+  }
+  
+  /* Left & Right panels */
+  .summary-panel,
+  .summary-plot {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    box-sizing: border-box;
+  
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Left panel */
+  .summary-plot {
+    height: 100%;   
+  }
+  
+  /* Right panel */
+  .summary-panel {
+    height: 100%;   
+    overflow: hidden; 
+  }
+  
+  /* Scroll area inside right panel: match left heatmap height */
+  .summary-panel-scroll {
+    height: 560px;          
+    overflow-y: auto;      
+    overflow-x: hidden;
+    padding-right: 6px;
+  }
+  
+  /* Ensure graphs never overflow container */
+  .summary-panel-scroll .dash-graph {
+    width: 100% !important;
+  }
+  
+  /* Prevent grid items from stretching beyond container */
+  .summary-panel-scroll > div {
+    max-width: 100%;
+  }
+  
+  /* Responsive */
+  @media (max-width: 900px) {
+    .summary-row {
+      grid-template-columns: 1fr;
+    }
+  }
