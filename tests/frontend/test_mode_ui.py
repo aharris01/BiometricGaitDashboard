@@ -4,6 +4,8 @@ import pytest
 
 pytest.importorskip("selenium")
 
+from typing import cast
+from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -102,7 +104,8 @@ def test_run_pipeline_shows_popup_and_does_not_switch_mode(dash_duo):
     dash_duo.find_element("#btn-mode-pipeline").click()
 
     # Wait for native confirm dialog to appear (ConfirmDialog uses browser alert)
-    alert = WebDriverWait(dash_duo.driver, 5).until(EC.alert_is_present())
+    WebDriverWait(dash_duo.driver, 5).until(EC.alert_is_present())
+    alert = cast(Alert, dash_duo.driver.switch_to.alert)
     msg = alert.text
     alert.accept()
 

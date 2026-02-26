@@ -70,12 +70,11 @@ def test_get_event_full(monkeypatch):
         "p100": [[1]],
         "grf": [0.1],
         "footsteps": [],
-        "footstep_details": [],
     }
     monkeypatch.setattr(api.requests, "get", make_fake_get(payload, captured=captured))
     out = api.get_event_full("evt-1")
     assert out["event"]["event_id"] == "evt-1"
-    assert "footstep_details" in out
+    assert "footsteps" in out
     assert captured["url"].endswith("/api/events/evt-1/full")
 
 

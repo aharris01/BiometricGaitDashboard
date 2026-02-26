@@ -24,7 +24,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements-dev.txt') }}
 
       - name: Create venv and install deps (on cache miss)
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -32,7 +32,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           pip install ruff pyright pytest pytest-cov
         shell: bash
         
@@ -54,7 +54,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements-dev.txt') }}
 
       - name: Create venv and install deps (on cache miss)
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -62,7 +62,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           pip install ruff pyright pytest pytest-cov
         shell: bash
 
@@ -84,7 +84,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements-dev.txt') }}
 
       - name: Create venv and install deps (on cache miss)
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -92,7 +92,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           pip install ruff pyright pytest pytest-cov
         shell: bash
 
@@ -114,7 +114,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements.txt') }}
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('requirements-dev.txt') }}
 
       - name: Create venv and install deps (on cache miss)
         if: steps.cache-venv.outputs.cache-hit != 'true'
@@ -122,7 +122,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           pip install ruff pyright pytest pytest-cov
         shell: bash
 

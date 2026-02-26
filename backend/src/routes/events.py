@@ -1,15 +1,16 @@
 # backend/src/routes/events.py
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 
 from backend.src.utils.http import make_error
 from backend.src.utils.sal import get_sal
+from backend.src.utils.images import create_image_bytes
 
 events_bp = Blueprint("events", __name__)
 
 
 @events_bp.get("/api/events/<event_id>/full")
 def api_event_full(event_id: str):
-    """Return all data needed for the Swipe Summary view in one request."""
+    """Return summary essentials in one request (main plots + footstep metadata)."""
     try:
         sal = get_sal()
 
@@ -32,12 +33,14 @@ def api_event_full(event_id: str):
         if footsteps_err == "missing_file":
             footsteps = []
 
-        # send ALL step thumbnails + per-step GRF in the same response
-        footstep_details, details_err = sal.get_all_footstep_details(event_id)
+        # include detailed per-step payloads when available
+        details, details_err = sal.get_all_footstep_details(event_id)
         if details_err == "missing_event":
+            # should rarely happen if summary/footsteps existence already checked,
+            # but mirror other behaviour for consistency with unit tests
             return make_error(404, "not_found", "event not found")
         if details_err == "missing_file":
-            footstep_details = []
+            details = []
 
         return jsonify(
             {
@@ -46,7 +49,7 @@ def api_event_full(event_id: str):
                 "p100": p100,
                 "grf": grf,
                 "footsteps": footsteps,
-                "footstep_details": footstep_details,
+                "footstep_details": details,
             }
         )
     except Exception:
@@ -82,6 +85,38 @@ def api_event_footstep_detail(event_id: str, step_id: int):
         return jsonify({"p100": p100 or [], "grf": grf or []})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@events_bp.get("/api/events/<event_id>/footsteps/<int:step_id>/image")
+def get_footstep_image(event_id: str, step_id: int):
+    """
+    Returns a rendered heatmap image for a footstep's p100 array.
+
+    Query params:
+      - size: 'thumb' or 'full' (default: 'thumb')
+      - format: 'png' or 'webp' (default: 'png')
+      - scale: integer scale factor for thumb upscaling (optional)
+    """
+
+    # --- Fetch footstep data from SAL ---
+    # Expecting SAL signature like: get_footstep_data(event_id, step_id) -> (p100, grf, err)
+    sal = get_sal()
+    p100, _grf, err = sal.get_footstep_data(event_id, step_id)
+
+    if err or p100 is None:
+        return Response("Footstep not found", status=404, mimetype="text/plain")
+
+    img = create_image_bytes(p100)
+
+    return Response(
+        img.data,
+        status=200,
+        mimetype=img.mimetype,
+        headers={
+            # Helps during paging/filtering without "storing images" permanently
+            "Cache-Control": "private, max-age=300",
+        },
+    )
 
 
 @events_bp.get("/api/events/summaryplot")

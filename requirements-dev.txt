@@ -7,3 +7,4 @@ ruff
 pyright
 dash-testing-stub
 selenium
+Pillow

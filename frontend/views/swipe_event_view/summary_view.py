@@ -3,6 +3,8 @@ from dash.dcc import Graph
 import plotly.express as px
 import plotly.graph_objects as go
 
+from frontend.api import API_BASE_URL
+
 
 class SummaryView:
     def __init__(
@@ -25,6 +27,16 @@ class SummaryView:
         self.step_p100s = step_p100s or []
         self.show_all = show_all
         self.step_index = int(step_index or 0)
+
+    # ---------------------------------------------------------
+    # ID helpers (pattern-matching for multi-event pages)
+    # ---------------------------------------------------------
+
+    def _p100_graph_id(self):
+        return {"type": "p100-graph", "event_id": str(self.event_id)}
+
+    def _grf_graph_id(self):
+        return {"type": "grf-graph", "event_id": str(self.event_id)}
 
     # ---------------------------------------------------------
     # Helpers
@@ -112,6 +124,10 @@ class SummaryView:
         return out
 
     def _global_canvas_for_step(self, step_id):
+        """
+        Build a full-size black canvas and paste ONE step heatmap into its bbox.
+        Used when Show all is OFF.
+        """
         canvas = self._blank_global_canvas()
         if canvas is None:
             return None
@@ -132,6 +148,7 @@ class SummaryView:
         y_min = int(bbox["y_min"])
         y_max = int(bbox["y_max"])
 
+        # clamp bbox
         x_min = max(0, min(x_min, width))
         x_max = max(0, min(x_max, width))
         y_min = max(0, min(y_min, height))
@@ -192,6 +209,10 @@ class SummaryView:
         return annotations
 
     def _render_all_step_grid(self):
+        """
+        Right panel: clickable thumbnails (IMG), not Plotly graphs.
+        These IDs match your callbacks/selection.py (step-thumb + MATCH).
+        """
         if not self.step_p100s:
             return html.Div(
                 "No extracted footsteps available for this event.",
@@ -201,19 +222,13 @@ class SummaryView:
         cards = []
         for item in self.step_p100s:
             step_id = item.get("id")
-            step_p100 = item.get("p100", [])
+            if step_id is None:
+                continue
 
-            if step_p100:
-                fig = px.imshow(step_p100, color_continuous_scale=self.cmap)
-                fig.update_layout(
-                    margin=dict(l=10, r=10, t=10, b=10),
-                    coloraxis_showscale=False,
-                    height=240,
-                )
-                fig.update_xaxes(visible=False)
-                fig.update_yaxes(visible=False, autorange="reversed")
-            else:
-                fig = self._placeholder_figure("Step P100 not available.", height=240)
+            thumb_url = (
+                f"{API_BASE_URL}/api/events/{self.event_id}/footsteps/{step_id}/image"
+                f"?size=thumb&format=webp"
+            )
 
             cards.append(
                 html.Div(
@@ -222,11 +237,28 @@ class SummaryView:
                             f"Footstep #{step_id}",
                             style={"fontWeight": "600", "marginBottom": "6px"},
                         ),
-                        Graph(
-                            id={"type": "step-p100", "step_id": step_id},
-                            figure=fig,
-                            config={"displayModeBar": False},
+                        html.Div(
+                            children=[
+                                html.Img(
+                                    src=thumb_url,
+                                    style={
+                                        "width": "100%",
+                                        "height": "240px",
+                                        "objectFit": "contain",
+                                        "imageRendering": "pixelated",
+                                        "background": "#111",
+                                        "borderRadius": "6px",
+                                    },
+                                )
+                            ],
+                            id={
+                                "type": "step-thumb",
+                                "event_id": str(self.event_id),
+                                "step_id": step_id,
+                            },
+                            n_clicks=0,
                             style={"height": "240px", "cursor": "pointer"},
+                            title=f"Open footstep {step_id}",
                         ),
                     ],
                     style={
@@ -277,7 +309,7 @@ class SummaryView:
             index = 0
             step_id = None
 
-        # Left image mode
+        # Main image mode
         if self.show_all:
             image_data = self.p100_data
             shapes = self._bbox_shapes()
@@ -295,7 +327,7 @@ class SummaryView:
                 else []
             )
 
-        # Build main P100 figure
+        # Build P100 figure
         if image_data:
             fig_p100 = px.imshow(image_data, color_continuous_scale=self.cmap)
 
@@ -316,7 +348,7 @@ class SummaryView:
             fig_p100.update_xaxes(constrain="domain", scaleanchor="y")
             fig_p100.update_yaxes(autorange="reversed", constrain="domain")
 
-            # hide colorbar in single-step mode (tests expect this)
+            # hide colorbar in single-step mode
             if not self.show_all:
                 fig_p100.update_layout(coloraxis_showscale=False)
         else:
@@ -324,14 +356,12 @@ class SummaryView:
                 "P100 not available for this event.", height=560
             )
 
-        # Build GRF figure
         fig_grf = self._render_grf()
 
-        # ---------- Top row (tests expect exactly 2 children) ----------
+        # Top row: left (p100) + right (footsteps)
         top_row = html.Div(
             className="summary-row",
             children=[
-                # Left container: title + p100 graph + controls
                 html.Div(
                     className="summary-plot",
                     children=[
@@ -341,7 +371,7 @@ class SummaryView:
                             style={"margin": "0 0 8px 0"},
                         ),
                         Graph(
-                            id="p100-graph",
+                            id=self._p100_graph_id(),
                             figure=fig_p100,
                             style={"height": "560px"},
                         ),
@@ -381,7 +411,6 @@ class SummaryView:
                         ),
                     ],
                 ),
-                # Right container: H4 + thumbnails grid (tests expect H4)
                 html.Div(
                     className="summary-panel",
                     children=[
@@ -398,7 +427,7 @@ class SummaryView:
             ],
         )
 
-        # ---------- Bottom row (tests expect GRF container is first child) ----------
+        # Bottom row: GRF
         bottom_row = html.Div(
             children=[
                 html.Div(
@@ -409,7 +438,9 @@ class SummaryView:
                             style={"margin": "0 0 8px 0"},
                         ),
                         Graph(
-                            id="grf-graph", figure=fig_grf, style={"height": "280px"}
+                            id=self._grf_graph_id(),
+                            figure=fig_grf,
+                            style={"height": "280px"},
                         ),
                     ],
                     style={
@@ -420,15 +451,20 @@ class SummaryView:
                         "boxSizing": "border-box",
                         "width": "100%",
                     },
-                ),
-                # second container exists so tests that expect 2 children won’t crash
-                html.Div(
-                    children=[],
-                    style={
-                        "display": "none",
-                    },
-                ),
+                )
             ]
         )
 
-        return html.Div(children=[top_row, bottom_row])
+        return html.Div(
+            id={"type": "summary-view", "event_id": str(self.event_id)},
+            children=[top_row, bottom_row],
+            style={
+                "width": "100%",
+                "maxWidth": "1350px",
+                "display": "flex",
+                "flexDirection": "column",
+                "alignItems": "flex-start",
+                "margin": "0 auto",
+                "paddingBottom": "16px",
+            },
+        )

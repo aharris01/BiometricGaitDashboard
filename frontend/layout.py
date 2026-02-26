@@ -2,7 +2,7 @@
 from dash.dcc import Interval, Store, ConfirmDialog
 from dash.html import Div, Button, H2, Span
 
-from frontend.views.swipe_event_view import SwipeEventView
+from frontend.views.swipe_event_view.swipe_event_view import SwipeEventView
 from frontend.views.footstep_view import FootstepView
 
 
@@ -97,6 +97,21 @@ def build_layout():
                         storage_type="session",
                     ),
                     Store(
+                        id="metrics_confirmed_events_store",
+                        data={"event_ids": []},
+                        storage_type="session",
+                    ),
+                    Store(
+                        id="summary-pagination-store",
+                        data={"visible_count": 5},
+                        storage_type="session",
+                    ),
+                    Store(
+                        id="summary-render-queue-store",
+                        data={"pending_ids": [], "total": 0, "visible_total": 0},
+                        storage_type="session",
+                    ),
+                    Store(
                         id="metrics_selected_panel_mode_store",
                         data={"mode": "view"},
                         storage_type="session",
@@ -118,6 +133,12 @@ def build_layout():
                     ),
                     # page load trigger
                     Interval(id="page-load", max_intervals=1),
+                    Interval(
+                        id="summary-render-interval",
+                        interval=10,
+                        n_intervals=0,
+                        max_intervals=0,
+                    ),
                     # a hidden sink used by the clientside scroll callback output
                     Div(id="scroll-sink", className="hidden"),
                     # hidden sink (unchanged)

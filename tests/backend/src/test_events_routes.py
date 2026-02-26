@@ -81,7 +81,6 @@ def test_event_full_ok(client):
     assert "p100" in data
     assert "grf" in data
     assert "footsteps" in data
-    assert "footstep_details" in data
 
 
 @pytest.mark.unit

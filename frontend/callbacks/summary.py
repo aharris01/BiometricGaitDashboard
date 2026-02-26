@@ -2,7 +2,7 @@
 from dash import Input, Output, State, callback
 from dash.exceptions import PreventUpdate
 
-from frontend.views.summary_view import SummaryView
+from frontend.views.swipe_event_view.summary_view import SummaryView
 
 
 def register(app, *, cmap):

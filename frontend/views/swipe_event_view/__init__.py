@@ -1,4 +1,3 @@
-# frontend/views/swipe_event_view.py
 from dash import html
 
 CONTROL_STYLE = {"flex": "1", "minWidth": "160px"}
@@ -14,7 +13,7 @@ def SwipeEventView():
         children=[
             html.Div(id="metrics-graph-container"),
             html.Div(id="metrics-graph-click-data"),
-            # ✅ Always show a visible placeholder so the section is not "missing"
+            # Always show a visible placeholder so the section is not "missing"
             html.Div(
                 id="summary-container",
                 children=html.Div(
