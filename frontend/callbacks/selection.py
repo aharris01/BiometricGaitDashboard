@@ -12,7 +12,7 @@ def register(app, *, cmap):
         Input({"type": "step-thumb", "event_id": MATCH, "step_id": ALL}, "n_clicks"),
         State({"type": "p100-graph", "event_id": MATCH}, "figure"),
         State("footsteps-store", "data"),
-        State("summary-show-all", "value"),  # read Show all toggle
+        State({"type": "summary-show-all", "event_id": MATCH}, "value"),
         prevent_initial_call=True,
     )
     def click_thumbnail_highlight_bbox(

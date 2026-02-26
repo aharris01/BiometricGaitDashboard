@@ -1,3 +1,5 @@
+# frontend/views/swipe_event_view/summary_view.py
+
 from dash import html, dcc
 from dash.dcc import Graph
 import plotly.express as px
@@ -169,22 +171,38 @@ class SummaryView:
         return canvas
 
     def _bbox_shapes(self, only_step_id=None):
+        if not self.p100_data or not self.p100_data[0]:
+            return []
+
+        height = len(self.p100_data)
+        width = len(self.p100_data[0])
+
         shapes = []
         for box in self.footsteps:
             if only_step_id is not None and box["id"] != only_step_id:
                 continue
+
+            x0, x1, y0, y1 = self._clamp_bbox_to_image(box, width=width, height=height)
+
             shapes.append(
                 dict(
                     type="rect",
-                    x0=box["x_min"],
-                    x1=box["x_max"],
-                    y0=box["y_min"],
-                    y1=box["y_max"],
+                    x0=x0, x1=x1,
+                    y0=y0, y1=y1,
                     line=dict(color="rgba(255,0,255,0.9)", width=2),
                     fillcolor="rgba(0,0,0,0)",
                 )
             )
         return shapes
+
+
+    def _clamp_bbox_to_image(self, box, *, width, height):
+        x0 = max(0, min(int(box["x_min"]), width - 1))
+        x1 = max(0, min(int(box["x_max"]), width - 1))
+        y0 = max(0, min(int(box["y_min"]), height - 1))
+        y1 = max(0, min(int(box["y_max"]), height - 1))
+        return x0, x1, y0, y1
+
 
     def _bbox_annotations(self, only_step_id=None):
         annotations = []
@@ -385,7 +403,10 @@ class SummaryView:
                             },
                             children=[
                                 dcc.Checklist(
-                                    id="summary-show-all",
+                                    id={
+                                        "type": "summary-show-all",
+                                        "event_id": str(self.event_id),
+                                    },
                                     options=[{"label": "Show all", "value": "all"}],
                                     value=["all"] if self.show_all else [],
                                 ),
@@ -393,7 +414,10 @@ class SummaryView:
                                     style={"flex": "1", "minWidth": "320px"},
                                     children=[
                                         dcc.Slider(
-                                            id="summary-step-slider",
+                                            id={
+                                                "type": "summary-step-slider",
+                                                "event_id": str(self.event_id),
+                                            },
                                             min=0,
                                             max=max(len(step_ids) - 1, 0),
                                             step=1,

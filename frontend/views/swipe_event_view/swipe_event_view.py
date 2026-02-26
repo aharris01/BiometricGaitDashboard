@@ -1,4 +1,5 @@
-# frontend/views/swipe_event_view.py
+# frontend/views/swipe_event_view/swipe_event_view.py
+
 from dash import dcc
 from dash.html import Button, Div
 

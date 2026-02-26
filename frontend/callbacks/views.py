@@ -132,7 +132,9 @@ def register(app, *, cmap):
         State("summary-pagination-store", "data"),
         prevent_initial_call=False,
     )
-    def update_summary_pagination(confirmed_store: dict, _n_load: int, page_store: dict):
+    def update_summary_pagination(
+        confirmed_store: dict, _n_load: int, page_store: dict
+    ):
         total = len(_ordered_event_ids(confirmed_store))
         current_visible = _visible_count_from_store(page_store)
 

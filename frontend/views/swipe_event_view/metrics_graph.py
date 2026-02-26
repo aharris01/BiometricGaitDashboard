@@ -1,4 +1,4 @@
-# frontend/views/metrics_graph.py
+# frontend/views/swipe_event_view/metrics_graph.py
 from __future__ import annotations
 
 from dash import html, dcc

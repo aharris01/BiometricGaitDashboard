@@ -151,9 +151,11 @@ def render_selected_list(
                     html.Button(
                         eid,
                         id={"type": "selected_event", "event_id": eid},
-                        className="selected-event-btn active"
-                        if (eid == active_event_id and eid in confirmed_ids)
-                        else "selected-event-btn",
+                        className=(
+                            "selected-event-btn active"
+                            if (eid == active_event_id and eid in confirmed_ids)
+                            else "selected-event-btn"
+                        ),
                         disabled=eid not in confirmed_ids,
                         title="Confirmed" if eid in confirmed_ids else "Not confirmed",
                     ),
