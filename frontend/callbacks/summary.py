@@ -1,5 +1,5 @@
 # frontend/callbacks/summary.py
-from dash import Input, Output, State, callback, ctx, MATCH
+from dash import Input, Output, State, callback, MATCH
 from dash.exceptions import PreventUpdate
 
 from frontend.api import get_event_full
