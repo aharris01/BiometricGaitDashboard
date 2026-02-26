@@ -19,6 +19,13 @@ def children_list(component: Any) -> list[Any]:
     return [children]
 
 
+def assert_pm_id(component: Any, expected_type: str, expected_event_id: str) -> None:
+    """Assert a Dash pattern-matching id dict."""
+    assert isinstance(component.id, dict)
+    assert component.id.get("type") == expected_type
+    assert component.id.get("event_id") == expected_event_id
+
+
 @pytest.mark.unit
 def test_placeholder_figure_basic():
     view = SummaryView(
@@ -292,7 +299,7 @@ def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
     p100_container = top_children[0]
     p100_graph = children_list(p100_container)[1]
     assert isinstance(p100_graph, Graph)
-    assert p100_graph.id == "p100-graph"
+    assert_pm_id(p100_graph, "p100-graph", "evt")
 
     fig = p100_graph.figure
     assert isinstance(fig, go.Figure)
@@ -330,7 +337,7 @@ def test_render_without_grf_uses_grf_placeholder():
     assert isinstance(grf_children[0], html.H3)
     grf_graph = grf_children[1]
     assert isinstance(grf_graph, Graph)
-    assert grf_graph.id == "grf-graph"
+    assert_pm_id(grf_graph, "grf-graph", "evt")
 
     fig = grf_graph.figure
     assert isinstance(fig, go.Figure)

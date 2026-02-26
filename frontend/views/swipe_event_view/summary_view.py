@@ -187,14 +187,15 @@ class SummaryView:
             shapes.append(
                 dict(
                     type="rect",
-                    x0=x0, x1=x1,
-                    y0=y0, y1=y1,
+                    x0=x0,
+                    x1=x1,
+                    y0=y0,
+                    y1=y1,
                     line=dict(color="rgba(255,0,255,0.9)", width=2),
                     fillcolor="rgba(0,0,0,0)",
                 )
             )
         return shapes
-
 
     def _clamp_bbox_to_image(self, box, *, width, height):
         x0 = max(0, min(int(box["x_min"]), width - 1))
@@ -202,7 +203,6 @@ class SummaryView:
         y0 = max(0, min(int(box["y_min"]), height - 1))
         y1 = max(0, min(int(box["y_max"]), height - 1))
         return x0, x1, y0, y1
-
 
     def _bbox_annotations(self, only_step_id=None):
         annotations = []
