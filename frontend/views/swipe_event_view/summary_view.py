@@ -18,7 +18,7 @@ class SummaryView:
         footsteps=None,
         *,
         step_p100s=None,
-        show_all=True,
+        mode="single",
         step_index=0,
     ):
         self.event_id = event_id
@@ -27,7 +27,7 @@ class SummaryView:
         self.grf_data = grf_data or []
         self.footsteps = footsteps or []
         self.step_p100s = step_p100s or []
-        self.show_all = show_all
+        self.mode = mode
         self.step_index = int(step_index or 0)
 
     # ---------------------------------------------------------
@@ -226,6 +226,41 @@ class SummaryView:
             )
         return annotations
 
+    def _global_canvas_for_steps(self, step_ids):
+        canvas = self._blank_global_canvas()
+        if canvas is None:
+            return None
+
+        height = len(canvas)
+        width = len(canvas[0])
+
+        for step_id in step_ids:
+            bbox = self._get_bbox(step_id)
+            if not bbox:
+                continue
+
+            step_p100 = self._get_step_p100(step_id)
+            if not step_p100:
+                continue
+
+            x_min = max(0, min(int(bbox["x_min"]), width))
+            x_max = max(0, min(int(bbox["x_max"]), width))
+            y_min = max(0, min(int(bbox["y_min"]), height))
+            y_max = max(0, min(int(bbox["y_max"]), height))
+
+            box_w = x_max - x_min
+            box_h = y_max - y_min
+            if box_w <= 0 or box_h <= 0:
+                continue
+
+            step_fit = self._resize_nearest(step_p100, box_h, box_w)
+
+            for yy in range(box_h):
+                for xx in range(box_w):
+                    canvas[y_min + yy][x_min + xx] = step_fit[yy][xx]
+
+        return canvas
+
     def _render_all_step_grid(self):
         """
         Right panel: clickable thumbnails (IMG), not Plotly graphs.
@@ -328,22 +363,32 @@ class SummaryView:
             step_id = None
 
         # Main image mode
-        if self.show_all:
+        step_ids = self._step_ids_sorted()
+        if step_ids:
+            index = max(0, min(self.step_index, len(step_ids) - 1))
+        else:
+            index = 0
+        if self.mode == "all":
             image_data = self.p100_data
             shapes = self._bbox_shapes()
             annotations = self._bbox_annotations()
+        elif self.mode == "cumulative" and step_ids:
+            active_ids = step_ids[: index + 1]
+            image_data = self._global_canvas_for_steps(active_ids)
+            shapes = []
+            annotations = []
+            for sid in active_ids:
+                shapes += self._bbox_shapes(only_step_id=sid)
+                annotations += self._bbox_annotations(only_step_id=sid)
+        elif self.mode == "single" and step_ids:
+            step_id = step_ids[index]
+            image_data = self._global_canvas_for_step(step_id)
+            shapes = self._bbox_shapes(only_step_id=step_id)
+            annotations = self._bbox_annotations(only_step_id=step_id)
         else:
-            image_data = (
-                self._global_canvas_for_step(step_id) if step_id is not None else None
-            )
-            shapes = (
-                self._bbox_shapes(only_step_id=step_id) if step_id is not None else []
-            )
-            annotations = (
-                self._bbox_annotations(only_step_id=step_id)
-                if step_id is not None
-                else []
-            )
+            image_data = None
+            shapes = []
+            annotations = []
 
         # Build P100 figure
         if image_data:
@@ -367,7 +412,7 @@ class SummaryView:
             fig_p100.update_yaxes(autorange="reversed", constrain="domain")
 
             # hide colorbar in single-step mode
-            if not self.show_all:
+            if self.mode != "all":
                 fig_p100.update_layout(coloraxis_showscale=False)
         else:
             fig_p100 = self._placeholder_figure(
@@ -396,38 +441,82 @@ class SummaryView:
                         html.Div(
                             style={
                                 "display": "flex",
+                                "flexDirection": "column",
                                 "alignItems": "center",
-                                "gap": "16px",
-                                "marginTop": "8px",
+                                "gap": "10px",
+                                "marginTop": "10px",
                                 "width": "100%",
                             },
                             children=[
-                                dcc.Checklist(
-                                    id={
-                                        "type": "summary-show-all",
-                                        "event_id": str(self.event_id),
-                                    },
-                                    options=[{"label": "Show all", "value": "all"}],
-                                    value=["all"] if self.show_all else [],
-                                ),
+                                # Row 1: radio centered
                                 html.Div(
-                                    style={"flex": "1", "minWidth": "320px"},
+                                    style={
+                                        "display": "flex",
+                                        "justifyContent": "center",
+                                        "width": "100%",
+                                    },
                                     children=[
-                                        dcc.Slider(
+                                        dcc.RadioItems(
                                             id={
-                                                "type": "summary-step-slider",
+                                                "type": "summary-mode",
                                                 "event_id": str(self.event_id),
                                             },
-                                            min=0,
-                                            max=max(len(step_ids) - 1, 0),
-                                            step=1,
-                                            value=index,
-                                            disabled=(len(step_ids) <= 1),
-                                            marks=None,
-                                            tooltip={
-                                                "placement": "bottom",
-                                                "always_visible": False,
+                                            options=[
+                                                {
+                                                    "label": "Single step",
+                                                    "value": "single",
+                                                },
+                                                {
+                                                    "label": "Cumulative",
+                                                    "value": "cumulative",
+                                                },
+                                                {"label": "Show all", "value": "all"},
+                                            ],
+                                            value=self.mode,
+                                            inline=True,
+                                            labelStyle={
+                                                "display": "inline-flex",
+                                                "alignItems": "center",
+                                                "marginRight": "32px",
+                                                "gap": "6px",
                                             },
+                                        )
+                                    ],
+                                ),
+                                # Row 2: slider centered
+                                html.Div(
+                                    style={
+                                        "display": "flex",
+                                        "justifyContent": "center",
+                                        "width": "100%",
+                                    },
+                                    children=[
+                                        html.Div(
+                                            style={
+                                                "width": "100%",
+                                                "maxWidth": "680px",
+                                            },
+                                            children=[
+                                                dcc.Slider(
+                                                    id={
+                                                        "type": "summary-step-slider",
+                                                        "event_id": str(self.event_id),
+                                                    },
+                                                    min=0,
+                                                    max=max(len(step_ids) - 1, 0),
+                                                    step=1,
+                                                    value=index,
+                                                    disabled=(
+                                                        len(step_ids) <= 1
+                                                        or self.mode == "all"
+                                                    ),
+                                                    marks=None,
+                                                    tooltip={
+                                                        "placement": "bottom",
+                                                        "always_visible": False,
+                                                    },
+                                                )
+                                            ],
                                         )
                                     ],
                                 ),
