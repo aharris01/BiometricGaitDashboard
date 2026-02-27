@@ -62,7 +62,9 @@ def get_slider_from_controls_row(controls_row: Any) -> dcc.Slider:
 
 @pytest.mark.unit
 def test_placeholder_figure_basic():
-    view = SummaryView(event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None)
+    view = SummaryView(
+        event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None
+    )
     fig = view._placeholder_figure("Hello placeholder", height=300)
     assert isinstance(fig, go.Figure)
     assert fig.layout.height == 300
@@ -131,7 +133,9 @@ def test_render_with_p100_and_grf_and_thumbnails():
 @pytest.mark.unit
 def test_render_without_p100_uses_placeholder():
     cmap = px.colors.sequential.Jet
-    view = SummaryView(event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3])
+    view = SummaryView(
+        event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3]
+    )
     root = cast(html.Div, view.render())
 
     top_row = children_list(root)[0]
@@ -171,7 +175,9 @@ def test_render_without_step_p100s_shows_empty_message():
     grid_wrapper = thumbs_children[1]
     assert isinstance(grid_wrapper, html.Div)
 
-    msg_div = children_list(grid_wrapper)[0] if children_list(grid_wrapper) else grid_wrapper
+    msg_div = (
+        children_list(grid_wrapper)[0] if children_list(grid_wrapper) else grid_wrapper
+    )
     assert isinstance(msg_div, html.Div)
 
     msg = msg_div.children
@@ -187,7 +193,9 @@ def test_get_p100_range_defaults_when_empty():
 
 @pytest.mark.unit
 def test_get_p100_range_finds_max():
-    view = SummaryView(event_id="evt", cmap=["#000"], p100_data=[[0, 2], [3, None]], grf_data=None)
+    view = SummaryView(
+        event_id="evt", cmap=["#000"], p100_data=[[0, 2], [3, None]], grf_data=None
+    )
     assert view._get_p100_range() == (0, 3)
 
 
