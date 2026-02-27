@@ -453,6 +453,7 @@ class SummaryView:
 
         # Bottom row: GRF
         bottom_row = html.Div(
+            style={"width": "100%"},
             children=[
                 html.Div(
                     children=[
@@ -487,7 +488,7 @@ class SummaryView:
                 "maxWidth": "1350px",
                 "display": "flex",
                 "flexDirection": "column",
-                "alignItems": "flex-start",
+                "alignItems": "stretch",
                 "margin": "0 auto",
                 "paddingBottom": "16px",
             },
