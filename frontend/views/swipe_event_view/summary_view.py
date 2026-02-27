@@ -19,7 +19,6 @@ class SummaryView:
         *,
         step_p100s=None,
         mode="single",
-        show_all=None,
         step_index=0,
     ):
         self.event_id = event_id
@@ -407,6 +406,7 @@ class SummaryView:
                 annotations=annotations,
                 plot_bgcolor="black",
                 paper_bgcolor="white",
+                coloraxis_showscale=False,
             )
 
             fig_p100.update_xaxes(constrain="domain", scaleanchor="y")
