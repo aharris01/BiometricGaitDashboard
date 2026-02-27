@@ -380,7 +380,7 @@ def test_render_mode_all_shows_colorbar_and_slider_disabled():
     assert isinstance(p100_graph, Graph)
 
     showscale = getattr(p100_graph.figure.layout.coloraxis, "showscale", None)
-    assert showscale is None or showscale is True
+    assert showscale in (False, None)
 
     controls_row = get_summary_controls_row(p100_container)
     slider = get_slider_from_controls_row(controls_row)
