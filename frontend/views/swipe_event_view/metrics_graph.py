@@ -1,6 +1,5 @@
-# frontend/views/metrics_graph.py
+# frontend/views/swipe_event_view/metrics_graph.py
 from __future__ import annotations
-
 
 from dash import html, dcc
 from dash.exceptions import PreventUpdate
@@ -12,13 +11,16 @@ from frontend.api import get_participants
 
 
 class MetricsGraph:
-    # Axis configuration
-
+    # Axis configuration (support both legacy + current keys)
     AXIS_LABELS = {
+        # legacy keys (used by unit tests)
         "avg_box_size": "Average Bounding Box Size",
         "footstep_count": "Footstep Count",
-        "participant": "Participant ID",
+        # current keys (from ManifestMetrics in backend)
+        "avg_bbox_size": "Average Bounding Box Size",
+        "step_count": "Footstep Count",
     }
+
     DEFAULT_POINT_COLOR = "#1f77b4"
     PENDING_POINT_COLOR = "#ff7f0e"
     SELECTED_POINT_COLOR = "#d62728"
@@ -162,7 +164,6 @@ class MetricsGraph:
                 height=height,
             )
 
-        fig = go.Figure()
         marker_colors = self.build_marker_colors(
             event_ids,
             pending_event_ids=pending_event_ids,
@@ -179,6 +180,8 @@ class MetricsGraph:
             event_ids,
             pending_event_ids=pending_event_ids,
         )
+
+        fig = go.Figure()
         fig.add_trace(
             go.Scatter(
                 x=x_vals,
@@ -190,7 +193,7 @@ class MetricsGraph:
                     "opacity": marker_opacities,
                 },
                 selectedpoints=selectedpoints,
-                text=event_ids,  # event_id used by click/lasso callbacks
+                text=event_ids,  # used by click/lasso callbacks
                 hovertemplate=(
                     "<b>Event:</b> %{text}<br>"
                     + f"<b>{self.AXIS_LABELS.get(x_key, x_key)}:</b> %{{x}}<br>"
@@ -244,14 +247,6 @@ class MetricsGraph:
                                         ),
                                     ],
                                 ),
-                                # Participants uses the custom 'collapsible_checklist()' component,
-                                # while Dates uses native html.Details. This is intentional because the participant filter relies on a callback that
-                                # injects a dcc.Checklist via 'children'py, so replacing it with a html.details
-                                # component would require refactoring the callback to output 'options' instead.
-                                # Do not convert this to native html.Details without updating frontend/callbacks/filters.py accordingly. -jon
-                                # --------------------------
-                                # PARTICIPANT SECTION collapsible_checklist()
-                                # --------------------------
                                 collapsible_checklist(
                                     title="by participant",
                                     component_id="metrics_filter_participant",
@@ -260,17 +255,12 @@ class MetricsGraph:
                                     details_id="metrics_filter_participant_details",
                                     summary_id="metrics_filter_participant_summary",
                                 ),
-                                # --------------------------
-                                # DATE SECTION html.details
-                                # --------------------------
                                 html.Details(
                                     open=False,
                                     style={"width": "100%"},
                                     children=[
-                                        # Use SAME class as participant
                                         html.Summary(
-                                            "by date",
-                                            className="filter_summary",
+                                            "by date", className="filter_summary"
                                         ),
                                         html.Div(
                                             className="filter_box_no_scroll",
@@ -311,7 +301,6 @@ class MetricsGraph:
                         html.Div(
                             className="metrics-plot",
                             children=[
-                                # ONE LINE: Scatter plot  X: [..]  ⇄  Y: [..]
                                 html.Div(
                                     style={
                                         "display": "flex",
@@ -326,7 +315,6 @@ class MetricsGraph:
                                             className="panel-title",
                                             style={"margin": "0"},
                                         ),
-                                        # X
                                         html.Div(
                                             style={
                                                 "display": "flex",
@@ -352,7 +340,6 @@ class MetricsGraph:
                                                 ),
                                             ],
                                         ),
-                                        # Swap button (between X and Y)
                                         html.Button(
                                             "⇄",
                                             id="btn-swap-axes",
@@ -363,7 +350,6 @@ class MetricsGraph:
                                                 "fontSize": "14px",
                                             },
                                         ),
-                                        # Y
                                         html.Div(
                                             style={
                                                 "display": "flex",
@@ -402,7 +388,7 @@ class MetricsGraph:
                                 ),
                             ],
                         ),
-                        # 3) Arrow buttons (middle)
+                        # 3) Arrow buttons
                         html.Div(
                             className="metrics-arrows",
                             children=[
@@ -414,7 +400,7 @@ class MetricsGraph:
                                 ),
                             ],
                         ),
-                        # 4) Selected list (right)
+                        # 4) Selected list
                         html.Div(
                             className="metrics-panel metrics-panel--selected",
                             children=[

@@ -16,7 +16,6 @@ def build_layout():
                 id="header",
                 className="header",
                 children=[
-                    # Left: dynamic title/subtitle
                     Div(
                         children=[
                             H2("Swipe Events", id="header-title"),
@@ -27,7 +26,6 @@ def build_layout():
                             ),
                         ],
                     ),
-                    # Right: mode buttons
                     Div(
                         style={"display": "flex", "gap": "8px", "alignItems": "center"},
                         children=[
@@ -82,9 +80,10 @@ def build_layout():
                         data={"prev": []},
                         storage_type="session",
                     ),
+                    # UPDATED defaults to match backend metric keys
                     Store(
                         id="metrics_axes_store",
-                        data={"x": "avg_box_size", "y": "footstep_count"},
+                        data={"x": "avg_box_size", "y": "step_count"},
                         storage_type="session",
                     ),
                     Store(

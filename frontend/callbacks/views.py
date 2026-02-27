@@ -1,4 +1,3 @@
-# frontend/callbacks/views.py
 from dash import Input, Output, Patch, State, callback, ctx, no_update
 
 from frontend.api import get_event_full
@@ -123,6 +122,9 @@ def register(app, *, cmap):
     def display_metrics_graph(_n):
         return MetricsGraph({}).render()
 
+    # ------------------------------------------------------------
+    # Pagination state: visible_count
+    # ------------------------------------------------------------
     @callback(
         Output("summary-pagination-store", "data"),
         Input("metrics_confirmed_events_store", "data"),
@@ -142,6 +144,9 @@ def register(app, *, cmap):
         # Reset to first page whenever confirmed list changes.
         return {"visible_count": min(total, 5)}
 
+    # ------------------------------------------------------------
+    # Show/hide pagination controls
+    # ------------------------------------------------------------
     @callback(
         Output("summary-pagination-controls", "style"),
         Output("btn-load-more-summaries", "disabled"),
@@ -157,6 +162,7 @@ def register(app, *, cmap):
 
         visible_count = min(total, _visible_count_from_store(page_store))
         all_loaded = visible_count >= total
+
         return (
             {
                 "display": "flex",
@@ -171,6 +177,9 @@ def register(app, *, cmap):
             {"display": "none"} if all_loaded else {"display": "block"},
         )
 
+    # ------------------------------------------------------------
+    # Render summary cards incrementally (queue + interval)
+    # ------------------------------------------------------------
     @callback(
         Output("summary-container", "children"),
         Output("footsteps-store", "data"),
@@ -208,6 +217,7 @@ def register(app, *, cmap):
                 _render_tick,
             )
 
+        # Put active event first if it exists in confirmed list
         if active_event_id in ordered_ids:
             ordered_ids = [active_event_id] + [
                 event_id for event_id in ordered_ids if event_id != active_event_id
@@ -227,6 +237,9 @@ def register(app, *, cmap):
                 _render_tick,
             )
 
+        # -----------------------------
+        # Interval tick: render next item in queue
+        # -----------------------------
         if ctx.triggered_id == "summary-render-interval":
             pending_ids, queued_total, queued_visible_total = _normalized_queue_state(
                 render_queue_store,
@@ -259,6 +272,7 @@ def register(app, *, cmap):
 
             rest = pending_ids[1:]
             loaded_count = max(0, queued_visible_total - len(rest))
+
             patch = Patch()
             patch.append(event_view)
 
@@ -275,6 +289,9 @@ def register(app, *, cmap):
                 (_render_tick + 1) if rest else _render_tick,
             )
 
+        # -----------------------------
+        # Non-interval triggers: decide whether to rebuild or append
+        # -----------------------------
         existing_ids = list(existing_by_event.keys())
         can_append_only = (
             bool(existing_ids)
@@ -304,6 +321,7 @@ def register(app, *, cmap):
                 _render_tick,
             )
 
+        # Render first immediately, queue the rest for interval
         first_id = str(pending_ids[0])
         event_view, footsteps = _render_summary_view(app, event_id=first_id, cmap=cmap)
         base_by_event[first_id] = footsteps

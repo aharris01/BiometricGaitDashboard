@@ -489,19 +489,85 @@
     font-size: 13px !important;
   }
 
-  /* =========================================================
-     Make X/Y dropdown text match collapse checklist (13px)
-     ========================================================= */
+/* =========================================================
+   Make X/Y dropdown text match collapse checklist (13px)
+   ========================================================= */
 
-  /* Selected value */
-  .metrics-axis-dropdown .Select-value-label,
-  .metrics-axis-dropdown .Select-placeholder {
-    font-size: 13px !important;
+/* Selected value */
+.metrics-axis-dropdown .Select-value-label,
+.metrics-axis-dropdown .Select-placeholder {
+  font-size: 13px !important;
+}
+
+/* Dropdown menu items */
+.metrics-axis-dropdown .Select-menu-outer,
+.metrics-axis-dropdown .Select-option {
+  font-size: 13px !important;
+}
+
+
+/* =========================================================
+   Summary Layout
+   ========================================================= */
+
+   .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  
+    width: 100%;
+    max-width: 1350px;
+    margin: 0 auto;
+    box-sizing: border-box;
+  
+    align-items: stretch;
   }
-
-  /* Dropdown menu items */
-  .metrics-axis-dropdown .Select-menu-outer,
-  .metrics-axis-dropdown .Select-option {
-    font-size: 13px !important;
+  
+  /* Left & Right panels */
+  .summary-panel,
+  .summary-plot {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    box-sizing: border-box;
+  
+    display: flex;
+    flex-direction: column;
   }
-
+  
+  /* Left panel */
+  .summary-plot {
+    height: 100%;   
+  }
+  
+  /* Right panel */
+  .summary-panel {
+    height: 100%;   
+    overflow: hidden; 
+  }
+  
+  /* Scroll area inside right panel: match left heatmap height */
+  .summary-panel-scroll {
+    height: 560px;          
+    overflow-y: auto;      
+    overflow-x: hidden;
+    padding-right: 6px;
+  }
+  
+  /* Ensure graphs never overflow container */
+  .summary-panel-scroll .dash-graph {
+    width: 100% !important;
+  }
+  
+  /* Prevent grid items from stretching beyond container */
+  .summary-panel-scroll > div {
+    max-width: 100%;
+  }
+  
+  /* Responsive */
+  @media (max-width: 900px) {
+    .summary-row {
+      grid-template-columns: 1fr;
+    }
+  }
