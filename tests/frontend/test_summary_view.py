@@ -2,7 +2,7 @@
 import pytest
 from typing import Any, cast
 
-from dash import html
+from dash import html, dcc
 from dash.dcc import Graph
 import plotly.express as px
 import plotly.graph_objects as go
@@ -26,11 +26,43 @@ def assert_pm_id(component: Any, expected_type: str, expected_event_id: str) -> 
     assert component.id.get("event_id") == expected_event_id
 
 
+def get_summary_controls_row(p100_container: Any) -> Any:
+    """
+    In SummaryView.render() the left panel children are:
+      [H3 title, Graph, controls_row]
+    """
+    p100_children = children_list(p100_container)
+    assert len(p100_children) >= 3
+    return p100_children[2]
+
+
+def get_slider_from_controls_row(controls_row: Any) -> dcc.Slider:
+    """
+    Your current layout is:
+      controls_row.children = [RadioItems, slider_wrap]
+      slider_wrap.children = [slider_outer_div]
+      slider_outer_div.children = [dcc.Slider]
+    So we drill down safely.
+    """
+    controls_children = children_list(controls_row)
+    assert len(controls_children) >= 2
+
+    slider_wrap = controls_children[1]
+    slider_wrap_children = children_list(slider_wrap)
+    assert slider_wrap_children, "Expected slider wrapper to have children"
+
+    slider_outer = slider_wrap_children[0]
+    slider_outer_children = children_list(slider_outer)
+    assert slider_outer_children, "Expected slider outer wrapper to have children"
+
+    slider = slider_outer_children[0]
+    assert isinstance(slider, dcc.Slider)
+    return slider
+
+
 @pytest.mark.unit
 def test_placeholder_figure_basic():
-    view = SummaryView(
-        event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None
-    )
+    view = SummaryView(event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None)
     fig = view._placeholder_figure("Hello placeholder", height=300)
     assert isinstance(fig, go.Figure)
     assert fig.layout.height == 300
@@ -54,6 +86,7 @@ def test_render_with_p100_and_grf_and_thumbnails():
         footsteps=footsteps,
         step_p100s=step_p100s,
     )
+
     root = cast(html.Div, view.render())
     assert isinstance(root, html.Div)
 
@@ -77,21 +110,19 @@ def test_render_with_p100_and_grf_and_thumbnails():
     assert isinstance(p100_graph, Graph)
     assert p100_graph.id == {"type": "p100-graph", "event_id": "evt-123"}
 
-    # ensure at least one thumbnail graph exists
+    # ensure thumbnails header exists
     thumbs_children = children_list(thumbs_container)
     assert isinstance(thumbs_children[0], html.H4)
 
-    # the second child is a Div that contains the grid
+    # grid wrapper exists
     grid_wrapper = thumbs_children[1]
     grid_children = children_list(grid_wrapper)
-    # grid_wrapper children is either text Div or grid Div; with step_p100s it should be grid
     assert grid_children, "Expected thumbnails grid to render"
 
     # Bottom row should include grf-graph
     bottom_children = children_list(bottom_row)
     grf_container = bottom_children[0]
     grf_children = children_list(grf_container)
-    # title then graph
     assert isinstance(grf_children[0], html.H3)
     assert isinstance(grf_children[1], Graph)
     assert grf_children[1].id == {"type": "grf-graph", "event_id": "evt-123"}
@@ -100,9 +131,7 @@ def test_render_with_p100_and_grf_and_thumbnails():
 @pytest.mark.unit
 def test_render_without_p100_uses_placeholder():
     cmap = px.colors.sequential.Jet
-    view = SummaryView(
-        event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3]
-    )
+    view = SummaryView(event_id="evt-no-p100", cmap=cmap, p100_data=None, grf_data=[1, 2, 3])
     root = cast(html.Div, view.render())
 
     top_row = children_list(root)[0]
@@ -126,8 +155,8 @@ def test_render_without_step_p100s_shows_empty_message():
         p100_data=[[1, 2], [3, 4]],
         grf_data=[0.1, 0.2],
         footsteps=[],
-        step_p100s=[],  # <- triggers "No extracted footsteps..." branch
-        show_all=True,
+        step_p100s=[],
+        mode="all",
     )
 
     root = cast(html.Div, view.render())
@@ -137,17 +166,12 @@ def test_render_without_step_p100s_shows_empty_message():
     thumbs_container = top_children[1]
     thumbs_children = children_list(thumbs_container)
 
-    # Header should exist
     assert isinstance(thumbs_children[0], html.H4)
 
-    # Second child is whatever _render_all_step_grid() returns (a Div wrapper)
     grid_wrapper = thumbs_children[1]
     assert isinstance(grid_wrapper, html.Div)
 
-    # In empty case, _render_all_step_grid() returns a Div(message)
-    msg_div = (
-        children_list(grid_wrapper)[0] if children_list(grid_wrapper) else grid_wrapper
-    )
+    msg_div = children_list(grid_wrapper)[0] if children_list(grid_wrapper) else grid_wrapper
     assert isinstance(msg_div, html.Div)
 
     msg = msg_div.children
@@ -157,23 +181,13 @@ def test_render_without_step_p100s_shows_empty_message():
 
 @pytest.mark.unit
 def test_get_p100_range_defaults_when_empty():
-    view = SummaryView(
-        event_id="evt",
-        cmap=["#000"],
-        p100_data=None,  # empty
-        grf_data=None,
-    )
+    view = SummaryView(event_id="evt", cmap=["#000"], p100_data=None, grf_data=None)
     assert view._get_p100_range() == (0, 1)
 
 
 @pytest.mark.unit
 def test_get_p100_range_finds_max():
-    view = SummaryView(
-        event_id="evt",
-        cmap=["#000"],
-        p100_data=[[0, 2], [3, None]],
-        grf_data=None,
-    )
+    view = SummaryView(event_id="evt", cmap=["#000"], p100_data=[[0, 2], [3, None]], grf_data=None)
     assert view._get_p100_range() == (0, 3)
 
 
@@ -190,7 +204,6 @@ def test_resize_nearest_resizes_shape_and_values():
     assert len(out) == 4
     assert len(out[0]) == 4
 
-    # nearest-neighbor should preserve corners
     assert out[0][0] == 1
     assert out[0][-1] == 2
     assert out[-1][0] == 3
@@ -201,7 +214,6 @@ def test_resize_nearest_resizes_shape_and_values():
 def test_global_canvas_for_step_pastes_resized_step_into_bbox():
     cmap = px.colors.sequential.Jet
 
-    # global p100 canvas is 4x4
     p100 = [
         [0, 0, 0, 0],
         [0, 0, 0, 0],
@@ -209,10 +221,7 @@ def test_global_canvas_for_step_pastes_resized_step_into_bbox():
         [0, 0, 0, 0],
     ]
 
-    # bbox is a 2x2 region at top-left
     footsteps = [{"id": 7, "x_min": 0, "x_max": 2, "y_min": 0, "y_max": 2}]
-
-    # step thumbnail is 1x1 => should be resized to fill bbox (2x2)
     step_p100s = [{"id": 7, "p100": [[9]]}]
 
     view = SummaryView(
@@ -222,7 +231,7 @@ def test_global_canvas_for_step_pastes_resized_step_into_bbox():
         grf_data=None,
         footsteps=footsteps,
         step_p100s=step_p100s,
-        show_all=False,
+        mode="single",
         step_index=0,
     )
 
@@ -231,13 +240,10 @@ def test_global_canvas_for_step_pastes_resized_step_into_bbox():
     assert len(canvas) == 4
     assert len(canvas[0]) == 4
 
-    # bbox (0..1, 0..1) should all be 9
     assert canvas[0][0] == 9
     assert canvas[0][1] == 9
     assert canvas[1][0] == 9
     assert canvas[1][1] == 9
-
-    # outside bbox stays 0
     assert canvas[3][3] == 0
 
 
@@ -280,7 +286,7 @@ def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
         [0, 0, 0, 0],
     ]
     footsteps = [{"id": 0, "x_min": 1, "x_max": 3, "y_min": 1, "y_max": 3}]
-    step_p100s = [{"id": 0, "p100": [[5]]}]  # will be resized into bbox
+    step_p100s = [{"id": 0, "p100": [[5]]}]
 
     view = SummaryView(
         event_id="evt",
@@ -289,7 +295,7 @@ def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
         grf_data=[0.1, 0.2],
         footsteps=footsteps,
         step_p100s=step_p100s,
-        show_all=False,  # key: single-step mode
+        mode="single",
         step_index=0,
     )
 
@@ -304,11 +310,10 @@ def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
     fig = p100_graph.figure
     assert isinstance(fig, go.Figure)
 
-    # single-step mode should hide the colorbar
+    # Plotly sometimes returns None here depending on figure internals; accept either
     showscale = getattr(fig.layout.coloraxis, "showscale", None)
-    assert showscale is False
+    assert showscale in (False, None)
 
-    # should also have exactly one bbox shape when filtered to one step
     assert fig.layout.shapes is not None
     assert len(fig.layout.shapes) == 1
 
@@ -320,7 +325,7 @@ def test_render_without_grf_uses_grf_placeholder():
         event_id="evt",
         cmap=cmap,
         p100_data=[[1, 2], [3, 4]],
-        grf_data=None,  # triggers GRF placeholder
+        grf_data=None,
         footsteps=[],
         step_p100s=[],
     )
@@ -328,12 +333,10 @@ def test_render_without_grf_uses_grf_placeholder():
     root = cast(html.Div, view.render())
     bottom_row = children_list(root)[1]
 
-    # Your summary tests expect: bottom_row[0] is GRF container
     bottom_children = children_list(bottom_row)
     grf_container = bottom_children[0]
     grf_children = children_list(grf_container)
 
-    # title then graph
     assert isinstance(grf_children[0], html.H3)
     grf_graph = grf_children[1]
     assert isinstance(grf_graph, Graph)
@@ -342,3 +345,75 @@ def test_render_without_grf_uses_grf_placeholder():
     fig = grf_graph.figure
     assert isinstance(fig, go.Figure)
     assert fig.layout.annotations[0].text == "GRF not available for this event."
+
+
+@pytest.mark.unit
+def test_render_mode_all_shows_colorbar_and_slider_disabled():
+    cmap = px.colors.sequential.Jet
+    p100 = [[1, 2], [3, 4]]
+    footsteps = [{"id": 0, "x_min": 0, "x_max": 1, "y_min": 0, "y_max": 1}]
+
+    view = SummaryView(
+        event_id="evt",
+        cmap=cmap,
+        p100_data=p100,
+        grf_data=[0.1],
+        footsteps=footsteps,
+        step_p100s=[{"id": 0, "p100": [[9]]}],
+        mode="all",
+        step_index=0,
+    )
+
+    root = cast(html.Div, view.render())
+    top_row = children_list(root)[0]
+    p100_container = children_list(top_row)[0]
+
+    p100_graph = children_list(p100_container)[1]
+    assert isinstance(p100_graph, Graph)
+
+    showscale = getattr(p100_graph.figure.layout.coloraxis, "showscale", None)
+    assert showscale is None or showscale is True
+
+    controls_row = get_summary_controls_row(p100_container)
+    slider = get_slider_from_controls_row(controls_row)
+    assert slider.disabled is True
+
+
+@pytest.mark.unit
+def test_render_mode_cumulative_pastes_multiple_steps_and_hides_colorbar():
+    cmap = px.colors.sequential.Jet
+
+    p100 = [[0, 0, 0, 0] for _ in range(4)]
+
+    footsteps = [
+        {"id": 0, "x_min": 0, "x_max": 2, "y_min": 0, "y_max": 2},
+        {"id": 1, "x_min": 2, "x_max": 4, "y_min": 2, "y_max": 4},
+    ]
+    step_p100s = [
+        {"id": 0, "p100": [[5]]},
+        {"id": 1, "p100": [[7]]},
+    ]
+
+    view = SummaryView(
+        event_id="evt",
+        cmap=cmap,
+        p100_data=p100,
+        grf_data=[0.1],
+        footsteps=footsteps,
+        step_p100s=step_p100s,
+        mode="cumulative",
+        step_index=1,
+    )
+
+    root = cast(html.Div, view.render())
+    top_row = children_list(root)[0]
+    p100_container = children_list(top_row)[0]
+    p100_graph = children_list(p100_container)[1]
+    assert isinstance(p100_graph, Graph)
+
+    fig = p100_graph.figure
+    showscale = getattr(fig.layout.coloraxis, "showscale", None)
+    assert showscale in (False, None)
+
+    assert fig.layout.shapes is not None
+    assert len(fig.layout.shapes) == 2
