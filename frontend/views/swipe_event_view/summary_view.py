@@ -477,7 +477,7 @@ class SummaryView:
                         "width": "100%",
                     },
                 )
-            ]
+            ],
         )
 
         return html.Div(
