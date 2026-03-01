@@ -80,6 +80,11 @@ def build_layout():
                         data={"prev": []},
                         storage_type="session",
                     ),
+                    Store(
+                        id="metrics_date_filter_mode_store",
+                        data={"mode": "parts"},  # "parts" or "range"
+                        storage_type="session",
+                    ),
                     # UPDATED defaults to match backend metric keys
                     Store(
                         id="metrics_axes_store",
