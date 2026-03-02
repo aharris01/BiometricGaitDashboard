@@ -1,5 +1,5 @@
 import pytest
-
+from datetime import date
 from backend.src.server import create_app
 
 
@@ -367,3 +367,106 @@ def test_event_full_details_missing_file_returns_empty_list():
         resp = client_.get("/api/events/evt-1/full")
         assert resp.status_code == 200
         assert resp.get_json()["footstep_details"] == []
+
+
+# -------------------------------------------------------------------
+# NEW: Extra tests to push coverage over 80%
+# -------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_available_metrics_endpoint_ok():
+    # /api/events/metrics does not require DB/SAL behavior
+    app = create_app(sal=FakeSAL())
+    with app.test_client() as client_:
+        resp = client_.get("/api/events/metrics")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "items" in data
+        assert isinstance(data["items"], list)
+        # Real columns from ManifestMetrics
+        assert "avg_bbox_size" in data["items"]
+        assert "step_count" in data["items"]
+
+
+class FakeSALDateBoundsOk(FakeSAL):
+    def __init__(self):
+        # first() returns (min_date, max_date)
+        self.db = FakeDB(first_row=(date(2024, 1, 1), date(2024, 12, 31)))
+
+
+@pytest.mark.unit
+def test_date_bounds_ok_returns_iso_dates():
+    app = create_app(sal=FakeSALDateBoundsOk())
+    with app.test_client() as client_:
+        resp = client_.get("/api/events/date_bounds")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["min_date"] == "2024-01-01"
+        assert data["max_date"] == "2024-12-31"
+
+
+class FakeSALDateBoundsEmpty(FakeSAL):
+    def __init__(self):
+        # first() returns (None, None) so endpoint returns nulls
+        self.db = FakeDB(first_row=(None, None))
+
+
+@pytest.mark.unit
+def test_date_bounds_empty_returns_nulls():
+    app = create_app(sal=FakeSALDateBoundsEmpty())
+    with app.test_client() as client_:
+        resp = client_.get("/api/events/date_bounds")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["min_date"] is None
+        assert data["max_date"] is None
+
+
+class FakeSALMonths(FakeSAL):
+    def __init__(self):
+        # endpoint expects r[0] as month int
+        self.db = FakeDB(rows=[(1,), (2,), (2,), (12,)])
+
+
+@pytest.mark.unit
+def test_months_endpoint_ok_returns_sorted_unique():
+    app = create_app(sal=FakeSALMonths())
+    with app.test_client() as client_:
+        resp = client_.get("/api/events/months?year=2024&participants=1,2")
+        assert resp.status_code == 200
+        assert resp.get_json() == [1, 2, 12]
+
+
+class FakeSALDays(FakeSAL):
+    def __init__(self):
+        # endpoint expects r[0] as day int
+        self.db = FakeDB(rows=[(1,), (15,), (31,), (31,)])
+
+
+@pytest.mark.unit
+def test_days_endpoint_ok_returns_sorted_unique():
+    app = create_app(sal=FakeSALDays())
+    with app.test_client() as client_:
+        resp = client_.get("/api/events/days?year=2024&month=1&participants=1")
+        assert resp.status_code == 200
+        assert resp.get_json() == [1, 15, 31]
+
+
+@pytest.mark.unit
+def test_summaryplot_invalid_metric_returns_400():
+    # backend validates x/y against ManifestMetrics columns
+    app = create_app(sal=FakeSALSummaryPlot())
+    with app.test_client() as client_:
+        resp = client_.get("/api/events/summaryplot?x=not_a_metric&y=step_count")
+        assert resp.status_code == 400
+
+
+@pytest.mark.unit
+def test_summaryplot_bad_date_order_returns_400():
+    app = create_app(sal=FakeSALSummaryPlot())
+    with app.test_client() as client_:
+        resp = client_.get(
+            "/api/events/summaryplot?x=avg_bbox_size&y=step_count&date_from=2025-02-01&date_to=2025-01-01"
+        )
+        assert resp.status_code == 400
