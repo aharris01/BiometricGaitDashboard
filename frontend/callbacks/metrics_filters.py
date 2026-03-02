@@ -91,7 +91,6 @@ def register(app):
         new_end = end_date if in_bounds(end_date) else None
 
         initial_visible = new_end or new_start or min_date
-
         return min_date, max_date, initial_visible, new_start, new_end
 
     # ------------------------------------------------------------
@@ -140,7 +139,7 @@ def register(app):
         x_key,
         y_key,
         selected_participants,
-        is_open,
+        _is_open,  # keep param so callback signature doesn't break other code/tests
         scatter_selection_store,
         selected_events_store,
         event_store,
@@ -156,13 +155,9 @@ def register(app):
 
         filters = {}
 
+        # If clear button triggered, ignore all filters (but still use x/y)
         if ctx.triggered_id != "btn-clear-filters":
-            # participants always AND
-            if (
-                is_open
-                and selected_participants
-                and "__all__" not in selected_participants
-            ):
+            if selected_participants and "__all__" not in selected_participants:
                 filters["participants"] = selected_participants
 
             mode = (mode_store or {}).get("mode", "parts")
@@ -270,6 +265,9 @@ def register(app):
         )
         return ([{"label": str(d), "value": d} for d in days], None)
 
+    # -------------------------------------------------------------
+    # Clear all filters button
+    # -------------------------------------------------------------
     @callback(
         Output("metrics_filter_participant", "value", allow_duplicate=True),
         Output("metrics_filter_participant_state", "data", allow_duplicate=True),
@@ -285,7 +283,7 @@ def register(app):
     def clear_all_filters(_):
         return (
             [],  # participants
-            {"prev": []},  # reset select-all memory (important)
+            {"prev": []},  # reset select-all memory
             None,  # year
             None,  # month
             None,  # day
