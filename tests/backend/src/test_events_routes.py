@@ -7,8 +7,10 @@ from backend.src.server import create_app
 # Fake DB / Session helpers for routes that query sal.db._get_session()
 # -------------------------------------------------------------------
 
+
 class FakeRow:
     """Mimic SQLAlchemy row with _mapping used in events.py."""
+
     def __init__(self, mapping: dict):
         self._mapping = mapping
 
@@ -54,6 +56,7 @@ class FakeDB:
 # -------------------------------------------------------------------
 # Base Fake SALs
 # -------------------------------------------------------------------
+
 
 class FakeSAL:
     def get_event_summary(self, event_id: str):
@@ -125,6 +128,7 @@ def client():
 # -------------------------------------------------------------------
 # Existing tests (unchanged)
 # -------------------------------------------------------------------
+
 
 @pytest.mark.unit
 def test_event_full_ok(client):
@@ -230,11 +234,13 @@ def test_event_footstep_detail_missing_file():
 # FIXED: summaryplot tests (match current backend behavior)
 # -------------------------------------------------------------------
 
+
 class FakeSALSummaryPlot(FakeSAL):
     """
     /api/events/summaryplot uses sal.db._get_session() and expects SQLAlchemy-like
     rows with row._mapping containing event_id and metric keys.
     """
+
     def __init__(self):
         rows = [
             FakeRow(
@@ -271,11 +277,13 @@ def test_summary_plot_missing_metrics():
 # FIXED: years endpoint test (match current backend behavior)
 # -------------------------------------------------------------------
 
+
 class FakeSALDates(FakeSAL):
     """
     /api/events/years currently queries sal.db._get_session() and expects rows
     where r[0] is the extracted year.
     """
+
     def __init__(self):
         rows = [(2024,), (2025,)]
         self.db = FakeDB(rows=rows)
@@ -292,6 +300,7 @@ def test_years_endpoint_ok():
 # -------------------------------------------------------------------
 # Remaining tests (unchanged)
 # -------------------------------------------------------------------
+
 
 class FakeSALGrfMissingEvent(FakeSAL):
     def get_grf(self, event_id: str):

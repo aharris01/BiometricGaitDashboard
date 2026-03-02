@@ -309,7 +309,9 @@ class MetricsGraph:
                                     open=False,
                                     style={"width": "100%"},
                                     children=[
-                                        html.Summary("by date range", className="filter_summary"),
+                                        html.Summary(
+                                            "by date range", className="filter_summary"
+                                        ),
                                         html.Div(
                                             className="filter_box_no_scroll",
                                             children=[
@@ -324,7 +326,11 @@ class MetricsGraph:
                                                 ),
                                                 html.Div(
                                                     "Tip: pick 'to' first — 'from' will default to the same day.",
-                                                    style={"marginTop": "8px", "fontSize": "12px", "color": "#6b7280"},
+                                                    style={
+                                                        "marginTop": "8px",
+                                                        "fontSize": "12px",
+                                                        "color": "#6b7280",
+                                                    },
                                                 ),
                                             ],
                                         ),

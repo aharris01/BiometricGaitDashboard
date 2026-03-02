@@ -153,13 +153,19 @@ def api_swipe_event_summary_plot():
         x = request.args.get("x")
         y = request.args.get("y")
         if not x or not y:
-            return make_error(400, "bad_request", "Both x and y metrics must be provided")
+            return make_error(
+                400, "bad_request", "Both x and y metrics must be provided"
+            )
 
         available = _available_metric_columns()
         if x not in available:
-            return make_error(400, "bad_request", f"Invalid metric requested for x-axis: {x}")
+            return make_error(
+                400, "bad_request", f"Invalid metric requested for x-axis: {x}"
+            )
         if y not in available:
-            return make_error(400, "bad_request", f"Invalid metric requested for y-axis: {y}")
+            return make_error(
+                400, "bad_request", f"Invalid metric requested for y-axis: {y}"
+            )
 
         participants = _parse_participants(request.args.get("participants"))
         year = request.args.get("year", type=int)
@@ -271,7 +277,9 @@ def api_swipe_event_date_bounds():
         return jsonify({"min_date": row[0].isoformat(), "max_date": row[1].isoformat()})
 
     except Exception as e:
-        return make_error(500, "internal_error", "failed to retrieve date bounds", str(e))
+        return make_error(
+            500, "internal_error", "failed to retrieve date bounds", str(e)
+        )
 
 
 @events_bp.get("/api/events/years")
@@ -300,7 +308,9 @@ def api_swipe_event_years():
         return jsonify(years)
 
     except Exception as e:
-        return make_error(500, "internal_error", "failed to retrieve distinct years", str(e))
+        return make_error(
+            500, "internal_error", "failed to retrieve distinct years", str(e)
+        )
 
 
 @events_bp.get("/api/events/months")
@@ -332,7 +342,9 @@ def api_swipe_event_months():
         return jsonify(months)
 
     except Exception as e:
-        return make_error(500, "internal_error", "failed to retrieve distinct months", str(e))
+        return make_error(
+            500, "internal_error", "failed to retrieve distinct months", str(e)
+        )
 
 
 @events_bp.get("/api/events/days")
@@ -367,7 +379,9 @@ def api_swipe_event_days():
         return jsonify(days)
 
     except Exception as e:
-        return make_error(500, "internal_error", "failed to retrieve distinct days", str(e))
+        return make_error(
+            500, "internal_error", "failed to retrieve distinct days", str(e)
+        )
 
 
 @events_bp.get("/api/events/metrics")

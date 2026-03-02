@@ -31,7 +31,9 @@ def register(app):
         if not ctx.triggered:
             return mode_store or {"mode": "parts"}
 
-        prop_id = ctx.triggered[0]["prop_id"]  # e.g. "metrics_filter_date_range.end_date"
+        prop_id = ctx.triggered[0][
+            "prop_id"
+        ]  # e.g. "metrics_filter_date_range.end_date"
 
         # user interacted with the range picker last
         if prop_id.startswith("metrics_filter_date_range."):
@@ -40,9 +42,11 @@ def register(app):
             return {"mode": "parts"}
 
         # user interacted with the year/month/day last
-        if prop_id.startswith("metrics_filter_year.") or prop_id.startswith(
-            "metrics_filter_month."
-        ) or prop_id.startswith("metrics_filter_day."):
+        if (
+            prop_id.startswith("metrics_filter_year.")
+            or prop_id.startswith("metrics_filter_month.")
+            or prop_id.startswith("metrics_filter_day.")
+        ):
             if year or month or day:
                 return {"mode": "parts"}
             if start_date or end_date:
@@ -153,8 +157,12 @@ def register(app):
         filters = {}
 
         if ctx.triggered_id != "btn-clear-filters":
-        # participants always AND
-            if is_open and selected_participants and "__all__" not in selected_participants:
+            # participants always AND
+            if (
+                is_open
+                and selected_participants
+                and "__all__" not in selected_participants
+            ):
                 filters["participants"] = selected_participants
 
             mode = (mode_store or {}).get("mode", "parts")
@@ -261,7 +269,6 @@ def register(app):
             logger=app.logger,
         )
         return ([{"label": str(d), "value": d} for d in days], None)
-    
 
     @callback(
         Output("metrics_filter_participant", "value", allow_duplicate=True),
@@ -277,12 +284,12 @@ def register(app):
     )
     def clear_all_filters(_):
         return (
-            [],            # participants
+            [],  # participants
             {"prev": []},  # reset select-all memory (important)
-            None,          # year
-            None,          # month
-            None,          # day
-            None,          # range start
-            None,          # range end
+            None,  # year
+            None,  # month
+            None,  # day
+            None,  # range start
+            None,  # range end
             {"mode": "parts"},  # reset mode
         )
