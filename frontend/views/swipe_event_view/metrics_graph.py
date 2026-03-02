@@ -240,10 +240,20 @@ class MetricsGraph:
                                     className="panel-header",
                                     children=[
                                         html.H3("Filters", className="panel-title"),
-                                        html.Button(
-                                            "OK",
-                                            id="btn-apply-filters",
-                                            className="ok-btn",
+                                        html.Div(
+                                            style={"display": "flex", "gap": "8px"},
+                                            children=[
+                                                html.Button(
+                                                    "Clear",
+                                                    id="btn-clear-filters",
+                                                    className="ok-btn",
+                                                ),
+                                                html.Button(
+                                                    "OK",
+                                                    id="btn-apply-filters",
+                                                    className="ok-btn",
+                                                ),
+                                            ],
                                         ),
                                     ],
                                 ),

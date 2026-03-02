@@ -59,12 +59,12 @@ def register(app):
         Output("metrics_filter_date_range", "min_date_allowed"),
         Output("metrics_filter_date_range", "max_date_allowed"),
         Output("metrics_filter_date_range", "initial_visible_month"),
-        Output("metrics_filter_date_range", "start_date"),
-        Output("metrics_filter_date_range", "end_date"),
+        Output("metrics_filter_date_range", "start_date", allow_duplicate=True),
+        Output("metrics_filter_date_range", "end_date", allow_duplicate=True),
         Input("metrics_filter_participant", "value"),
         State("metrics_filter_date_range", "start_date"),
         State("metrics_filter_date_range", "end_date"),
-        prevent_initial_call=False,
+        prevent_initial_call="initial_duplicate",
     )
     def update_date_range_bounds(selected_participants, start_date, end_date):
         participants = None
@@ -111,6 +111,7 @@ def register(app):
     @callback(
         Output("box-size-scatter-plot", "figure"),
         Input("btn-apply-filters", "n_clicks"),
+        Input("btn-clear-filters", "n_clicks"),
         Input("metrics_x_axis", "value"),
         Input("metrics_y_axis", "value"),
         State("metrics_filter_participant", "value"),
@@ -131,6 +132,7 @@ def register(app):
     )
     def apply_participant_filter(
         _n,
+        _n_clear,
         x_key,
         y_key,
         selected_participants,
@@ -150,25 +152,26 @@ def register(app):
 
         filters = {}
 
+        if ctx.triggered_id != "btn-clear-filters":
         # participants always AND
-        if is_open and selected_participants and "__all__" not in selected_participants:
-            filters["participants"] = selected_participants
+            if is_open and selected_participants and "__all__" not in selected_participants:
+                filters["participants"] = selected_participants
 
-        mode = (mode_store or {}).get("mode", "parts")
+            mode = (mode_store or {}).get("mode", "parts")
 
-        # last-used wins: range vs parts
-        if mode == "range" and (start_date or end_date):
-            if start_date:
-                filters["date_from"] = start_date
-            if end_date:
-                filters["date_to"] = end_date
-        else:
-            if year:
-                filters["year"] = year
-            if month:
-                filters["month"] = month
-            if day:
-                filters["day"] = day
+            # last-used wins: range vs parts
+            if mode == "range" and (start_date or end_date):
+                if start_date:
+                    filters["date_from"] = start_date
+                if end_date:
+                    filters["date_to"] = end_date
+            else:
+                if year:
+                    filters["year"] = year
+                if month:
+                    filters["month"] = month
+                if day:
+                    filters["day"] = day
 
         metrics = (
             get_swipe_event_summary_metrics(
@@ -258,3 +261,28 @@ def register(app):
             logger=app.logger,
         )
         return ([{"label": str(d), "value": d} for d in days], None)
+    
+
+    @callback(
+        Output("metrics_filter_participant", "value", allow_duplicate=True),
+        Output("metrics_filter_participant_state", "data", allow_duplicate=True),
+        Output("metrics_filter_year", "value", allow_duplicate=True),
+        Output("metrics_filter_month", "value", allow_duplicate=True),
+        Output("metrics_filter_day", "value", allow_duplicate=True),
+        Output("metrics_filter_date_range", "start_date", allow_duplicate=True),
+        Output("metrics_filter_date_range", "end_date", allow_duplicate=True),
+        Output("metrics_date_filter_mode_store", "data", allow_duplicate=True),
+        Input("btn-clear-filters", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def clear_all_filters(_):
+        return (
+            [],            # participants
+            {"prev": []},  # reset select-all memory (important)
+            None,          # year
+            None,          # month
+            None,          # day
+            None,          # range start
+            None,          # range end
+            {"mode": "parts"},  # reset mode
+        )
