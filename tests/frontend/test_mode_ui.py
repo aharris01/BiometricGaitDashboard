@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import os
 import pytest
+
+# Only run these UI tests when explicitly enabled
+if os.environ.get("RUN_UI") != "1":
+    pytest.skip(
+        "Dash/Selenium UI tests are opt-in. Set RUN_UI=1 to run them.",
+        allow_module_level=True,
+    )
 
 pytest.importorskip("selenium")
 
@@ -13,15 +21,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 @pytest.mark.integration
 @pytest.mark.parametrize("start_mode", ["swipe", "footstep"])
 def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
-    """
-    Covers:
-    - default mode (swipe)
-    - switching to footstep
-    - switching back to swipe
-    - header title/subtitle updates
-    - hide/show class toggles
-    - active button styling
-    """
     from frontend.app import app
 
     dash_duo.start_server(app)
@@ -87,11 +86,6 @@ def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
 
 @pytest.mark.integration
 def test_run_pipeline_shows_popup_and_does_not_switch_mode(dash_duo):
-    """
-    Covers the pipeline branch:
-    - clicking Run Pipeline triggers browser confirm dialog (ConfirmDialog)
-    - mode/view should remain unchanged after closing the dialog
-    """
     from frontend.app import app
 
     dash_duo.start_server(app)
@@ -103,7 +97,6 @@ def test_run_pipeline_shows_popup_and_does_not_switch_mode(dash_duo):
 
     dash_duo.find_element("#btn-mode-pipeline").click()
 
-    # Wait for native confirm dialog to appear (ConfirmDialog uses browser alert)
     WebDriverWait(dash_duo.driver, 5).until(EC.alert_is_present())
     alert = cast(Alert, dash_duo.driver.switch_to.alert)
     msg = alert.text

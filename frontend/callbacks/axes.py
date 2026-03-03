@@ -9,7 +9,7 @@ from frontend.api import get_available_metrics
     Output("metrics_x_axis", "options"),
     Output("metrics_y_axis", "options"),
     Output("metrics_axes_store", "data"),
-    Input("page-load", "n_intervals"),
+    Input("metrics-graph-container", "children"),
     Input("metrics_x_axis", "value"),
     Input("metrics_y_axis", "value"),
     State("metrics_axes_store", "data"),

@@ -93,6 +93,19 @@ def get_date_part(
     )
 
 
+def get_date_bounds(participants: list[int] | None = None, *, logger=None):
+    params = {}
+    if participants:
+        params["participants"] = ",".join(str(p) for p in participants)
+
+    return fetch_json(
+        f"{API_BASE_URL}/api/events/date_bounds",
+        params=params,
+        context="get_date_bounds",
+        logger=logger,
+    )
+
+
 def get_directions(participant: int, datestr: str, *, logger=None):
     data = fetch_json(
         f"{API_BASE_URL}/api/participants/{participant}/dates/{datestr}/directions",
@@ -131,14 +144,19 @@ def get_swipe_event_summary_metrics(
         if "participants" in filters:
             params["participants"] = ",".join(map(str, filters["participants"]))
 
+        # date parts
         if "year" in filters:
             params["year"] = filters["year"]
-
         if "month" in filters:
             params["month"] = filters["month"]
-
         if "day" in filters:
             params["day"] = filters["day"]
+
+        # date range
+        if "date_from" in filters:
+            params["date_from"] = filters["date_from"]
+        if "date_to" in filters:
+            params["date_to"] = filters["date_to"]
 
     return fetch_json(
         f"{API_BASE_URL}/api/events/summaryplot",

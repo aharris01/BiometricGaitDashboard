@@ -240,10 +240,20 @@ class MetricsGraph:
                                     className="panel-header",
                                     children=[
                                         html.H3("Filters", className="panel-title"),
-                                        html.Button(
-                                            "OK",
-                                            id="btn-apply-filters",
-                                            className="ok-btn",
+                                        html.Div(
+                                            style={"display": "flex", "gap": "8px"},
+                                            children=[
+                                                html.Button(
+                                                    "Clear",
+                                                    id="btn-clear-filters",
+                                                    className="ok-btn",
+                                                ),
+                                                html.Button(
+                                                    "OK",
+                                                    id="btn-apply-filters",
+                                                    className="ok-btn",
+                                                ),
+                                            ],
                                         ),
                                     ],
                                 ),
@@ -290,6 +300,37 @@ class MetricsGraph:
                                                     value=None,
                                                     clearable=True,
                                                     placeholder="Select day",
+                                                ),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                html.Details(
+                                    open=False,
+                                    style={"width": "100%"},
+                                    children=[
+                                        html.Summary(
+                                            "by date range", className="filter_summary"
+                                        ),
+                                        html.Div(
+                                            className="filter_box_no_scroll",
+                                            children=[
+                                                dcc.DatePickerRange(
+                                                    id="metrics_filter_date_range",
+                                                    start_date=None,
+                                                    end_date=None,
+                                                    display_format="YYYY-MM-DD",
+                                                    minimum_nights=0,
+                                                    clearable=True,
+                                                    style={"width": "100%"},
+                                                ),
+                                                html.Div(
+                                                    "Tip: pick 'to' first — 'from' will default to the same day.",
+                                                    style={
+                                                        "marginTop": "8px",
+                                                        "fontSize": "12px",
+                                                        "color": "#6b7280",
+                                                    },
                                                 ),
                                             ],
                                         ),

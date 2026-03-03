@@ -147,7 +147,7 @@
       ========================================================= */
    .metrics-row {
      display: grid;
-     grid-template-columns: 200px 4fr 56px 240px; /* filters | plot | arrows | selected */
+     grid-template-columns: 200px 4fr 44px 260px; /* filters | plot | arrows | selected */
      gap: 12px;
      width: 100%;
      align-items: start;
