@@ -39,11 +39,6 @@ def build_layout():
                                 id="btn-mode-footstep",
                                 className="mode-btn",
                             ),
-                            Button(
-                                "Run Pipeline",
-                                id="btn-mode-pipeline",
-                                className="mode-btn",
-                            ),
                         ],
                     ),
                 ],
@@ -130,11 +125,6 @@ def build_layout():
                         id="metrics_selected_checklist_store",
                         data={"value": []},
                         storage_type="session",
-                    ),
-                    # popup for pipeline
-                    ConfirmDialog(
-                        id="pipeline-dialog",
-                        message="Run Pipeline (local) is not implemented yet.",
                     ),
                     # page load trigger
                     Interval(id="page-load", max_intervals=1),
