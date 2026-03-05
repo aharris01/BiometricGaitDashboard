@@ -27,6 +27,14 @@ class ManifestMetrics(ManifestBase):
     avg_bbox_size: Mapped[Float] = mapped_column(Float, nullable=True)
     step_count: Mapped[int] = mapped_column(Integer, nullable=True)
 
+    total_trial_area: Mapped[Float] = mapped_column(Float, nullable=True)
+    mean_step_distance: Mapped[Float] = mapped_column(Float, nullable=True)
+    footstep_count_on_path: Mapped[int] = mapped_column(Integer, nullable=True)
+    active_trial_duration_all: Mapped[Float] = mapped_column(Float, nullable=True)
+    active_trial_duration_path: Mapped[Float] = mapped_column(Float, nullable=True)
+    std_dev_bounding_box_area: Mapped[Float] = mapped_column(Float, nullable=True)
+    max_footstep_duration_frames: Mapped[int] = mapped_column(Integer, nullable=True)
+
 
 class LocalBase(DeclarativeBase):
     pass
