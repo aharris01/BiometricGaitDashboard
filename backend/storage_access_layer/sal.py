@@ -533,3 +533,53 @@ class SAL:
             output[event_id] = row_dict
 
         return output
+
+    def get_date_bounds(self, filters: dict | None = None):
+        from sqlalchemy import func
+
+        with self.db._get_session() as session:
+            query = (
+                select(
+                    func.min(ManifestSwipeEvent.date),
+                    func.max(ManifestSwipeEvent.date),
+                )
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                )
+            )
+
+            query = self._apply_summary_filters(query, filters)
+
+            row = session.execute(query).first()
+
+        if not row or row[0] is None or row[1] is None:
+            return {"min_date": None, "max_date": None}
+
+        return {
+            "min_date": row[0].isoformat(),
+            "max_date": row[1].isoformat(),
+        }
+
+    def get_distinct_date_values(self, part: str, filters: dict | None = None):
+        if part not in {"year", "month", "day"}:
+            raise ValueError("Invalid date part")
+
+        with self.db._get_session() as session:
+            query = (
+                select(extract(part, ManifestSwipeEvent.date).label(part))
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                )
+                .distinct()
+                .order_by(part)
+            )
+
+            query = self._apply_summary_filters(query, filters)
+
+            rows = session.execute(query).all()
+
+        return sorted({int(r[0]) for r in rows if r[0] is not None})

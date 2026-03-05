@@ -1,14 +1,13 @@
 # backend/src/routes/events.py
+
 from __future__ import annotations
 
 from flask import Blueprint, jsonify, request, Response
-from sqlalchemy import select, extract, func
 
 from backend.src.utils.http import make_error
-from backend.src.utils.sal import get_sal
+from backend.src.utils.sal_provider import get_sal
 from backend.src.utils.images import create_image_bytes
 from backend.src.utils.dates import parse_date_str
-from backend.storage_access_layer.db.schema import ManifestSwipeEvent, ManifestMetrics
 
 events_bp = Blueprint("events", __name__)
 
@@ -24,15 +23,8 @@ def _parse_participants(raw: str | None) -> list[int]:
     return out
 
 
-def _available_metric_columns() -> set[str]:
-    cols = set(ManifestMetrics.__table__.columns.keys())
-    cols.discard("event_id")
-    return cols
-
-
 @events_bp.get("/api/events/<event_id>/full")
 def api_event_full(event_id: str):
-    """Return summary essentials in one request (main plots + footstep metadata)."""
     try:
         sal = get_sal()
 
@@ -106,14 +98,6 @@ def api_event_footstep_detail(event_id: str, step_id: int):
 
 @events_bp.get("/api/events/<event_id>/footsteps/<int:step_id>/image")
 def get_footstep_image(event_id: str, step_id: int):
-    """
-    Returns a rendered heatmap image for a footstep's p100 array.
-
-    Query params:
-      - size: 'thumb' or 'full' (optional, currently handled by frontend URL only)
-      - format: 'png' or 'webp' (optional, currently handled by create_image_bytes)
-      - scale: integer scale factor (optional)
-    """
     sal = get_sal()
     p100, _grf, err = sal.get_footstep_data(event_id, step_id)
 
@@ -141,7 +125,8 @@ def api_swipe_event_summary_plot():
                 400, "bad_request", "Both x and y metrics must be provided"
             )
 
-        available = _available_metric_columns()
+        sal = get_sal()
+        available = set(sal.get_available_metrics())
 
         if x not in available:
             return make_error(
@@ -186,8 +171,6 @@ def api_swipe_event_summary_plot():
             "date_to": dt_to,
         }
 
-        sal = get_sal()
-
         data = sal.get_swipe_event_summary_plot_data(x, y, filters)
 
         return jsonify(data)
@@ -198,37 +181,17 @@ def api_swipe_event_summary_plot():
 
 @events_bp.get("/api/events/date_bounds")
 def api_swipe_event_date_bounds():
-    """
-    Returns min/max available dates (inclusive) for events that have metrics rows.
-    Optional query params:
-      - participants: comma-separated list of ints
-    """
     try:
         participants = _parse_participants(request.args.get("participants"))
+
+        filters = {}
+        if participants:
+            filters["participants"] = participants
+
         sal = get_sal()
+        result = sal.get_date_bounds(filters or None)
 
-        with sal.db._get_session() as session:
-            q = (
-                select(
-                    func.min(ManifestSwipeEvent.date),
-                    func.max(ManifestSwipeEvent.date),
-                )
-                .select_from(ManifestMetrics)
-                .join(
-                    ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
-                )
-            )
-
-            if participants:
-                q = q.where(ManifestSwipeEvent.participant.in_(participants))
-
-            row = session.execute(q).first()
-
-        if not row or row[0] is None or row[1] is None:
-            return jsonify({"min_date": None, "max_date": None})
-
-        return jsonify({"min_date": row[0].isoformat(), "max_date": row[1].isoformat()})
+        return jsonify(result)
 
     except Exception as e:
         return make_error(
@@ -240,25 +203,14 @@ def api_swipe_event_date_bounds():
 def api_swipe_event_years():
     try:
         participants = _parse_participants(request.args.get("participants"))
+
+        filters = {}
+        if participants:
+            filters["participants"] = participants
+
         sal = get_sal()
+        years = sal.get_distinct_date_values("year", filters or None)
 
-        with sal.db._get_session() as session:
-            q = (
-                select(extract("year", ManifestSwipeEvent.date).label("year"))
-                .select_from(ManifestMetrics)
-                .join(
-                    ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
-                )
-                .distinct()
-                .order_by("year")
-            )
-            if participants:
-                q = q.where(ManifestSwipeEvent.participant.in_(participants))
-
-            rows = session.execute(q).all()
-
-        years = sorted({int(r[0]) for r in rows if r[0] is not None})
         return jsonify(years)
 
     except Exception as e:
@@ -272,27 +224,16 @@ def api_swipe_event_months():
     try:
         participants = _parse_participants(request.args.get("participants"))
         year = request.args.get("year", type=int)
+
+        filters = {}
+        if participants:
+            filters["participants"] = participants
+        if year:
+            filters["year"] = year
+
         sal = get_sal()
+        months = sal.get_distinct_date_values("month", filters or None)
 
-        with sal.db._get_session() as session:
-            q = (
-                select(extract("month", ManifestSwipeEvent.date).label("month"))
-                .select_from(ManifestMetrics)
-                .join(
-                    ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
-                )
-            )
-
-            if participants:
-                q = q.where(ManifestSwipeEvent.participant.in_(participants))
-            if year:
-                q = q.where(extract("year", ManifestSwipeEvent.date) == int(year))
-
-            q = q.distinct().order_by("month")
-            rows = session.execute(q).all()
-
-        months = sorted({int(r[0]) for r in rows if r[0] is not None})
         return jsonify(months)
 
     except Exception as e:
@@ -307,29 +248,18 @@ def api_swipe_event_days():
         participants = _parse_participants(request.args.get("participants"))
         year = request.args.get("year", type=int)
         month = request.args.get("month", type=int)
+
+        filters = {}
+        if participants:
+            filters["participants"] = participants
+        if year:
+            filters["year"] = year
+        if month:
+            filters["month"] = month
+
         sal = get_sal()
+        days = sal.get_distinct_date_values("day", filters or None)
 
-        with sal.db._get_session() as session:
-            q = (
-                select(extract("day", ManifestSwipeEvent.date).label("day"))
-                .select_from(ManifestMetrics)
-                .join(
-                    ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
-                )
-            )
-
-            if participants:
-                q = q.where(ManifestSwipeEvent.participant.in_(participants))
-            if year:
-                q = q.where(extract("year", ManifestSwipeEvent.date) == int(year))
-            if month:
-                q = q.where(extract("month", ManifestSwipeEvent.date) == int(month))
-
-            q = q.distinct().order_by("day")
-            rows = session.execute(q).all()
-
-        days = sorted({int(r[0]) for r in rows if r[0] is not None})
         return jsonify(days)
 
     except Exception as e:
@@ -341,7 +271,8 @@ def api_swipe_event_days():
 @events_bp.get("/api/events/metrics")
 def api_available_metrics():
     try:
-        metrics = sorted(_available_metric_columns())
+        sal = get_sal()
+        metrics = sorted(sal.get_available_metrics())
         return jsonify({"items": metrics})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
