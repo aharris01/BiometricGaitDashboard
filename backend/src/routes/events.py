@@ -132,36 +132,22 @@ def get_footstep_image(event_id: str, step_id: int):
 
 @events_bp.get("/api/events/summaryplot")
 def api_swipe_event_summary_plot():
-    """
-    Returns dict:
-      {
-        "<event_id>": { "<x>": <val>, "<y>": <val> },
-        ...
-      }
-
-    Filters:
-      - participants=1,2,3
-      - year, month, day  (discrete date filter)
-      - date_from=YYYY-MM-DD, date_to=YYYY-MM-DD  (range filter)
-
-    NOTE: Backend applies whatever is provided.
-    Your frontend rule ("last-used date filter wins") should decide
-    whether it sends (year/month/day) OR (date_from/date_to).
-    Participant filter always ANDs with the chosen date filter.
-    """
     try:
         x = request.args.get("x")
         y = request.args.get("y")
+
         if not x or not y:
             return make_error(
                 400, "bad_request", "Both x and y metrics must be provided"
             )
 
         available = _available_metric_columns()
+
         if x not in available:
             return make_error(
                 400, "bad_request", f"Invalid metric requested for x-axis: {x}"
             )
+
         if y not in available:
             return make_error(
                 400, "bad_request", f"Invalid metric requested for y-axis: {y}"
@@ -188,55 +174,23 @@ def api_swipe_event_summary_plot():
             if err:
                 return err
 
-        # Only validate ordering when BOTH are present
         if dt_from is not None and dt_to is not None and dt_from > dt_to:
             return make_error(400, "invalid_argument", "date_from must be <= date_to")
 
+        filters = {
+            "participants": participants,
+            "year": year,
+            "month": month,
+            "day": day,
+            "date_from": dt_from,
+            "date_to": dt_to,
+        }
+
         sal = get_sal()
 
-        with sal.db._get_session() as session:
-            q = (
-                select(
-                    ManifestMetrics.event_id,
-                    getattr(ManifestMetrics, x).label(x),
-                    getattr(ManifestMetrics, y).label(y),
-                )
-                .select_from(ManifestMetrics)
-                .join(
-                    ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
-                )
-            )
+        data = sal.get_swipe_event_summary_plot_data(x, y, filters)
 
-            # AND: participant filter always applies if present
-            if participants:
-                q = q.where(ManifestSwipeEvent.participant.in_(participants))
-
-            # Date range filter (if provided)
-            if dt_from is not None:
-                q = q.where(ManifestSwipeEvent.date >= dt_from)
-            if dt_to is not None:
-                q = q.where(ManifestSwipeEvent.date <= dt_to)
-
-            # Discrete date filter (year/month/day)
-            # Only apply if frontend decided to use it (i.e., it sent these values).
-            if year:
-                q = q.where(extract("year", ManifestSwipeEvent.date) == int(year))
-            if month:
-                q = q.where(extract("month", ManifestSwipeEvent.date) == int(month))
-            if day:
-                q = q.where(extract("day", ManifestSwipeEvent.date) == int(day))
-
-            rows = session.execute(q).all()
-
-        out: dict[str, dict] = {}
-        for row in rows:
-            # row is a tuple-like; labels become attributes in _mapping
-            m = dict(row._mapping)
-            event_id = m.pop("event_id")
-            out[str(event_id)] = m
-
-        return jsonify(out)
+        return jsonify(data)
 
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
