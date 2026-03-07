@@ -28,6 +28,29 @@ class ManifestMetrics(ManifestBase):
     step_count: Mapped[int] = mapped_column(Integer, nullable=True)
 
 
+class ManifestFootstep(ManifestBase):
+    __tablename__ = "footsteps"
+    __table_args__ = {"schema": "manifest"}
+
+    event_id: Mapped[str] = mapped_column(
+        String,
+        primary_key=True,
+    )
+
+    footstep_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    start_frame: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_frame: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    x_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    x_max: Mapped[int] = mapped_column(Integer, nullable=False)
+    y_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    y_max: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class LocalBase(DeclarativeBase):
     pass
 

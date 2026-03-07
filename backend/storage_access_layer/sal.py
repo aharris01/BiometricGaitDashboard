@@ -15,7 +15,7 @@ import numpy as np
 # Local
 from . import validators as v
 from .db.db import DB
-from .db.schema import ManifestMetrics, ManifestSwipeEvent
+from .db.schema import ManifestMetrics, ManifestSwipeEvent, ManifestFootstep
 from sqlalchemy import select, extract
 
 DATAROOT = Path(
@@ -253,6 +253,34 @@ class SAL:
             return None, "missing_file"
 
         return steps, None
+
+    # -------------------------------------------------
+    # Footstep view DB for single footstep. To be added
+    # to "get_footsteps()" for refactor allowing for faster
+    # summary view footstep performance
+    # -------------------------------------------------
+    def get_single_footstep(self, event_id: str, footstep_id: int):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        row = self.db.get_single_footstep(event_id, footstep_id)
+
+        if row is None:
+            return None, "missing_file"
+
+        return (
+            {
+                "id": row.footstep_id,
+                "start_frame": row.start_frame,
+                "end_frame": row.end_frame,
+                "x_min": row.x_min,
+                "x_max": row.x_max,
+                "y_min": row.y_min,
+                "y_max": row.y_max,
+            },
+            None,
+        )
 
     def get_footstep_data(self, event_id: str, step_id: int):
         event = self.db.get_swipe_event(event_id)

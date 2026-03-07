@@ -17,6 +17,7 @@ from .schema import (
     LocalMetrics,
     ManifestMetrics,
     ManifestSwipeEvent,
+    ManifestFootstep,
 )
 
 from ...scripts.ingest import iter_swipes
@@ -209,6 +210,20 @@ class DB:
 
         with self._get_session() as session:
             return session.execute(query).mappings().all()
+
+    # -------------------------------------------------
+    # Footstep view DB queries
+    # -------------------------------------------------
+    def get_single_footstep(
+        self, event_id: str, footstep_id: int
+    ):  # query interacts with individual footsteps in footstep table
+        query = select(ManifestFootstep).where(
+            ManifestFootstep.event_id == event_id,
+            ManifestFootstep.footstep_id == footstep_id,
+        )
+
+        with self._get_session() as session:
+            return session.scalars(query).first()
 
 
 # -------------------------------------------------
