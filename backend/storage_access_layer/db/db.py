@@ -8,7 +8,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
-from sqlalchemy import select, distinct
+from sqlalchemy import select, distinct, func
 
 from backend.storage_access_layer.db.models import SwipeEvent
 from .schema import (
@@ -224,6 +224,73 @@ class DB:
 
         with self._get_session() as session:
             return session.scalars(query).first()
+
+    def search_footsteps(
+        self,
+        event_ids: list[str] | None = None,
+        size_min: int | None = None,
+        size_max: int | None = None,
+        offset: int = 0,
+        limit: int = 60,
+    ):
+        bbox_area = (ManifestFootstep.x_max - ManifestFootstep.x_min) * (
+            ManifestFootstep.y_max - ManifestFootstep.y_min
+        )
+
+        items_query = apply_local_filter(
+            select(
+                ManifestFootstep.event_id,
+                ManifestFootstep.footstep_id,
+                ManifestFootstep.start_frame,
+                ManifestFootstep.end_frame,
+                ManifestFootstep.x_min,
+                ManifestFootstep.x_max,
+                ManifestFootstep.y_min,
+                ManifestFootstep.y_max,
+                bbox_area.label("bbox_area"),
+            )
+            .select_from(ManifestFootstep)
+            .join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == ManifestFootstep.event_id,
+            )
+        )
+
+        count_query = apply_local_filter(
+            select(func.count())
+            .select_from(ManifestFootstep)
+            .join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == ManifestFootstep.event_id,
+            )
+        )
+
+        if event_ids:
+            items_query = items_query.where(ManifestFootstep.event_id.in_(event_ids))
+            count_query = count_query.where(ManifestFootstep.event_id.in_(event_ids))
+
+        if size_min is not None:
+            items_query = items_query.where(bbox_area >= int(size_min))
+            count_query = count_query.where(bbox_area >= int(size_min))
+
+        if size_max is not None:
+            items_query = items_query.where(bbox_area <= int(size_max))
+            count_query = count_query.where(bbox_area <= int(size_max))
+
+        items_query = (
+            items_query.order_by(
+                ManifestFootstep.event_id,
+                ManifestFootstep.footstep_id,
+            )
+            .offset(offset)
+            .limit(limit)
+        )
+
+        with self._get_session() as session:
+            total = int(session.execute(count_query).scalar_one() or 0)
+            rows = session.execute(items_query).mappings().all()
+
+        return rows, total
 
 
 # -------------------------------------------------

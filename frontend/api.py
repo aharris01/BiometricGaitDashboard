@@ -181,3 +181,33 @@ def get_available_metrics(*, logger=None):
         context="get_available_metrics",
         logger=logger,
     )
+
+
+def search_footsteps(
+    event_ids: list[str] | None = None,
+    *,
+    size_min: int | None = None,
+    size_max: int | None = None,
+    offset: int = 0,
+    limit: int = 60,
+    logger=None,
+):
+    params: dict[str, object] = {
+        "offset": offset,
+        "limit": limit,
+    }
+    if event_ids:
+        params["event_ids"] = ",".join(event_ids)
+
+    if size_min is not None:
+        params["size_min"] = size_min
+
+    if size_max is not None:
+        params["size_max"] = size_max
+
+    return fetch_json(
+        f"{API_BASE_URL}/api/footsteps/search",
+        params=params,
+        context="search_footsteps",
+        logger=logger,
+    )

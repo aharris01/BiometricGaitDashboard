@@ -56,11 +56,13 @@ def create_app(sal: Any | None = None) -> Flask:
     from backend.src.routes.participants import participants_bp
     from backend.src.routes.events import events_bp
     from backend.src.routes.swipe import swipe_bp
+    from backend.src.routes.footsteps import footsteps_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(participants_bp)
     app.register_blueprint(events_bp)
     app.register_blueprint(swipe_bp)
+    app.register_blueprint(footsteps_bp)
 
     return app
 

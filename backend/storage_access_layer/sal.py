@@ -611,3 +611,41 @@ class SAL:
             rows = session.execute(query).all()
 
         return sorted({int(r[0]) for r in rows if r[0] is not None})
+
+    def search_footsteps(
+        self,
+        event_ids: list[str] | None = None,
+        size_min: int | None = None,
+        size_max: int | None = None,
+        offset: int = 0,
+        limit: int = 60,
+    ):
+        normalized_ids = None
+        if event_ids:
+            normalized_ids = [str(event_id) for event_id in event_ids if event_id]
+
+        rows, total = self.db.search_footsteps(
+            event_ids=normalized_ids,
+            size_min=size_min,
+            size_max=size_max,
+            offset=offset,
+            limit=limit,
+        )
+
+        items = []
+        for row in rows:
+            items.append(
+                {
+                    "event_id": row["event_id"],
+                    "footstep_id": row["footstep_id"],
+                    "start_frame": row["start_frame"],
+                    "end_frame": row["end_frame"],
+                    "x_min": row["x_min"],
+                    "x_max": row["x_max"],
+                    "y_min": row["y_min"],
+                    "y_max": row["y_max"],
+                    "bbox_area": row["bbox_area"],
+                }
+            )
+
+        return {"items": items, "total": total}

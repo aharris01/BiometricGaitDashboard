@@ -126,6 +126,11 @@ def build_layout():
                         data={"value": []},
                         storage_type="session",
                     ),
+                    Store(
+                        id="footstep-pagination-store",
+                        data={"offset": 0, "limit": 60, "total": 0, "applied": False},
+                        storage_type="session",
+                    ),
                     # page load trigger
                     Interval(id="page-load", max_intervals=1),
                     Interval(
