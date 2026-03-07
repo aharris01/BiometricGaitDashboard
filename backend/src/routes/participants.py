@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify
 from backend.src.utils.dates import parse_date_str
 from backend.src.utils.validation import validate_direction
 from backend.src.utils.http import make_error
-from backend.src.utils.sal import get_sal
+from backend.src.utils.sal_provider import get_sal
 
 participants_bp = Blueprint("participants", __name__)
 

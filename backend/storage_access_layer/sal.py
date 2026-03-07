@@ -505,6 +505,7 @@ class SAL:
         return query
 
     # full filter applier function. when adding new filters, update this helper.
+
     def _apply_summary_filters(self, query, filters: dict | None):
         if not filters:
             return query
@@ -512,18 +513,20 @@ class SAL:
         query = self._apply_participant_filter(query, filters)
         query = self._apply_date_filter(query, filters)
 
+        date_from = filters.get("date_from")
+        date_to = filters.get("date_to")
+
+        if date_from:
+            query = query.where(ManifestSwipeEvent.date >= date_from)
+
+        if date_to:
+            query = query.where(ManifestSwipeEvent.date <= date_to)
+
         return query
 
     def get_swipe_event_summary_plot_data(
         self, x: str, y: str, filters: dict | None = None
     ):
-        # ------------------------------------------------------------------
-        # Validate requested metrics
-        #
-        # The frontend must provide two metric names (x and y).
-        # We verify that both exist in the ManifestMetrics table
-        # to prevent invalid or arbitrary column access.
-        # ------------------------------------------------------------------
         available = self.get_available_metrics()
 
         if x not in available:
@@ -532,13 +535,6 @@ class SAL:
         if y not in available:
             raise ValueError(f"Invalid metric requested for y-axis: {y}")
 
-        # ------------------------------------------------------------------
-        # Build dynamic SELECT query
-        #
-        # Only select event_id and the requested metric columns.
-        # This ensures the response payload contains exactly the
-        # metrics needed for scatter plotting.
-        # ------------------------------------------------------------------
         with self.db._get_session() as session:
             query = select(
                 ManifestMetrics.event_id,
@@ -553,16 +549,9 @@ class SAL:
 
             results = session.execute(query).all()
 
-        # ------------------------------------------------------------------
-        # Format results
-        #
-        # Convert each SQLAlchemy row into a dictionary keyed by event_id.
-        # The inner dictionary contains only the requested metrics.
-        # ------------------------------------------------------------------
         output = {}
 
         for row in results:
-            # Support for unit tests
             if hasattr(row, "_mapping"):
                 row_dict = dict(row._mapping)
             else:
@@ -573,69 +562,52 @@ class SAL:
 
         return output
 
-    def get_distinct_date_part(
-        self,
-        part: str,
-        filters: dict | None = None,
-    ) -> list[int]:
-        if part not in {"year", "month", "day"}:
-            raise ValueError("Invalid date part")
+    def get_date_bounds(self, filters: dict | None = None):
+        from sqlalchemy import func
 
         with self.db._get_session() as session:
-            query = select(ManifestMetrics.event_id).join(
-                ManifestSwipeEvent,
-                ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+            query = (
+                select(
+                    func.min(ManifestSwipeEvent.date),
+                    func.max(ManifestSwipeEvent.date),
+                )
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                )
             )
 
             query = self._apply_summary_filters(query, filters)
 
-            stmt = (
-                query.with_only_columns(
-                    extract(part, ManifestSwipeEvent.date).label(part)
+            row = session.execute(query).first()
+
+        if not row or row[0] is None or row[1] is None:
+            return {"min_date": None, "max_date": None}
+
+        return {
+            "min_date": row[0].isoformat(),
+            "max_date": row[1].isoformat(),
+        }
+
+    def get_distinct_date_values(self, part: str, filters: dict | None = None):
+        if part not in {"year", "month", "day"}:
+            raise ValueError("Invalid date part")
+
+        with self.db._get_session() as session:
+            query = (
+                select(extract(part, ManifestSwipeEvent.date).label(part))
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
                 )
                 .distinct()
                 .order_by(part)
             )
 
-            rows = session.execute(stmt).all()
+            query = self._apply_summary_filters(query, filters)
 
-        return sorted({int(row[0]) for row in rows if row[0] is not None})
+            rows = session.execute(query).all()
 
-    # Legacy fallback — not used in runtime summary
-
-    def _compute_metrics_from_filesystem(self):
-        base = Path(dataroot)
-        out = {}
-
-        for meta_path in base.rglob("metadata.csv"):
-            event_id = self.get_event_id_from_URI(meta_path)
-            if not event_id:
-                continue
-
-            try:
-                with meta_path.open(newline="") as f:
-                    reader = csv.DictReader(f)
-                    areas = []
-                    for row in reader:
-                        x_min = int(row["XMin"])
-                        x_max = int(row["XMax"])
-                        y_min = int(row["YMin"])
-                        y_max = int(row["YMax"])
-                        areas.append((x_max - x_min) * (y_max - y_min))
-            except Exception:
-                continue
-
-            if not areas:
-                continue
-            # =================================================
-            # When adding a new metric, update this dictionary
-            # to include the filesystem-derived value for that
-            # metric (if applicable).
-            # =================================================
-            out[event_id] = {
-                "event_id": event_id,
-                "avg_box_size": sum(areas) / len(areas),
-                "footstep_count": len(areas),
-            }
-
-        return out
+        return sorted({int(r[0]) for r in rows if r[0] is not None})
