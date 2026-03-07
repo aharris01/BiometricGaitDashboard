@@ -236,7 +236,7 @@ class MetricsGraph:
                             children=[
                                 dcc.Store(
                                     id="metrics_filter_participant_open_store",
-                                    data=True,
+                                    data=False,
                                     storage_type="session",
                                 ),
                                 html.Div(

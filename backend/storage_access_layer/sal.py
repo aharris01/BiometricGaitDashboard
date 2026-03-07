@@ -15,8 +15,13 @@ import numpy as np
 # Local
 from . import validators as v
 from .db.db import DB
-from .db.schema import ManifestMetrics, ManifestSwipeEvent, ManifestFootstep
-from sqlalchemy import select, extract
+from .db.schema import (
+    LocalSwipeEvent,
+    ManifestFootstep,
+    ManifestMetrics,
+    ManifestSwipeEvent,
+)
+from sqlalchemy import and_, exists, extract, func, select
 
 DATAROOT = Path(
     os.environ.get("DATAROOT", os.environ.get("dataroot", "."))
@@ -465,6 +470,16 @@ class SAL:
         # just getting the metric names from the manfestmetrics table, not necessary to get event_id
         return [col for col in columns if col != "event_id"]
 
+    def _apply_local_availability_filter(self, query):
+        return query.where(
+            exists().where(
+                and_(
+                    LocalSwipeEvent.event_id == ManifestSwipeEvent.event_id,
+                    LocalSwipeEvent.present.is_(True),
+                )
+            )
+        )
+
     # filter specifically for participant query
     def _apply_participant_filter(self, query, filters: dict | None):
         if not filters:
@@ -536,15 +551,20 @@ class SAL:
             raise ValueError(f"Invalid metric requested for y-axis: {y}")
 
         with self.db._get_session() as session:
-            query = select(
-                ManifestMetrics.event_id,
-                getattr(ManifestMetrics, x),
-                getattr(ManifestMetrics, y),
-            ).join(
-                ManifestSwipeEvent,
-                ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+            query = (
+                select(
+                    ManifestMetrics.event_id,
+                    getattr(ManifestMetrics, x).label(x),
+                    getattr(ManifestMetrics, y).label(y),
+                )
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                )
             )
 
+            query = self._apply_local_availability_filter(query)
             query = self._apply_summary_filters(query, filters)
 
             results = session.execute(query).all()
@@ -563,8 +583,6 @@ class SAL:
         return output
 
     def get_date_bounds(self, filters: dict | None = None):
-        from sqlalchemy import func
-
         with self.db._get_session() as session:
             query = (
                 select(
@@ -578,6 +596,7 @@ class SAL:
                 )
             )
 
+            query = self._apply_local_availability_filter(query)
             query = self._apply_summary_filters(query, filters)
 
             row = session.execute(query).first()
@@ -606,6 +625,7 @@ class SAL:
                 .order_by(part)
             )
 
+            query = self._apply_local_availability_filter(query)
             query = self._apply_summary_filters(query, filters)
 
             rows = session.execute(query).all()
