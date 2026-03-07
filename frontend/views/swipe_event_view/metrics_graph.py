@@ -13,12 +13,15 @@ from frontend.api import get_participants
 class MetricsGraph:
     # Axis configuration (support both legacy + current keys)
     AXIS_LABELS = {
-        # legacy keys (used by unit tests)
-        "avg_box_size": "Average Bounding Box Size",
-        "footstep_count": "Footstep Count",
-        # current keys (from ManifestMetrics in backend)
         "avg_bbox_size": "Average Bounding Box Size",
-        "step_count": "Footstep Count",
+        "step_count": "Number of Footsteps",
+        "total_trial_area": "Total Trial Area",
+        "mean_step_distance": "Mean Distance Between Consecutive Path Steps",
+        "footstep_count_on_path": "Number of Footsteps on Path",
+        "active_trial_duration_all": "Active Trial Duration (All Steps)",
+        "active_trial_duration_path": "Active Trial Duration (Path Steps)",
+        "std_dev_bounding_box_area": "Std Dev of Bounding Box Area",
+        "max_footstep_duration_frames": "Longest Footstep Duration (Frames)",
     }
 
     DEFAULT_POINT_COLOR = "#1f77b4"
