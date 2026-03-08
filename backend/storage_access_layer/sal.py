@@ -2,8 +2,8 @@
 
 # Standard library
 import atexit
-import csv
 import os
+import csv
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -17,7 +17,6 @@ from . import validators as v
 from .db.db import DB
 from .db.schema import (
     LocalSwipeEvent,
-    ManifestFootstep,
     ManifestMetrics,
     ManifestSwipeEvent,
 )

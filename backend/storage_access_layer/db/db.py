@@ -211,9 +211,30 @@ class DB:
         with self._get_session() as session:
             return session.execute(query).mappings().all()
 
-    # -------------------------------------------------
+        # -------------------------------------------------
+
     # Footstep view DB queries
     # -------------------------------------------------
+    def get_event_footsteps(
+        self, event_id: str
+    ):  # query interacts with all footsteps for a single event in footstep table
+        query = (
+            select(
+                ManifestFootstep.footstep_id,
+                ManifestFootstep.start_frame,
+                ManifestFootstep.end_frame,
+                ManifestFootstep.x_min,
+                ManifestFootstep.x_max,
+                ManifestFootstep.y_min,
+                ManifestFootstep.y_max,
+            )
+            .where(ManifestFootstep.event_id == event_id)
+            .order_by(ManifestFootstep.footstep_id)
+        )
+
+        with self._get_session() as session:
+            return session.execute(query).mappings().all()
+
     def get_single_footstep(
         self, event_id: str, footstep_id: int
     ):  # query interacts with individual footsteps in footstep table
