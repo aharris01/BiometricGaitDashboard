@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 import pytest
 
 # Only run these UI tests when explicitly enabled
@@ -11,11 +12,6 @@ if os.environ.get("RUN_UI") != "1":
     )
 
 pytest.importorskip("selenium")
-
-from typing import cast
-from selenium.webdriver.common.alert import Alert
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 
 @pytest.mark.integration
