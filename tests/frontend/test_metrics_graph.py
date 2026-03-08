@@ -17,8 +17,8 @@ def test_metrics_graph_renders_with_metrics():
     # Graph should still render normally when metrics exist
     metrics = {
         "evt-1": {
-            "avg_box_size": 10,
-            "footstep_count": 3,
+            "avg_bbox_size": 10,
+            "step_count": 3,
         }
     }
     g = MetricsGraph(metrics)
@@ -30,7 +30,7 @@ def test_metrics_graph_renders_with_metrics():
 def test_build_scatter_no_metrics_returns_placeholder():
     # When no metrics are available, a placeholder figure should be returned
     g = MetricsGraph({})
-    fig = g._build_scatter("avg_box_size", "footstep_count")
+    fig = g._build_scatter("avg_bbox_size", "step_count")
 
     assert isinstance(fig, go.Figure)
     # Verify annotation text test
@@ -43,11 +43,11 @@ def test_build_scatter_no_metrics_returns_placeholder():
 def test_build_scatter_missing_values_returns_placeholder():
     # When metric values are missing (None), no valid points should be plotted
     metrics = {
-        "evt-1": {"avg_box_size": None, "footstep_count": 3},
-        "evt-2": {"avg_box_size": 5, "footstep_count": None},
+        "evt-1": {"avg_bbox_size": None, "step_count": 3},
+        "evt-2": {"avg_bbox_size": 5, "step_count": None},
     }
     g = MetricsGraph(metrics)
-    fig = g._build_scatter("avg_box_size", "footstep_count")
+    fig = g._build_scatter("avg_bbox_size", "step_count")
     # Verify placeholder annotation for missing values
     layout_dict = fig.to_dict()["layout"]
     annotations = layout_dict.get("annotations", [])
@@ -58,11 +58,11 @@ def test_build_scatter_missing_values_returns_placeholder():
 def test_build_scatter_valid_points():
     # When valid numeric metrics are present, a scatter trace should be built
     metrics = {
-        "evt-1": {"avg_box_size": 10, "footstep_count": 3},
-        "evt-2": {"avg_box_size": 20, "footstep_count": 5},
+        "evt-1": {"avg_bbox_size": 10, "step_count": 3},
+        "evt-2": {"avg_bbox_size": 20, "step_count": 5},
     }
     g = MetricsGraph(metrics)
-    fig = g._build_scatter("avg_box_size", "footstep_count")
+    fig = g._build_scatter("avg_bbox_size", "step_count")
 
     fig_dict = fig.to_dict()
 
@@ -76,4 +76,4 @@ def test_build_scatter_valid_points():
     assert trace["text"] == ["evt-1", "evt-2"]
     # Validate axis labels are correctly mapped
     assert fig_dict["layout"]["xaxis"]["title"]["text"] == "Average Bounding Box Size"
-    assert fig_dict["layout"]["yaxis"]["title"]["text"] == "Footstep Count"
+    assert fig_dict["layout"]["yaxis"]["title"]["text"] == "Number of Footsteps"

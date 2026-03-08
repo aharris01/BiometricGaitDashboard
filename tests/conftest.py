@@ -130,3 +130,31 @@ def empty_db(tmp_path):
     finally:
         db.close()
         engine.dispose()
+
+
+@pytest.fixture
+def app_factory(monkeypatch):
+    """
+    Build a Flask app with a fake SAL without triggering real DB initialization
+    during module import of backend.src.server.
+    """
+
+    def _make(fake_sal):
+        import importlib
+        import sys
+        import backend.storage_access_layer.sal as sal_mod
+
+        class PatchedSAL:
+            def __new__(cls, *args, **kwargs):
+                return fake_sal
+
+        monkeypatch.setattr(sal_mod, "SAL", PatchedSAL)
+
+        if "backend.src.server" in sys.modules:
+            server_mod = importlib.reload(sys.modules["backend.src.server"])
+        else:
+            import backend.src.server as server_mod
+
+        return server_mod.create_app(sal=fake_sal)
+
+    return _make

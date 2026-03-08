@@ -2,8 +2,8 @@
 
 # Standard library
 import atexit
-import csv
 import os
+import csv
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -15,8 +15,12 @@ import numpy as np
 # Local
 from . import validators as v
 from .db.db import DB
-from .db.schema import ManifestMetrics, ManifestSwipeEvent
-from sqlalchemy import select, extract
+from .db.schema import (
+    LocalSwipeEvent,
+    ManifestMetrics,
+    ManifestSwipeEvent,
+)
+from sqlalchemy import and_, exists, extract, func, select
 
 DATAROOT = Path(
     os.environ.get("DATAROOT", os.environ.get("dataroot", "."))
@@ -254,6 +258,36 @@ class SAL:
 
         return steps, None
 
+    # -------------------------------------------------
+    # Footstep view DB for single footstep. To be added
+    # to "get_footsteps()" for refactor allowing for faster
+    # summary view footstep performance
+    # -------------------------------------------------
+    def get_single_footstep(self, event_id: str, footstep_id: int):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        # Keep database access behind the DB layer. The DB implementation decides
+        # whether the underlying footstep row comes from local.db or manifest.db.
+        row = self.db.get_single_footstep(event_id, footstep_id)
+
+        if row is None:
+            return None, "missing_file"
+
+        return (
+            {
+                "id": row.footstep_id,
+                "start_frame": row.start_frame,
+                "end_frame": row.end_frame,
+                "x_min": row.x_min,
+                "x_max": row.x_max,
+                "y_min": row.y_min,
+                "y_max": row.y_max,
+            },
+            None,
+        )
+
     def get_footstep_data(self, event_id: str, step_id: int):
         event = self.db.get_swipe_event(event_id)
         if event is None:
@@ -437,6 +471,16 @@ class SAL:
         # just getting the metric names from the manfestmetrics table, not necessary to get event_id
         return [col for col in columns if col != "event_id"]
 
+    def _apply_local_availability_filter(self, query):
+        return query.where(
+            exists().where(
+                and_(
+                    LocalSwipeEvent.event_id == ManifestSwipeEvent.event_id,
+                    LocalSwipeEvent.present.is_(True),
+                )
+            )
+        )
+
     # filter specifically for participant query
     def _apply_participant_filter(self, query, filters: dict | None):
         if not filters:
@@ -477,12 +521,22 @@ class SAL:
         return query
 
     # full filter applier function. when adding new filters, update this helper.
+
     def _apply_summary_filters(self, query, filters: dict | None):
         if not filters:
             return query
 
         query = self._apply_participant_filter(query, filters)
         query = self._apply_date_filter(query, filters)
+
+        date_from = filters.get("date_from")
+        date_to = filters.get("date_to")
+
+        if date_from:
+            query = query.where(ManifestSwipeEvent.date >= date_from)
+
+        if date_to:
+            query = query.where(ManifestSwipeEvent.date <= date_to)
 
         return query
 
@@ -511,20 +565,25 @@ class SAL:
         # This ensures the response payload contains exactly the
         # metrics needed for scatter plotting.
         # ------------------------------------------------------------------
+
         with self.db._get_session() as session:
-            query = select(
-                ManifestMetrics.event_id,
-                getattr(ManifestMetrics, x),
-                getattr(ManifestMetrics, y),
-            ).join(
-                ManifestSwipeEvent,
-                ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+            query = (
+                select(
+                    ManifestMetrics.event_id,
+                    getattr(ManifestMetrics, x).label(x),
+                    getattr(ManifestMetrics, y).label(y),
+                )
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                )
             )
 
+            query = self._apply_local_availability_filter(query)
             query = self._apply_summary_filters(query, filters)
 
             results = session.execute(query).all()
-
         # ------------------------------------------------------------------
         # Format results
         #
@@ -534,7 +593,6 @@ class SAL:
         output = {}
 
         for row in results:
-            # Support for unit tests
             if hasattr(row, "_mapping"):
                 row_dict = dict(row._mapping)
             else:
@@ -545,69 +603,92 @@ class SAL:
 
         return output
 
-    def get_distinct_date_part(
-        self,
-        part: str,
-        filters: dict | None = None,
-    ) -> list[int]:
+    def get_date_bounds(self, filters: dict | None = None):
+        with self.db._get_session() as session:
+            query = (
+                select(
+                    func.min(ManifestSwipeEvent.date),
+                    func.max(ManifestSwipeEvent.date),
+                )
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                )
+            )
+
+            query = self._apply_local_availability_filter(query)
+            query = self._apply_summary_filters(query, filters)
+
+            row = session.execute(query).first()
+
+        if not row or row[0] is None or row[1] is None:
+            return {"min_date": None, "max_date": None}
+
+        return {
+            "min_date": row[0].isoformat(),
+            "max_date": row[1].isoformat(),
+        }
+
+    def get_distinct_date_values(self, part: str, filters: dict | None = None):
         if part not in {"year", "month", "day"}:
             raise ValueError("Invalid date part")
 
         with self.db._get_session() as session:
-            query = select(ManifestMetrics.event_id).join(
-                ManifestSwipeEvent,
-                ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
-            )
-
-            query = self._apply_summary_filters(query, filters)
-
-            stmt = (
-                query.with_only_columns(
-                    extract(part, ManifestSwipeEvent.date).label(part)
+            query = (
+                select(extract(part, ManifestSwipeEvent.date).label(part))
+                .select_from(ManifestMetrics)
+                .join(
+                    ManifestSwipeEvent,
+                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
                 )
                 .distinct()
                 .order_by(part)
             )
 
-            rows = session.execute(stmt).all()
+            query = self._apply_local_availability_filter(query)
+            query = self._apply_summary_filters(query, filters)
 
-        return sorted({int(row[0]) for row in rows if row[0] is not None})
+            rows = session.execute(query).all()
 
-    # Legacy fallback — not used in runtime summary
+        return sorted({int(r[0]) for r in rows if r[0] is not None})
 
-    def _compute_metrics_from_filesystem(self):
-        base = Path(dataroot)
-        out = {}
+    def search_footsteps(
+        self,
+        event_ids: list[str] | None = None,
+        size_min: int | None = None,
+        size_max: int | None = None,
+        offset: int = 0,
+        limit: int = 60,
+    ):
+        normalized_ids = None
+        if event_ids:
+            normalized_ids = [str(event_id) for event_id in event_ids if event_id]
 
-        for meta_path in base.rglob("metadata.csv"):
-            event_id = self.get_event_id_from_URI(meta_path)
-            if not event_id:
-                continue
+        # Footstep search stays behind the SAL/DB boundary so routes and frontend
+        # code never reach into SQLite or dataset files directly.
+        rows, total = self.db.search_footsteps(
+            event_ids=normalized_ids,
+            size_min=size_min,
+            size_max=size_max,
+            offset=offset,
+            limit=limit,
+        )
 
-            try:
-                with meta_path.open(newline="") as f:
-                    reader = csv.DictReader(f)
-                    areas = []
-                    for row in reader:
-                        x_min = int(row["XMin"])
-                        x_max = int(row["XMax"])
-                        y_min = int(row["YMin"])
-                        y_max = int(row["YMax"])
-                        areas.append((x_max - x_min) * (y_max - y_min))
-            except Exception:
-                continue
+        items = []
+        for row in rows:
+            items.append(
+                {
+                    "event_id": row["event_id"],
+                    "footstep_id": row["footstep_id"],
+                    "start_frame": row["start_frame"],
+                    "end_frame": row["end_frame"],
+                    "x_min": row["x_min"],
+                    "x_max": row["x_max"],
+                    "y_min": row["y_min"],
+                    "y_max": row["y_max"],
+                    "bbox_area": row["bbox_area"],
+                }
+            )
 
-            if not areas:
-                continue
-            # =================================================
-            # When adding a new metric, update this dictionary
-            # to include the filesystem-derived value for that
-            # metric (if applicable).
-            # =================================================
-            out[event_id] = {
-                "event_id": event_id,
-                "avg_box_size": sum(areas) / len(areas),
-                "footstep_count": len(areas),
-            }
-
-        return out
+        return {"items": items, "total": total}

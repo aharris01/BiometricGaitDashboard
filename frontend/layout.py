@@ -1,5 +1,5 @@
 # frontend/layout.py
-from dash.dcc import Interval, Store, ConfirmDialog
+from dash.dcc import Interval, Store
 from dash.html import Div, Button, H2, Span
 
 from frontend.views.swipe_event_view.swipe_event_view import SwipeEventView
@@ -37,11 +37,6 @@ def build_layout():
                             Button(
                                 "Footsteps",
                                 id="btn-mode-footstep",
-                                className="mode-btn",
-                            ),
-                            Button(
-                                "Run Pipeline",
-                                id="btn-mode-pipeline",
                                 className="mode-btn",
                             ),
                         ],
@@ -131,10 +126,10 @@ def build_layout():
                         data={"value": []},
                         storage_type="session",
                     ),
-                    # popup for pipeline
-                    ConfirmDialog(
-                        id="pipeline-dialog",
-                        message="Run Pipeline (local) is not implemented yet.",
+                    Store(
+                        id="footstep-pagination-store",
+                        data={"offset": 0, "limit": 60, "total": 0, "applied": False},
+                        storage_type="session",
                     ),
                     # page load trigger
                     Interval(id="page-load", max_intervals=1),

@@ -1,56 +1,4 @@
 import pytest
-from datetime import date
-from backend.src.server import create_app
-
-
-# -------------------------------------------------------------------
-# Fake DB / Session helpers for routes that query sal.db._get_session()
-# -------------------------------------------------------------------
-
-
-class FakeRow:
-    """Mimic SQLAlchemy row with _mapping used in events.py."""
-
-    def __init__(self, mapping: dict):
-        self._mapping = mapping
-
-
-class FakeResult:
-    def __init__(self, rows=None, first_row=None):
-        self._rows = rows or []
-        self._first_row = first_row
-
-    def all(self):
-        return self._rows
-
-    def first(self):
-        return self._first_row
-
-
-class FakeSession:
-    def __init__(self, *, rows=None, first_row=None):
-        self._result = FakeResult(rows=rows, first_row=first_row)
-
-    def execute(self, _query):
-        return self._result
-
-
-class FakeDB:
-    def __init__(self, *, rows=None, first_row=None):
-        self._session = FakeSession(rows=rows, first_row=first_row)
-
-    def _get_session(self):
-        class _Ctx:
-            def __init__(self, session):
-                self._session = session
-
-            def __enter__(self):
-                return self._session
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-        return _Ctx(self._session)
 
 
 # -------------------------------------------------------------------
@@ -112,6 +60,21 @@ class FakeSAL:
     def get_all_footstep_p100(self, event_id: str):
         return ([{"id": 0, "p100": [[1]]}], None)
 
+    def get_footstep_data(self, event_id: str, step_id: int):
+        return ([1, 2], [0.1, 0.2], None)
+
+    def get_available_metrics(self):
+        return ["avg_bbox_size", "step_count"]
+
+    def get_swipe_event_summary_plot_data(self, x: str, y: str, filters=None):
+        return {"evt-1": {x: 1.0, y: 2.0}}
+
+    def get_date_bounds(self, filters=None):
+        return {"min_date": None, "max_date": None}
+
+    def get_distinct_date_values(self, part: str, filters=None):
+        return []
+
 
 class FakeSALMissingEvent:
     def get_event_summary(self, event_id: str):
@@ -119,14 +82,14 @@ class FakeSALMissingEvent:
 
 
 @pytest.fixture
-def client():
-    app = create_app(sal=FakeSAL())
+def client(app_factory):
+    app = app_factory(FakeSAL())
     with app.test_client() as c:
         yield c
 
 
 # -------------------------------------------------------------------
-# Existing tests (unchanged)
+# Existing tests (unchanged behavior)
 # -------------------------------------------------------------------
 
 
@@ -154,8 +117,8 @@ def test_event_footsteps_p100s_ok(client):
 
 
 @pytest.mark.unit
-def test_event_full_missing_event_returns_404():
-    app = create_app(sal=FakeSALMissingEvent())
+def test_event_full_missing_event_returns_404(app_factory):
+    app = app_factory(FakeSALMissingEvent())
     with app.test_client() as client_:
         resp = client_.get("/api/events/missing/full")
         assert resp.status_code == 404
@@ -167,8 +130,8 @@ class FakeSALFootstepMissingEvent(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_footsteps_p100s_missing_event_returns_404():
-    app = create_app(sal=FakeSALFootstepMissingEvent())
+def test_event_footsteps_p100s_missing_event_returns_404(app_factory):
+    app = app_factory(FakeSALFootstepMissingEvent())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/footsteps/p100s")
         assert resp.status_code == 404
@@ -180,8 +143,8 @@ class FakeSALFootstepMissingFile(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_footsteps_p100s_missing_file_returns_empty_list():
-    app = create_app(sal=FakeSALFootstepMissingFile())
+def test_event_footsteps_p100s_missing_file_returns_empty_list(app_factory):
+    app = app_factory(FakeSALFootstepMissingFile())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/footsteps/p100s")
         assert resp.status_code == 200
@@ -194,8 +157,8 @@ class FakeSALFootstepDetail(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_footstep_detail_ok():
-    app = create_app(sal=FakeSALFootstepDetail())
+def test_event_footstep_detail_ok(app_factory):
+    app = app_factory(FakeSALFootstepDetail())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/footsteps/0")
         assert resp.status_code == 200
@@ -210,8 +173,8 @@ class FakeSALFootstepDetailMissingEvent(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_footstep_detail_missing_event():
-    app = create_app(sal=FakeSALFootstepDetailMissingEvent())
+def test_event_footstep_detail_missing_event(app_factory):
+    app = app_factory(FakeSALFootstepDetailMissingEvent())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/footsteps/0")
         assert resp.status_code == 404
@@ -223,42 +186,30 @@ class FakeSALFootstepDetailMissingFile(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_footstep_detail_missing_file():
-    app = create_app(sal=FakeSALFootstepDetailMissingFile())
+def test_event_footstep_detail_missing_file(app_factory):
+    app = app_factory(FakeSALFootstepDetailMissingFile())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/footsteps/0")
         assert resp.status_code == 404
 
 
 # -------------------------------------------------------------------
-# FIXED: summaryplot tests (match current backend behavior)
+# Summary plot tests (match current SAL-backed route behavior)
 # -------------------------------------------------------------------
 
 
 class FakeSALSummaryPlot(FakeSAL):
-    """
-    /api/events/summaryplot uses sal.db._get_session() and expects SQLAlchemy-like
-    rows with row._mapping containing event_id and metric keys.
-    """
+    def get_available_metrics(self):
+        return ["avg_bbox_size", "step_count"]
 
-    def __init__(self):
-        rows = [
-            FakeRow(
-                {
-                    "event_id": "evt-1",
-                    "avg_bbox_size": 1.0,
-                    "step_count": 2,
-                }
-            )
-        ]
-        self.db = FakeDB(rows=rows)
+    def get_swipe_event_summary_plot_data(self, x: str, y: str, filters=None):
+        return {"evt-1": {x: 1.0, y: 2.0}}
 
 
 @pytest.mark.unit
-def test_summary_plot_ok():
-    app = create_app(sal=FakeSALSummaryPlot())
+def test_summary_plot_ok(app_factory):
+    app = app_factory(FakeSALSummaryPlot())
     with app.test_client() as client_:
-        # Must use real metric names that exist in ManifestMetrics:
         resp = client_.get("/api/events/summaryplot?x=avg_bbox_size&y=step_count")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -266,40 +217,50 @@ def test_summary_plot_ok():
 
 
 @pytest.mark.unit
-def test_summary_plot_missing_metrics():
-    app = create_app(sal=FakeSALSummaryPlot())
+def test_summary_plot_missing_metrics(app_factory):
+    app = app_factory(FakeSALSummaryPlot())
     with app.test_client() as client_:
         resp = client_.get("/api/events/summaryplot?x=avg_bbox_size")
         assert resp.status_code == 400
 
 
+@pytest.mark.unit
+def test_summaryplot_invalid_metric_returns_400(app_factory):
+    app = app_factory(FakeSALSummaryPlot())
+    with app.test_client() as client_:
+        resp = client_.get("/api/events/summaryplot?x=not_a_metric&y=step_count")
+        assert resp.status_code == 400
+
+
+@pytest.mark.unit
+def test_summaryplot_bad_date_order_returns_400(app_factory):
+    app = app_factory(FakeSALSummaryPlot())
+    with app.test_client() as client_:
+        resp = client_.get(
+            "/api/events/summaryplot?x=avg_bbox_size&y=step_count&date_from=2025-02-01&date_to=2025-01-01"
+        )
+        assert resp.status_code == 400
+
+
 # -------------------------------------------------------------------
-# FIXED: years endpoint test (match current backend behavior)
+# Date filter endpoint tests (match current SAL-backed route behavior)
 # -------------------------------------------------------------------
 
 
 class FakeSALDates(FakeSAL):
-    """
-    /api/events/years currently queries sal.db._get_session() and expects rows
-    where r[0] is the extracted year.
-    """
-
-    def __init__(self):
-        rows = [(2024,), (2025,)]
-        self.db = FakeDB(rows=rows)
+    def get_distinct_date_values(self, part: str, filters=None):
+        if part == "year":
+            return [2024, 2025]
+        return []
 
 
 @pytest.mark.unit
-def test_years_endpoint_ok():
-    app = create_app(sal=FakeSALDates())
+def test_years_endpoint_ok(app_factory):
+    app = app_factory(FakeSALDates())
     with app.test_client() as client_:
         resp = client_.get("/api/events/years")
         assert resp.status_code == 200
-
-
-# -------------------------------------------------------------------
-# Remaining tests (unchanged)
-# -------------------------------------------------------------------
+        assert resp.get_json() == [2024, 2025]
 
 
 class FakeSALGrfMissingEvent(FakeSAL):
@@ -308,8 +269,8 @@ class FakeSALGrfMissingEvent(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_full_grf_missing_event_returns_404():
-    app = create_app(sal=FakeSALGrfMissingEvent())
+def test_event_full_grf_missing_event_returns_404(app_factory):
+    app = app_factory(FakeSALGrfMissingEvent())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/full")
         assert resp.status_code == 404
@@ -321,8 +282,8 @@ class FakeSALFootstepsMissingEvent(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_full_footsteps_missing_event_returns_404():
-    app = create_app(sal=FakeSALFootstepsMissingEvent())
+def test_event_full_footsteps_missing_event_returns_404(app_factory):
+    app = app_factory(FakeSALFootstepsMissingEvent())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/full")
         assert resp.status_code == 404
@@ -334,8 +295,8 @@ class FakeSALFootstepsMissingFile(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_full_footsteps_missing_file_returns_empty_list():
-    app = create_app(sal=FakeSALFootstepsMissingFile())
+def test_event_full_footsteps_missing_file_returns_empty_list(app_factory):
+    app = app_factory(FakeSALFootstepsMissingFile())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/full")
         assert resp.status_code == 200
@@ -348,8 +309,8 @@ class FakeSALDetailsMissingEvent(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_full_details_missing_event_returns_404():
-    app = create_app(sal=FakeSALDetailsMissingEvent())
+def test_event_full_details_missing_event_returns_404(app_factory):
+    app = app_factory(FakeSALDetailsMissingEvent())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/full")
         assert resp.status_code == 404
@@ -361,8 +322,8 @@ class FakeSALDetailsMissingFile(FakeSAL):
 
 
 @pytest.mark.unit
-def test_event_full_details_missing_file_returns_empty_list():
-    app = create_app(sal=FakeSALDetailsMissingFile())
+def test_event_full_details_missing_file_returns_empty_list(app_factory):
+    app = app_factory(FakeSALDetailsMissingFile())
     with app.test_client() as client_:
         resp = client_.get("/api/events/evt-1/full")
         assert resp.status_code == 200
@@ -370,34 +331,31 @@ def test_event_full_details_missing_file_returns_empty_list():
 
 
 # -------------------------------------------------------------------
-# NEW: Extra tests to push coverage over 80%
+# Additional events/date endpoint tests
 # -------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_available_metrics_endpoint_ok():
-    # /api/events/metrics does not require DB/SAL behavior
-    app = create_app(sal=FakeSAL())
+def test_available_metrics_endpoint_ok(app_factory):
+    app = app_factory(FakeSAL())
     with app.test_client() as client_:
         resp = client_.get("/api/events/metrics")
         assert resp.status_code == 200
         data = resp.get_json()
         assert "items" in data
         assert isinstance(data["items"], list)
-        # Real columns from ManifestMetrics
         assert "avg_bbox_size" in data["items"]
         assert "step_count" in data["items"]
 
 
 class FakeSALDateBoundsOk(FakeSAL):
-    def __init__(self):
-        # first() returns (min_date, max_date)
-        self.db = FakeDB(first_row=(date(2024, 1, 1), date(2024, 12, 31)))
+    def get_date_bounds(self, filters=None):
+        return {"min_date": "2024-01-01", "max_date": "2024-12-31"}
 
 
 @pytest.mark.unit
-def test_date_bounds_ok_returns_iso_dates():
-    app = create_app(sal=FakeSALDateBoundsOk())
+def test_date_bounds_ok_returns_iso_dates(app_factory):
+    app = app_factory(FakeSALDateBoundsOk())
     with app.test_client() as client_:
         resp = client_.get("/api/events/date_bounds")
         assert resp.status_code == 200
@@ -407,14 +365,13 @@ def test_date_bounds_ok_returns_iso_dates():
 
 
 class FakeSALDateBoundsEmpty(FakeSAL):
-    def __init__(self):
-        # first() returns (None, None) so endpoint returns nulls
-        self.db = FakeDB(first_row=(None, None))
+    def get_date_bounds(self, filters=None):
+        return {"min_date": None, "max_date": None}
 
 
 @pytest.mark.unit
-def test_date_bounds_empty_returns_nulls():
-    app = create_app(sal=FakeSALDateBoundsEmpty())
+def test_date_bounds_empty_returns_nulls(app_factory):
+    app = app_factory(FakeSALDateBoundsEmpty())
     with app.test_client() as client_:
         resp = client_.get("/api/events/date_bounds")
         assert resp.status_code == 200
@@ -424,14 +381,15 @@ def test_date_bounds_empty_returns_nulls():
 
 
 class FakeSALMonths(FakeSAL):
-    def __init__(self):
-        # endpoint expects r[0] as month int
-        self.db = FakeDB(rows=[(1,), (2,), (2,), (12,)])
+    def get_distinct_date_values(self, part: str, filters=None):
+        if part == "month":
+            return [1, 2, 12]
+        return []
 
 
 @pytest.mark.unit
-def test_months_endpoint_ok_returns_sorted_unique():
-    app = create_app(sal=FakeSALMonths())
+def test_months_endpoint_ok_returns_sorted_unique(app_factory):
+    app = app_factory(FakeSALMonths())
     with app.test_client() as client_:
         resp = client_.get("/api/events/months?year=2024&participants=1,2")
         assert resp.status_code == 200
@@ -439,34 +397,16 @@ def test_months_endpoint_ok_returns_sorted_unique():
 
 
 class FakeSALDays(FakeSAL):
-    def __init__(self):
-        # endpoint expects r[0] as day int
-        self.db = FakeDB(rows=[(1,), (15,), (31,), (31,)])
+    def get_distinct_date_values(self, part: str, filters=None):
+        if part == "day":
+            return [1, 15, 31]
+        return []
 
 
 @pytest.mark.unit
-def test_days_endpoint_ok_returns_sorted_unique():
-    app = create_app(sal=FakeSALDays())
+def test_days_endpoint_ok_returns_sorted_unique(app_factory):
+    app = app_factory(FakeSALDays())
     with app.test_client() as client_:
         resp = client_.get("/api/events/days?year=2024&month=1&participants=1")
         assert resp.status_code == 200
         assert resp.get_json() == [1, 15, 31]
-
-
-@pytest.mark.unit
-def test_summaryplot_invalid_metric_returns_400():
-    # backend validates x/y against ManifestMetrics columns
-    app = create_app(sal=FakeSALSummaryPlot())
-    with app.test_client() as client_:
-        resp = client_.get("/api/events/summaryplot?x=not_a_metric&y=step_count")
-        assert resp.status_code == 400
-
-
-@pytest.mark.unit
-def test_summaryplot_bad_date_order_returns_400():
-    app = create_app(sal=FakeSALSummaryPlot())
-    with app.test_client() as client_:
-        resp = client_.get(
-            "/api/events/summaryplot?x=avg_bbox_size&y=step_count&date_from=2025-02-01&date_to=2025-01-01"
-        )
-        assert resp.status_code == 400

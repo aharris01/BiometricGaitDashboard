@@ -165,22 +165,22 @@ def test_get_swipe_event_summary_metrics(monkeypatch):
     monkeypatch.setattr(
         api.requests,
         "get",
-        make_fake_get({"EVT1": {"avg_box_size": 10}}, captured=captured),
+        make_fake_get({"EVT1": {"avg_bbox_size": 10}}, captured=captured),
     )
 
     out = api.get_swipe_event_summary_metrics(
-        "avg_box_size",
-        "footstep_count",
+        "avg_bbox_size",
+        "step_count",
         filters={"participants": [100, 200]},
     )
 
     # Confirm participant filter was added to URL
     assert captured["params"]["participants"] == "100,200"
-    assert captured["params"]["x"] == "avg_box_size"
-    assert captured["params"]["y"] == "footstep_count"
+    assert captured["params"]["x"] == "avg_bbox_size"
+    assert captured["params"]["y"] == "step_count"
 
     # Confirm returned data is passed through unchanged
-    assert out == {"EVT1": {"avg_box_size": 10}}
+    assert out == {"EVT1": {"avg_bbox_size": 10}}
 
 
 @pytest.mark.unit
@@ -189,12 +189,12 @@ def test_get_available_metrics(monkeypatch):
     monkeypatch.setattr(
         api.requests,
         "get",
-        make_fake_get({"items": ["avg_box_size", "footstep_count"]}),
+        make_fake_get({"items": ["avg_bbox_size", "step_count"]}),
     )
 
     out = api.get_available_metrics()
 
-    assert out == {"items": ["avg_box_size", "footstep_count"]}
+    assert out == {"items": ["avg_bbox_size", "step_count"]}
 
 
 @pytest.mark.unit

@@ -1,5 +1,4 @@
 import pytest
-from backend.src.server import create_app
 
 
 class FakeSAL:
@@ -24,8 +23,8 @@ class FakeSAL:
 
 
 @pytest.fixture
-def client():
-    app = create_app(sal=FakeSAL())
+def client(app_factory):
+    app = app_factory(FakeSAL())
     with app.test_client() as c:
         yield c
 
@@ -36,36 +35,3 @@ def test_participants_internal_error_500(client):
     assert resp.status_code == 500
     data = resp.get_json()
     assert data["code"] == "internal_error"
-
-
-@pytest.mark.unit
-def test_event_footsteps_p100s_missing_event_404(client):
-    resp = client.get("/api/events/missing/footsteps/p100s")
-    assert resp.status_code == 404
-    data = resp.get_json()
-    assert data["code"] == "not_found"
-
-
-@pytest.mark.unit
-def test_event_footsteps_p100s_missing_file_returns_empty_list(client):
-    resp = client.get("/api/events/nofile/footsteps/p100s")
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["items"] == []
-
-
-@pytest.mark.unit
-def test_event_footstep_detail_missing_event_404(client):
-    resp = client.get("/api/events/missing/footsteps/0")
-    assert resp.status_code == 404
-    data = resp.get_json()
-    assert data["code"] == "not_found"
-
-
-@pytest.mark.unit
-def test_event_footstep_detail_missing_file_404(client):
-    resp = client.get("/api/events/nofile/footsteps/0")
-    assert resp.status_code == 404
-    data = resp.get_json()
-    assert data["code"] == "not_found"
-    assert data["message"] == "footstep data not found"

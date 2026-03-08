@@ -13,12 +13,24 @@ from frontend.api import get_participants
 class MetricsGraph:
     # Axis configuration (support both legacy + current keys)
     AXIS_LABELS = {
-        # legacy keys (used by unit tests)
-        "avg_box_size": "Average Bounding Box Size",
-        "footstep_count": "Footstep Count",
-        # current keys (from ManifestMetrics in backend)
         "avg_bbox_size": "Average Bounding Box Size",
-        "step_count": "Footstep Count",
+        "std_dev_bounding_box_area": "Std Dev Bounding Box Area",
+        "variance_bounding_box_area": "Variance Bounding Box Area",
+        "mean_width": "Mean Bounding Box Width",
+        "mean_height": "Mean Bounding Box Height",
+        "variance_bounding_box_width": "Variance Bounding Box Width",
+        "variance_bounding_box_height": "Variance Bounding Box Height",
+        "step_count": "Number of Footsteps",
+        "step_count_on_path": "Number of Footsteps on Path",
+        "total_trial_area": "Total Trial Area",
+        "mean_step_distance": "Mean Step Distance",
+        "variance_step_distance": "Variance Step Distance",
+        "active_trial_duration_all": "Active Trial Duration (All)",
+        "active_trial_duration_path": "Active Trial Duration (Path)",
+        "max_footstep_duration_frames": "Longest Footstep Duration (Frames)",
+        "mean_heading_angle": "Mean Heading Angle",
+        "std_heading_angle": "Std Heading Angle",
+        "variance_heading_angle": "Variance Heading Angle",
     }
 
     DEFAULT_POINT_COLOR = "#1f77b4"
@@ -233,7 +245,7 @@ class MetricsGraph:
                             children=[
                                 dcc.Store(
                                     id="metrics_filter_participant_open_store",
-                                    data=True,
+                                    data=False,
                                     storage_type="session",
                                 ),
                                 html.Div(

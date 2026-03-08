@@ -3,8 +3,6 @@ import datetime as dt
 
 import pytest
 
-from backend.src.server import server
-
 
 class FakeSAL:
     """
@@ -157,12 +155,10 @@ class FakeSAL:
 
 
 @pytest.fixture
-def client(monkeypatch):
-    from backend.src import server as server_module
-
-    fake_sal = FakeSAL()
-    monkeypatch.setattr(server_module, "sal", fake_sal)
-    return server.test_client()
+def client(app_factory):
+    app = app_factory(FakeSAL())
+    with app.test_client() as client_:
+        yield client_
 
 
 @pytest.mark.unit
