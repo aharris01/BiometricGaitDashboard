@@ -1,5 +1,5 @@
 # frontend/layout.py
-from dash.dcc import Interval, Store, ConfirmDialog
+from dash.dcc import Interval, Store
 from dash.html import Div, Button, H2, Span
 
 from frontend.views.swipe_event_view.swipe_event_view import SwipeEventView
