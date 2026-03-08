@@ -24,16 +24,27 @@ class ManifestMetrics(ManifestBase):
     __table_args__ = {"schema": "manifest"}
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
-    avg_bbox_size: Mapped[Float] = mapped_column(Float, nullable=True)
-    step_count: Mapped[int] = mapped_column(Integer, nullable=True)
 
+    avg_bbox_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    std_dev_bounding_box_area: Mapped[Float] = mapped_column(Float, nullable=True)
+    variance_bounding_box_area: Mapped[Float] = mapped_column(Float, nullable=True)
+    mean_width: Mapped[Float] = mapped_column(Float, nullable=True)
+    mean_height: Mapped[Float] = mapped_column(Float, nullable=True)
+    variance_bounding_box_width: Mapped[Float] = mapped_column(Float, nullable=True)
+    variance_bounding_box_height: Mapped[Float] = mapped_column(Float, nullable=True)
+
+    step_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    step_count_on_path: Mapped[int] = mapped_column(Integer, nullable=True)
     total_trial_area: Mapped[Float] = mapped_column(Float, nullable=True)
     mean_step_distance: Mapped[Float] = mapped_column(Float, nullable=True)
-    footstep_count_on_path: Mapped[int] = mapped_column(Integer, nullable=True)
+    variance_step_distance: Mapped[Float] = mapped_column(Float, nullable=True)
     active_trial_duration_all: Mapped[Float] = mapped_column(Float, nullable=True)
     active_trial_duration_path: Mapped[Float] = mapped_column(Float, nullable=True)
-    std_dev_bounding_box_area: Mapped[Float] = mapped_column(Float, nullable=True)
     max_footstep_duration_frames: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    mean_heading_angle: Mapped[Float] = mapped_column(Float, nullable=True)
+    std_heading_angle: Mapped[Float] = mapped_column(Float, nullable=True)
+    variance_heading_angle: Mapped[Float] = mapped_column(Float, nullable=True)
 
 
 class ManifestFootstep(ManifestBase):
