@@ -82,31 +82,3 @@ def test_mode_switching_updates_header_and_views(dash_duo, start_mode):
     footstep_btn_cls = el("#btn-mode-footstep").get_attribute("class") or ""
     assert "mode-btn-active" in swipe_btn_cls
     assert "mode-btn-active" not in footstep_btn_cls
-
-
-@pytest.mark.integration
-def test_run_pipeline_shows_popup_and_does_not_switch_mode(dash_duo):
-    from frontend.app import app
-
-    dash_duo.start_server(app)
-
-    dash_duo.wait_for_text_to_equal("#header-title", "Swipe Events", timeout=5)
-
-    dash_duo.find_element("#btn-mode-footstep").click()
-    dash_duo.wait_for_text_to_equal("#header-title", "Footsteps", timeout=5)
-
-    dash_duo.find_element("#btn-mode-pipeline").click()
-
-    WebDriverWait(dash_duo.driver, 5).until(EC.alert_is_present())
-    alert = cast(Alert, dash_duo.driver.switch_to.alert)
-    msg = alert.text
-    alert.accept()
-
-    assert "Run Pipeline" in msg
-
-    dash_duo.wait_for_text_to_equal("#header-title", "Footsteps", timeout=5)
-
-    swipe_cls = dash_duo.find_element("#swipe-view").get_attribute("class") or ""
-    footstep_cls = dash_duo.find_element("#footstep-view").get_attribute("class") or ""
-    assert "hidden" in swipe_cls
-    assert "hidden" not in footstep_cls

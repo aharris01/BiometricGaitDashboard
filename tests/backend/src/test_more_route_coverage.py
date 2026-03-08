@@ -1,8 +1,6 @@
 import datetime as dt
 import pytest
 
-from backend.src.server import create_app
-
 
 class FakeSAL:
     # ---- swipe route needs this ----
@@ -68,8 +66,8 @@ class FakeSAL:
 
 
 @pytest.fixture
-def client():
-    app = create_app(sal=FakeSAL())
+def client(app_factory):
+    app = app_factory(FakeSAL())
     with app.test_client() as c:
         yield c
 
