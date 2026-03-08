@@ -27,7 +27,11 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "manifest.db"
 
-DATAROOT = Path(os.environ.get("DATAROOT", "."))  # Defaults to root
+# DATAROOT is still the dataset root used for local files and ingest.
+DATAROOT = Path(os.environ.get("DATAROOT", "."))
+
+# local.db should live in one consistent place regardless of dataset location.
+LOCAL_DB_PATH = PROJECT_ROOT / "local.db"
 
 
 def apply_local_filter(query):
@@ -317,8 +321,8 @@ class DB:
 
 
 def _init_db():
-    # Local database is writable
-    local_uri = f"sqlite:///{DATAROOT.as_posix()}/local.db"
+    # Local database is writable and always lives at the project root.
+    local_uri = f"sqlite:///{LOCAL_DB_PATH.as_posix()}"
 
     # Manifest database is read-only mode
     manifest_uri = f"file:{MANIFEST_PATH.as_posix()}?mode=ro"
