@@ -15,11 +15,11 @@ from .schema import (
     LocalBase,
     LocalSwipeEvent,
     LocalMetrics,
+    LocalFootstep,
     ManifestMetrics,
     ManifestSwipeEvent,
     ManifestFootstep,
 )
-
 from ...scripts.ingest import iter_swipes
 
 load_dotenv()
@@ -220,16 +220,16 @@ class DB:
     ):  # query interacts with all footsteps for a single event in footstep table
         query = (
             select(
-                ManifestFootstep.footstep_id,
-                ManifestFootstep.start_frame,
-                ManifestFootstep.end_frame,
-                ManifestFootstep.x_min,
-                ManifestFootstep.x_max,
-                ManifestFootstep.y_min,
-                ManifestFootstep.y_max,
+                LocalFootstep.footstep_id,
+                LocalFootstep.start_frame,
+                LocalFootstep.end_frame,
+                LocalFootstep.x_min,
+                LocalFootstep.x_max,
+                LocalFootstep.y_min,
+                LocalFootstep.y_max,
             )
-            .where(ManifestFootstep.event_id == event_id)
-            .order_by(ManifestFootstep.footstep_id)
+            .where(LocalFootstep.event_id == event_id)
+            .order_by(LocalFootstep.footstep_id)
         )
 
         with self._get_session() as session:
@@ -238,9 +238,9 @@ class DB:
     def get_single_footstep(
         self, event_id: str, footstep_id: int
     ):  # query interacts with individual footsteps in footstep table
-        query = select(ManifestFootstep).where(
-            ManifestFootstep.event_id == event_id,
-            ManifestFootstep.footstep_id == footstep_id,
+        query = select(LocalFootstep).where(
+            LocalFootstep.event_id == event_id,
+            LocalFootstep.footstep_id == footstep_id,
         )
 
         with self._get_session() as session:
@@ -254,41 +254,38 @@ class DB:
         offset: int = 0,
         limit: int = 60,
     ):
-        bbox_area = (ManifestFootstep.x_max - ManifestFootstep.x_min) * (
-            ManifestFootstep.y_max - ManifestFootstep.y_min
+        # Footstep search now uses the local mirror table so the Footsteps view
+        # reads from local.db instead of manifest.db.
+        bbox_area = (LocalFootstep.x_max - LocalFootstep.x_min) * (
+            LocalFootstep.y_max - LocalFootstep.y_min
         )
 
-        items_query = apply_local_filter(
-            select(
-                ManifestFootstep.event_id,
-                ManifestFootstep.footstep_id,
-                ManifestFootstep.start_frame,
-                ManifestFootstep.end_frame,
-                ManifestFootstep.x_min,
-                ManifestFootstep.x_max,
-                ManifestFootstep.y_min,
-                ManifestFootstep.y_max,
-                bbox_area.label("bbox_area"),
-            )
-            .select_from(ManifestFootstep)
-            .join(
-                ManifestSwipeEvent,
-                ManifestSwipeEvent.event_id == ManifestFootstep.event_id,
-            )
+        # Only search footsteps whose parent swipe events are available locally.
+        local_event_ids = select(LocalSwipeEvent.event_id).where(
+            LocalSwipeEvent.present.is_(True)
         )
 
-        count_query = apply_local_filter(
+        items_query = select(
+            LocalFootstep.event_id,
+            LocalFootstep.footstep_id,
+            LocalFootstep.start_frame,
+            LocalFootstep.end_frame,
+            LocalFootstep.x_min,
+            LocalFootstep.x_max,
+            LocalFootstep.y_min,
+            LocalFootstep.y_max,
+            bbox_area.label("bbox_area"),
+        ).where(LocalFootstep.event_id.in_(local_event_ids))
+
+        count_query = (
             select(func.count())
-            .select_from(ManifestFootstep)
-            .join(
-                ManifestSwipeEvent,
-                ManifestSwipeEvent.event_id == ManifestFootstep.event_id,
-            )
+            .select_from(LocalFootstep)
+            .where(LocalFootstep.event_id.in_(local_event_ids))
         )
 
         if event_ids:
-            items_query = items_query.where(ManifestFootstep.event_id.in_(event_ids))
-            count_query = count_query.where(ManifestFootstep.event_id.in_(event_ids))
+            items_query = items_query.where(LocalFootstep.event_id.in_(event_ids))
+            count_query = count_query.where(LocalFootstep.event_id.in_(event_ids))
 
         if size_min is not None:
             items_query = items_query.where(bbox_area >= int(size_min))
@@ -300,8 +297,8 @@ class DB:
 
         items_query = (
             items_query.order_by(
-                ManifestFootstep.event_id,
-                ManifestFootstep.footstep_id,
+                LocalFootstep.event_id,
+                LocalFootstep.footstep_id,
             )
             .offset(offset)
             .limit(limit)
@@ -364,7 +361,11 @@ def _seed_db(db: DB):
             if result is None:
                 continue  # Skip if event_id not found in manifest
         db.add_swipe_event(swipe_event_obj)
-        copy_metrics_from_manifest_to_local(db)
+
+    # After local swipe events are seeded, mirror the supporting local tables
+    # from the read-only manifest database.
+    copy_metrics_from_manifest_to_local(db)
+    copy_footsteps_from_manifest_to_local(db)
 
 
 def copy_metrics_from_manifest_to_local(db) -> int:
@@ -407,4 +408,60 @@ def copy_metrics_from_manifest_to_local(db) -> int:
 
         result = session.execute(stmt)
         # session.commit() is handled by your context manager
+        return int(result.rowcount or 0)
+
+
+def copy_footsteps_from_manifest_to_local(db) -> int:
+    """
+    Copies rows from manifest.footsteps into local_footsteps
+    for event_ids that exist in local_swipe_event with present == True.
+    """
+    with db._get_session() as session:
+        # event_ids that exist locally and are marked present
+        local_event_ids = select(LocalSwipeEvent.event_id).where(
+            LocalSwipeEvent.present.is_(True)
+        )
+
+        # rows to copy from manifest.footsteps
+        src = select(
+            ManifestFootstep.event_id,
+            ManifestFootstep.footstep_id,
+            ManifestFootstep.start_frame,
+            ManifestFootstep.end_frame,
+            ManifestFootstep.x_min,
+            ManifestFootstep.x_max,
+            ManifestFootstep.y_min,
+            ManifestFootstep.y_max,
+        ).where(ManifestFootstep.event_id.in_(local_event_ids))
+
+        # INSERT ... SELECT ... with ON CONFLICT(event_id, footstep_id) DO UPDATE
+        insert_stmt = sqlite_insert(LocalFootstep).from_select(
+            [
+                "event_id",
+                "footstep_id",
+                "start_frame",
+                "end_frame",
+                "x_min",
+                "x_max",
+                "y_min",
+                "y_max",
+            ],
+            src,
+        )
+
+        stmt = insert_stmt.on_conflict_do_update(
+            index_elements=[LocalFootstep.event_id, LocalFootstep.footstep_id],
+            set_={
+                "start_frame": insert_stmt.excluded.start_frame,
+                "end_frame": insert_stmt.excluded.end_frame,
+                "x_min": insert_stmt.excluded.x_min,
+                "x_max": insert_stmt.excluded.x_max,
+                "y_min": insert_stmt.excluded.y_min,
+                "y_max": insert_stmt.excluded.y_max,
+                # Intentionally do not overwrite label here because label is
+                # local-only review state that should remain owned by local.db.
+            },
+        )
+
+        result = session.execute(stmt)
         return int(result.rowcount or 0)

@@ -268,6 +268,8 @@ class SAL:
         if event is None:
             return None, "missing_event"
 
+        # Keep database access behind the DB layer. The DB implementation decides
+        # whether the underlying footstep row comes from local.db or manifest.db.
         row = self.db.get_single_footstep(event_id, footstep_id)
 
         if row is None:
@@ -663,6 +665,8 @@ class SAL:
         if event_ids:
             normalized_ids = [str(event_id) for event_id in event_ids if event_id]
 
+        # Footstep search stays behind the SAL/DB boundary so routes and frontend
+        # code never reach into SQLite or dataset files directly.
         rows, total = self.db.search_footsteps(
             event_ids=normalized_ids,
             size_min=size_min,

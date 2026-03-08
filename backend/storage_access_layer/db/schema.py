@@ -91,3 +91,31 @@ class LocalMetrics(LocalBase):
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
     average_bounding_box_size: Mapped[Float] = mapped_column(Float, nullable=True)
     step_count: Mapped[int] = mapped_column(Integer, nullable=True)
+
+
+class LocalFootstep(LocalBase):
+    __tablename__ = "local_footsteps"
+
+    # This mirrors manifest.footsteps so the app can query local, writable
+    # footstep rows instead of reading directly from the read-only manifest DB.
+    event_id: Mapped[str] = mapped_column(
+        String,
+        primary_key=True,
+    )
+
+    footstep_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    start_frame: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_frame: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    x_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    x_max: Mapped[int] = mapped_column(Integer, nullable=False)
+    y_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    y_max: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Local-only optional label. This supports future manual review/editing
+    # without changing the immutable manifest database.
+    label: Mapped[str | None] = mapped_column(String, nullable=True)
