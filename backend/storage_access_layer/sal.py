@@ -541,6 +541,13 @@ class SAL:
     def get_swipe_event_summary_plot_data(
         self, x: str, y: str, filters: dict | None = None
     ):
+        # ------------------------------------------------------------------
+        # Validate requested metrics
+        #
+        # The frontend must provide two metric names (x and y).
+        # We verify that both exist in the ManifestMetrics table
+        # to prevent invalid or arbitrary column access.
+        # ------------------------------------------------------------------
         available = self.get_available_metrics()
 
         if x not in available:
@@ -548,6 +555,14 @@ class SAL:
 
         if y not in available:
             raise ValueError(f"Invalid metric requested for y-axis: {y}")
+
+        # ------------------------------------------------------------------
+        # Build dynamic SELECT query
+        #
+        # Only select event_id and the requested metric columns.
+        # This ensures the response payload contains exactly the
+        # metrics needed for scatter plotting.
+        # ------------------------------------------------------------------
 
         with self.db._get_session() as session:
             query = (
@@ -567,7 +582,12 @@ class SAL:
             query = self._apply_summary_filters(query, filters)
 
             results = session.execute(query).all()
-
+        # ------------------------------------------------------------------
+        # Format results
+        #
+        # Convert each SQLAlchemy row into a dictionary keyed by event_id.
+        # The inner dictionary contains only the requested metrics.
+        # ------------------------------------------------------------------
         output = {}
 
         for row in results:

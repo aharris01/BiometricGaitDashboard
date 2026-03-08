@@ -98,6 +98,14 @@ def api_event_footstep_detail(event_id: str, step_id: int):
 
 @events_bp.get("/api/events/<event_id>/footsteps/<int:step_id>/image")
 def get_footstep_image(event_id: str, step_id: int):
+    """
+    Returns a rendered heatmap image for a footstep's p100 array.
+
+    Query params:
+      - size: 'thumb' or 'full' (optional, currently handled by frontend URL only)
+      - format: 'png' or 'webp' (optional, currently handled by create_image_bytes)
+      - scale: integer scale factor (optional)
+    """
     sal = get_sal()
     p100, _grf, err = sal.get_footstep_data(event_id, step_id)
 
@@ -116,6 +124,23 @@ def get_footstep_image(event_id: str, step_id: int):
 
 @events_bp.get("/api/events/summaryplot")
 def api_swipe_event_summary_plot():
+    """
+    Returns dict:
+      {
+        "<event_id>": { "<x>": <val>, "<y>": <val> },
+        ...
+      }
+
+    Filters:
+      - participants=1,2,3
+      - year, month, day  (discrete date filter)
+      - date_from=YYYY-MM-DD, date_to=YYYY-MM-DD  (range filter)
+
+    NOTE: Backend applies whatever is provided.
+    Your frontend rule ("last-used date filter wins") should decide
+    whether it sends (year/month/day) OR (date_from/date_to).
+    Participant filter always ANDs with the chosen date filter.
+    """
     try:
         x = request.args.get("x")
         y = request.args.get("y")
