@@ -620,3 +620,87 @@ def test_summary_plot_data_with_filters(sal, fake_db):
             "step_count": 5,
         }
     }
+
+
+@pytest.mark.unit
+def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
+    fake_db.search_footsteps.return_value = (
+        [
+            {
+                "event_id": "evt-1",
+                "footstep_id": 2,
+                "participant": 11111,
+                "date": dt.date(2025, 1, 1),
+                "start_frame": 10,
+                "end_frame": 20,
+                "x_min": 5,
+                "x_max": 25,
+                "y_min": 7,
+                "y_max": 37,
+                "bbox_width": 20,
+                "bbox_height": 30,
+                "bbox_area": 600,
+            }
+        ],
+        1,
+    )
+
+    out = sal.search_footsteps(
+        event_ids=["evt-1", ""],
+        participants=[11111],
+        date_from=dt.date(2025, 1, 1),
+        date_to=dt.date(2025, 1, 31),
+        width_min=10,
+        width_max=20,
+        height_min=15,
+        height_max=30,
+        size_min=100,
+        size_max=500,
+        offset=10,
+        limit=25,
+    )
+
+    fake_db.search_footsteps.assert_called_once_with(
+        event_ids=["evt-1"],
+        participants=[11111],
+        date_from=dt.date(2025, 1, 1),
+        date_to=dt.date(2025, 1, 31),
+        width_min=10,
+        width_max=20,
+        height_min=15,
+        height_max=30,
+        size_min=100,
+        size_max=500,
+        offset=10,
+        limit=25,
+    )
+
+    assert out == {
+        "items": [
+            {
+                "event_id": "evt-1",
+                "footstep_id": 2,
+                "participant": 11111,
+                "date": "2025-01-01",
+                "start_frame": 10,
+                "end_frame": 20,
+                "x_min": 5,
+                "x_max": 25,
+                "y_min": 7,
+                "y_max": 37,
+                "bbox_width": 20,
+                "bbox_height": 30,
+                "bbox_area": 600,
+            }
+        ],
+        "total": 1,
+    }
+
+
+@pytest.mark.unit
+def test_search_footsteps_empty_result_returns_empty_items(sal, fake_db):
+    fake_db.search_footsteps.return_value = ([], 0)
+
+    out = sal.search_footsteps()
+
+    assert out == {"items": [], "total": 0}

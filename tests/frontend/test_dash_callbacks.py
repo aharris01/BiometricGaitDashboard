@@ -312,3 +312,46 @@ def test_get_date_part_day(monkeypatch):
 
     assert captured["url"].endswith("/api/events/days")
     assert out == {"items": [1]}
+
+
+@pytest.mark.unit
+def test_search_footsteps_builds_all_filter_params(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        make_fake_get({"items": [], "total": 0}, captured=captured),
+    )
+
+    out = api.search_footsteps(
+        event_ids=["evt-1", "evt-2"],
+        participants=[11111, 22222],
+        date_from="2025-01-01",
+        date_to="2025-01-31",
+        width_min=10,
+        width_max=20,
+        height_min=15,
+        height_max=30,
+        size_min=100,
+        size_max=500,
+        offset=10,
+        limit=25,
+    )
+
+    assert out == {"items": [], "total": 0}
+    assert captured["url"].endswith("/api/footsteps/search")
+    assert captured["params"] == {
+        "offset": 10,
+        "limit": 25,
+        "event_ids": "evt-1,evt-2",
+        "participants": "11111,22222",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31",
+        "width_min": 10,
+        "width_max": 20,
+        "height_min": 15,
+        "height_max": 30,
+        "size_min": 100,
+        "size_max": 500,
+    }
