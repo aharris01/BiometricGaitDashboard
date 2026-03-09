@@ -1,9 +1,20 @@
 # frontend/api.py
+
 import os
 import requests
 from dash.exceptions import PreventUpdate
 
+
+# -------------------------------------------------
+# API base configuration
+# -------------------------------------------------
+
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+
+
+# -------------------------------------------------
+# Shared request helper
+# -------------------------------------------------
 
 
 def fetch_json(
@@ -14,6 +25,10 @@ def fetch_json(
     context: str = "api_request",
     logger=None,
 ):
+    # Send a GET request and return the decoded JSON body.
+    #
+    # If the request fails, log the error and raise PreventUpdate
+    # so the Dash callback can fail quietly instead of crashing the UI.
     try:
         resp = requests.get(url, params=params, timeout=timeout)
         resp.raise_for_status()
@@ -31,7 +46,9 @@ def fetch_json(
             except Exception:
                 # Leave message/details as None if the body is not JSON
                 pass
+
         body = {"message": message, "details": details}
+
         if logger:
             logger.error(
                 f"[{context}] Failed to fetch {url}: {body['message']} - {body['details']}"
@@ -40,7 +57,13 @@ def fetch_json(
         raise PreventUpdate
 
 
+# -------------------------------------------------
+# Basic metadata lookups
+# -------------------------------------------------
+
+
 def get_participants(*, logger=None):
+    # Return participant dropdown/checklist options.
     data = fetch_json(
         f"{API_BASE_URL}/api/participants",
         context="get_participants",
@@ -50,12 +73,38 @@ def get_participants(*, logger=None):
 
 
 def get_dates(participant: int, *, logger=None):
+    # Return date dropdown options for one participant.
     data = fetch_json(
         f"{API_BASE_URL}/api/participants/{participant}/dates",
         context="get_dates",
         logger=logger,
     )
     return [{"label": str(d), "value": str(d)} for d in data["items"]]
+
+
+def get_directions(participant: int, datestr: str, *, logger=None):
+    # Return direction dropdown options for one participant/date pair.
+    data = fetch_json(
+        f"{API_BASE_URL}/api/participants/{participant}/dates/{datestr}/directions",
+        context="get_directions",
+        logger=logger,
+    )
+    return [{"label": str(d), "value": d} for d in data["items"]]
+
+
+def get_events(participant: int, datestr: str, direction: str, *, logger=None):
+    # Return event-number dropdown options for one participant/date/direction selection.
+    data = fetch_json(
+        f"{API_BASE_URL}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
+        context="get_events",
+        logger=logger,
+    )
+    return [{"label": str(e), "value": e} for e in data["items"]]
+
+
+# -------------------------------------------------
+# Date filter helpers
+# -------------------------------------------------
 
 
 def get_date_part(
@@ -65,6 +114,7 @@ def get_date_part(
     month: int | None = None,
     logger=None,
 ):
+    # Fetch distinct year/month/day values used by the summary page filters.
     params = {}
 
     if participants:
@@ -94,6 +144,7 @@ def get_date_part(
 
 
 def get_date_bounds(participants: list[int] | None = None, *, logger=None):
+    # Fetch the min and max available dates, optionally filtered by participant.
     params = {}
     if participants:
         params["participants"] = ",".join(str(p) for p in participants)
@@ -106,30 +157,41 @@ def get_date_bounds(participants: list[int] | None = None, *, logger=None):
     )
 
 
-def get_directions(participant: int, datestr: str, *, logger=None):
-    data = fetch_json(
-        f"{API_BASE_URL}/api/participants/{participant}/dates/{datestr}/directions",
-        context="get_directions",
-        logger=logger,
-    )
-    return [{"label": str(d), "value": d} for d in data["items"]]
-
-
-def get_events(participant: int, datestr: str, direction: str, *, logger=None):
-    data = fetch_json(
-        f"{API_BASE_URL}/api/participants/{participant}/dates/{datestr}/directions/{direction}/events",
-        context="get_events",
-        logger=logger,
-    )
-    return [{"label": str(e), "value": e} for e in data["items"]]
+# -------------------------------------------------
+# Event detail lookups
+# -------------------------------------------------
 
 
 def get_event_full(event_id: str, *, logger=None):
+    # Fetch the combined event detail payload used by the summary view.
     return fetch_json(
         f"{API_BASE_URL}/api/events/{event_id}/full",
         context="get_event_full",
         logger=logger,
     )
+
+
+def get_event_footstep_p100s(event_id: str, *, logger=None):
+    # (Optional legacy) not needed anymore after the change, but harmless to keep
+    return fetch_json(
+        f"{API_BASE_URL}/api/events/{event_id}/footsteps/p100s",
+        context="get_event_footstep_p100s",
+        logger=logger,
+    )
+
+
+def get_available_metrics(*, logger=None):
+    # Return the list of metrics available for the summary scatter plot.
+    return fetch_json(
+        f"{API_BASE_URL}/api/events/metrics",
+        context="get_available_metrics",
+        logger=logger,
+    )
+
+
+# -------------------------------------------------
+# Summary view data
+# -------------------------------------------------
 
 
 def get_swipe_event_summary_metrics(
@@ -138,6 +200,8 @@ def get_swipe_event_summary_metrics(
     filters=None,
     logger=None,
 ):
+    # Fetch summary scatter-plot data for the selected x/y metrics
+    # and any currently applied summary filters.
     params = {"x": x_key, "y": y_key}
 
     if filters:
@@ -166,38 +230,59 @@ def get_swipe_event_summary_metrics(
     )
 
 
-# (Optional legacy) not needed anymore after the change, but harmless to keep
-def get_event_footstep_p100s(event_id: str, *, logger=None):
-    return fetch_json(
-        f"{API_BASE_URL}/api/events/{event_id}/footsteps/p100s",
-        context="get_event_footstep_p100s",
-        logger=logger,
-    )
-
-
-def get_available_metrics(*, logger=None):
-    return fetch_json(
-        f"{API_BASE_URL}/api/events/metrics",
-        context="get_available_metrics",
-        logger=logger,
-    )
+# -------------------------------------------------
+# Footstep page search
+# -------------------------------------------------
 
 
 def search_footsteps(
     event_ids: list[str] | None = None,
     *,
+    participants: list[int] | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    width_min: int | None = None,
+    width_max: int | None = None,
+    height_min: int | None = None,
+    height_max: int | None = None,
     size_min: int | None = None,
     size_max: int | None = None,
     offset: int = 0,
     limit: int = 60,
     logger=None,
 ):
+    # Build the query params for the Footsteps view search route.
+    #
+    # Only include optional filters when they have values so the request
+    # stays small and easy for the backend to interpret.
     params: dict[str, object] = {
         "offset": offset,
         "limit": limit,
     }
+
     if event_ids:
         params["event_ids"] = ",".join(event_ids)
+
+    if participants:
+        params["participants"] = ",".join(str(p) for p in participants)
+
+    if date_from:
+        params["date_from"] = date_from
+
+    if date_to:
+        params["date_to"] = date_to
+
+    if width_min is not None:
+        params["width_min"] = width_min
+
+    if width_max is not None:
+        params["width_max"] = width_max
+
+    if height_min is not None:
+        params["height_min"] = height_min
+
+    if height_max is not None:
+        params["height_max"] = height_max
 
     if size_min is not None:
         params["size_min"] = size_min

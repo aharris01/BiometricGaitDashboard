@@ -78,7 +78,7 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
 
 
 @pytest.mark.unit
-def test_footstep_view_renders_expected_controls_and_default_state():
+def test_footstep_view_renders_sidebar_filters_and_results_panel():
     root = FootstepView()
 
     assert isinstance(root, html.Div)
@@ -104,29 +104,119 @@ def test_footstep_view_renders_expected_controls_and_default_state():
     assert isinstance(results_panel, html.Div)
     assert props(results_panel)["className"] == "footstep-results-panel"
 
+    # --------------------------------------------
+    # Sidebar structure
+    # --------------------------------------------
     sidebar_children = children_list(sidebar)
-    assert len(sidebar_children) == 3
+    assert len(sidebar_children) == 4
 
     header = sidebar_children[0]
-    field = sidebar_children[1]
-    apply_button = sidebar_children[2]
+    participant_details = sidebar_children[1]
+    date_details = sidebar_children[2]
+    size_details = sidebar_children[3]
 
+    # Header
     assert isinstance(header, html.Div)
-    assert isinstance(children_list(header)[0], html.H3)
-    assert props(children_list(header)[0])["children"] == "Filters"
+    assert props(header)["className"] == "panel-header"
 
-    assert isinstance(field, html.Div)
-    field_children = children_list(field)
-    assert isinstance(field_children[0], html.Label)
-    assert props(field_children[0])["children"] == "Bounding Box Area"
-    assert isinstance(field_children[1], dcc.RangeSlider)
-    assert props(field_children[1])["id"] == "footstep-size-slider"
-    assert props(field_children[1])["value"] == [0, 30000]
+    header_children = children_list(header)
+    assert len(header_children) == 2
 
-    assert isinstance(apply_button, html.Button)
-    assert props(apply_button)["id"] == "btn-apply-footstep-filters"
-    assert props(apply_button)["children"] == "Apply"
+    assert isinstance(header_children[0], html.H3)
+    assert props(header_children[0])["children"] == "Filters"
 
+    actions = header_children[1]
+    assert isinstance(actions, html.Div)
+    assert props(actions)["className"] == "footstep-filter-actions"
+
+    actions_children = children_list(actions)
+    assert len(actions_children) == 2
+
+    assert isinstance(actions_children[0], html.Button)
+    assert props(actions_children[0])["id"] == "btn-clear-footstep-filters"
+    assert props(actions_children[0])["children"] == "Clear"
+
+    assert isinstance(actions_children[1], html.Button)
+    assert props(actions_children[1])["id"] == "btn-apply-footstep-filters"
+    assert props(actions_children[1])["children"] == "OK"
+
+    # Participant details
+    assert isinstance(participant_details, html.Details)
+    assert props(participant_details)["open"] is False
+
+    participant_children = children_list(participant_details)
+    assert len(participant_children) == 2
+    assert isinstance(participant_children[0], html.Summary)
+    assert props(participant_children[0])["children"] == "by participant"
+
+    participant_box = participant_children[1]
+    assert isinstance(participant_box, html.Div)
+    assert props(participant_box)["className"] == "filter_box"
+
+    participant_box_children = children_list(participant_box)
+    assert len(participant_box_children) == 1
+    assert isinstance(participant_box_children[0], dcc.Checklist)
+    assert props(participant_box_children[0])["id"] == "footstep-participant-filter"
+
+    # Date details
+    assert isinstance(date_details, html.Details)
+    assert props(date_details)["open"] is False
+
+    date_children = children_list(date_details)
+    assert len(date_children) == 2
+    assert isinstance(date_children[0], html.Summary)
+    assert props(date_children[0])["children"] == "by date range"
+
+    date_box = date_children[1]
+    assert isinstance(date_box, html.Div)
+    assert props(date_box)["className"] == "filter_box_no_scroll"
+
+    date_box_children = children_list(date_box)
+    assert len(date_box_children) == 1
+    assert isinstance(date_box_children[0], dcc.DatePickerRange)
+    assert props(date_box_children[0])["id"] == "footstep-date-range-filter"
+
+    # Size details
+    assert isinstance(size_details, html.Details)
+    assert props(size_details)["open"] is False
+
+    size_children = children_list(size_details)
+    assert len(size_children) == 2
+    assert isinstance(size_children[0], html.Summary)
+    assert props(size_children[0])["children"] == "by footstep size"
+
+    size_box = size_children[1]
+    assert isinstance(size_box, html.Div)
+    assert props(size_box)["className"] == "filter_box_no_scroll"
+
+    size_box_children = children_list(size_box)
+    assert len(size_box_children) == 3
+
+    height_field = size_box_children[0]
+    width_field = size_box_children[1]
+    total_field = size_box_children[2]
+
+    height_children = children_list(height_field)
+    assert props(height_children[0])["children"] == "Height"
+    assert isinstance(height_children[1], dcc.RangeSlider)
+    assert props(height_children[1])["id"] == "footstep-height-slider"
+    assert props(height_children[1])["value"] == [10, 150]
+
+    width_children = children_list(width_field)
+    assert props(width_children[0])["children"] == "Width"
+    assert isinstance(width_children[1], dcc.RangeSlider)
+    assert props(width_children[1])["id"] == "footstep-width-slider"
+    assert props(width_children[1])["value"] == [10, 130]
+
+    total_children = children_list(total_field)
+    assert props(total_children[0])["children"] == "Total Footstep Size"
+    assert isinstance(total_children[1], dcc.RangeSlider)
+    assert props(total_children[1])["id"] == "footstep-size-slider"
+    assert props(total_children[1])["value"] == [0, 10000]
+
+    # --------------------------------------------
+    # Results panel
+    # --------------------------------------------
     results_children = children_list(results_panel)
     assert len(results_children) == 3
 
@@ -142,7 +232,7 @@ def test_footstep_view_renders_expected_controls_and_default_state():
     assert props(results_header_children[1])["id"] == "footstep-results-status"
     assert (
         props(results_header_children[1])["children"]
-        == "Choose filters, then press Apply."
+        == "Choose filters, then press OK."
     )
 
     assert isinstance(results_grid, html.Div)
@@ -153,7 +243,7 @@ def test_footstep_view_renders_expected_controls_and_default_state():
     assert props(default_children[0])["className"] == "footstep-empty"
     assert (
         props(default_children[0])["children"]
-        == "No footsteps loaded yet. Choose a size range and press Apply."
+        == "No footsteps loaded yet. Choose filters and press OK."
     )
 
     assert isinstance(load_more_wrap, html.Div)

@@ -218,6 +218,19 @@ class SAL:
 
         return data_list, None
 
+    # =========================================================
+    # Footstep metadata access
+    # =========================================================
+    # These helpers read footstep information tied to one event.
+    #
+    # Important:
+    # - get_footsteps() currently reads from metadata.csv on disk
+    # - search_footsteps() uses the DB-backed footstep search path
+    #
+    # So this section is mainly for event-specific detail views,
+    # while the footstep page search uses the DB layer.
+    # =========================================================
+
     def get_footsteps(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
         if event is None:
@@ -311,11 +324,23 @@ class SAL:
         if key not in steps_npz.files:
             return None, None, "missing_file"
 
+        # vol is the full footstep pressure volume across time.
+        # Shape: (time, height, width)
         vol = steps_npz[key]  # (T, H, W)
+
+        # step_p100 is the max pressure image for this footstep.
+        # This is used for footstep heatmap-style rendering.
         step_p100 = vol.max(axis=0)  # (H, W)
+
+        # step_grf is the per-frame total pressure signal.
+        # This is used like a simple force-over-time curve.
         step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
 
         return step_p100, step_grf.tolist(), None
+
+    # Return the max-pressure image for every footstep in one event.
+    # This is mainly used by the summary view when many footsteps
+    # need to be shown without loading each one separately.
 
     def get_all_footstep_p100(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
@@ -347,6 +372,12 @@ class SAL:
 
         items.sort(key=lambda x: x["id"])
         return items, None
+
+    # Return both the max-pressure image and force-over-time data
+    # for every footstep in one event.
+    #
+    # This is a heavier helper than get_all_footstep_p100() and is
+    # meant for views that need both visual and time-series data.
 
     def get_all_footstep_details(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
@@ -653,9 +684,29 @@ class SAL:
 
         return sorted({int(r[0]) for r in rows if r[0] is not None})
 
+    # =========================================================
+    # Footstep page search
+    # =========================================================
+    # This is the main SAL entry point for the Footsteps view.
+    #
+    # Responsibilities:
+    # - normalize incoming filter values
+    # - pass filters to the DB layer
+    # - reshape DB rows into a frontend-friendly response
+    #
+    # The DB layer owns the actual SQL filtering logic.
+    # =========================================================
+
     def search_footsteps(
         self,
         event_ids: list[str] | None = None,
+        participants: list[int] | None = None,
+        date_from=None,
+        date_to=None,
+        width_min: int | None = None,
+        width_max: int | None = None,
+        height_min: int | None = None,
+        height_max: int | None = None,
         size_min: int | None = None,
         size_max: int | None = None,
         offset: int = 0,
@@ -665,10 +716,19 @@ class SAL:
         if event_ids:
             normalized_ids = [str(event_id) for event_id in event_ids if event_id]
 
-        # Footstep search stays behind the SAL/DB boundary so routes and frontend
-        # code never reach into SQLite or dataset files directly.
+        normalized_participants = None
+        if participants:
+            normalized_participants = [int(p) for p in participants]
+
         rows, total = self.db.search_footsteps(
             event_ids=normalized_ids,
+            participants=normalized_participants,
+            date_from=date_from,
+            date_to=date_to,
+            width_min=width_min,
+            width_max=width_max,
+            height_min=height_min,
+            height_max=height_max,
             size_min=size_min,
             size_max=size_max,
             offset=offset,
@@ -681,12 +741,18 @@ class SAL:
                 {
                     "event_id": row["event_id"],
                     "footstep_id": row["footstep_id"],
+                    "participant": row["participant"],
+                    "date": row["date"].isoformat()
+                    if row["date"] is not None
+                    else None,
                     "start_frame": row["start_frame"],
                     "end_frame": row["end_frame"],
                     "x_min": row["x_min"],
                     "x_max": row["x_max"],
                     "y_min": row["y_min"],
                     "y_max": row["y_max"],
+                    "bbox_width": row["bbox_width"],
+                    "bbox_height": row["bbox_height"],
                     "bbox_area": row["bbox_area"],
                 }
             )

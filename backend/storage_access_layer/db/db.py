@@ -1,4 +1,5 @@
 # backend/storage_access_layer/db.py
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -22,6 +23,11 @@ from .schema import (
 )
 from ...scripts.ingest import iter_swipes
 
+
+# -------------------------------------------------
+# Environment / filesystem setup
+# -------------------------------------------------
+
 load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +40,14 @@ DATAROOT = Path(os.environ.get("DATAROOT", "."))
 LOCAL_DB_PATH = PROJECT_ROOT / "local.db"
 
 
+# -------------------------------------------------
+# Shared query helpers
+# -------------------------------------------------
+
+
 def apply_local_filter(query):
+    # Restrict a manifest-based query to events that are available locally.
+    # This keeps the UI focused on data that exists on disk for this machine.
     return query.where(
         exists().where(
             and_(
@@ -46,9 +59,8 @@ def apply_local_filter(query):
 
 
 def event_base_path(event) -> Path:
-    """
-    Build the filesystem path to an event directory based on manifest fields.
-    """
+    # Build the dataset path for one swipe event using manifest fields.
+    # Example: <DATAROOT>/<participant>/<date>/<direction>/<event_number>
     return (
         DATAROOT
         / str(event.participant)
@@ -58,18 +70,25 @@ def event_base_path(event) -> Path:
     )
 
 
+# -------------------------------------------------
+# Main DB access class
+# -------------------------------------------------
+
+
 class DB:
     def __init__(self, engine: Engine | None = None):
         # Engine can be provided for testing
         self._owns_engine = engine is None
 
         if self._owns_engine:
+            # In normal app use, create the local DB engine here.
             self.engine, created_new = _init_db()
         else:  # Engine has been provided for testing
             assert engine is not None
             self.engine = engine
             created_new = False
 
+        # SessionLocal is the single session factory used by this class.
         self.SessionLocal = sessionmaker(
             bind=self.engine,
             autoflush=False,
@@ -78,12 +97,15 @@ class DB:
         )
         # add_local_availability_filter(self.SessionLocal)
 
-        # Database needs to be populated with local data if it was just created
+        # If this is a brand-new local DB, seed it from the local dataset
+        # and the read-only manifest database.
         if self._owns_engine and created_new:
             _seed_db(self)
 
     @contextmanager
     def _get_session(self):
+        # Open a session, commit on success, and roll back on failure.
+        # This keeps transaction handling consistent across the file.
         session = self.SessionLocal()
         try:
             yield session
@@ -95,19 +117,31 @@ class DB:
             session.close()
 
     def close(self):
+        # Dispose the engine when the DB object is no longer needed.
         if self.engine:
             self.engine.dispose()
 
+    # -------------------------------------------------
+    # Local event registration
+    # -------------------------------------------------
+
     # New add_swipe_event function that accepts a LocalSwipeEvent object
     def add_swipe_event(self, swipe_event_obj: LocalSwipeEvent):
+        # Add one locally available swipe event to local.db.
+        # This is used during local DB seeding.
         with self._get_session() as session:
             try:
                 session.add(swipe_event_obj)
             except Exception as e:
                 print(f"{e}: Duplicate found")
 
+    # -------------------------------------------------
+    # Swipe-event metadata queries
+    # -------------------------------------------------
+
     # identical logic to previous version of accessfunctions.py
     def get_participants(self):
+        # Return the list of participants that have locally available events.
         query = apply_local_filter(
             select(distinct(ManifestSwipeEvent.participant))
         ).order_by(ManifestSwipeEvent.participant)
@@ -116,6 +150,7 @@ class DB:
             return session.scalars(query).all()
 
     def get_dates(self, participant):
+        # Return available dates for one participant.
         query = apply_local_filter(
             select(distinct(ManifestSwipeEvent.date)).where(
                 ManifestSwipeEvent.participant == participant
@@ -126,6 +161,7 @@ class DB:
             return session.scalars(query).all()
 
     def get_directions(self, participant, date):
+        # Return available directions for one participant and date.
         query = apply_local_filter(
             select(distinct(ManifestSwipeEvent.direction)).where(
                 ManifestSwipeEvent.participant == participant,
@@ -137,6 +173,7 @@ class DB:
             return session.scalars(query).all()
 
     def get_events(self, participant, date, direction):
+        # Return event numbers for one participant/date/direction combination.
         query = apply_local_filter(
             select(distinct(ManifestSwipeEvent.event_number)).where(
                 ManifestSwipeEvent.participant == participant,
@@ -149,6 +186,7 @@ class DB:
             return session.scalars(query).all()
 
     def get_swipe_event_id(self, participant, date, event, direction):
+        # Resolve the event_id for one participant/date/event/direction selection.
         query = apply_local_filter(
             select(ManifestSwipeEvent.event_id).where(
                 ManifestSwipeEvent.participant == participant,
@@ -162,6 +200,8 @@ class DB:
             return session.scalars(query).first()
 
     def get_swipe_event(self, event_id):
+        # Build the full SwipeEvent model used by the rest of the app.
+        # This combines manifest metadata with the local root path.
         query = (
             select(ManifestSwipeEvent, LocalSwipeEvent.root_path)
             .join(
@@ -189,12 +229,15 @@ class DB:
             return SwipeEvent(**event_dict)
 
     def get_local_event_ids(self):
+        # Return all event IDs tracked in local.db.
         query = select(LocalSwipeEvent.event_id)
 
         with self._get_session() as session:
             return session.scalars(query).all()
 
     def get_local_metrics(self):
+        # Return the local metrics rows joined with participant metadata.
+        # This is used by the metrics view in the frontend.
         query = (
             select(
                 LocalMetrics.event_id,
@@ -215,13 +258,13 @@ class DB:
         with self._get_session() as session:
             return session.execute(query).mappings().all()
 
-        # -------------------------------------------------
-
+    # -------------------------------------------------
     # Footstep view DB queries
     # -------------------------------------------------
-    def get_event_footsteps(
-        self, event_id: str
-    ):  # query interacts with all footsteps for a single event in footstep table
+
+    def get_event_footsteps(self, event_id: str):
+        # Return all footsteps for one event from local.db.
+        # This supports event-specific footstep inspection.
         query = (
             select(
                 LocalFootstep.footstep_id,
@@ -239,9 +282,9 @@ class DB:
         with self._get_session() as session:
             return session.execute(query).mappings().all()
 
-    def get_single_footstep(
-        self, event_id: str, footstep_id: int
-    ):  # query interacts with individual footsteps in footstep table
+    def get_single_footstep(self, event_id: str, footstep_id: int):
+        # Return one footstep row from local.db.
+        # This is the smallest lookup used by the SAL and image routes.
         query = select(LocalFootstep).where(
             LocalFootstep.event_id == event_id,
             LocalFootstep.footstep_id == footstep_id,
@@ -253,43 +296,101 @@ class DB:
     def search_footsteps(
         self,
         event_ids: list[str] | None = None,
+        participants: list[int] | None = None,
+        date_from=None,
+        date_to=None,
+        width_min: int | None = None,
+        width_max: int | None = None,
+        height_min: int | None = None,
+        height_max: int | None = None,
         size_min: int | None = None,
         size_max: int | None = None,
         offset: int = 0,
         limit: int = 60,
     ):
-        # Footstep search now uses the local mirror table so the Footsteps view
-        # reads from local.db instead of manifest.db.
-        bbox_area = (LocalFootstep.x_max - LocalFootstep.x_min) * (
-            LocalFootstep.y_max - LocalFootstep.y_min
-        )
+        # Footstep search uses the local mirror table for editable/local rows,
+        # and joins manifest swipe-event metadata only for participant/date filters.
+        bbox_width = LocalFootstep.x_max - LocalFootstep.x_min
+        bbox_height = LocalFootstep.y_max - LocalFootstep.y_min
+        bbox_area = bbox_width * bbox_height
 
-        # Only search footsteps whose parent swipe events are available locally.
+        # Limit search results to events that are currently present locally.
         local_event_ids = select(LocalSwipeEvent.event_id).where(
             LocalSwipeEvent.present.is_(True)
         )
 
-        items_query = select(
-            LocalFootstep.event_id,
-            LocalFootstep.footstep_id,
-            LocalFootstep.start_frame,
-            LocalFootstep.end_frame,
-            LocalFootstep.x_min,
-            LocalFootstep.x_max,
-            LocalFootstep.y_min,
-            LocalFootstep.y_max,
-            bbox_area.label("bbox_area"),
-        ).where(LocalFootstep.event_id.in_(local_event_ids))
-
-        count_query = (
-            select(func.count())
+        # Main query used to fetch the visible result rows.
+        items_query = (
+            select(
+                LocalFootstep.event_id,
+                LocalFootstep.footstep_id,
+                ManifestSwipeEvent.participant,
+                ManifestSwipeEvent.date,
+                LocalFootstep.start_frame,
+                LocalFootstep.end_frame,
+                LocalFootstep.x_min,
+                LocalFootstep.x_max,
+                LocalFootstep.y_min,
+                LocalFootstep.y_max,
+                bbox_width.label("bbox_width"),
+                bbox_height.label("bbox_height"),
+                bbox_area.label("bbox_area"),
+            )
             .select_from(LocalFootstep)
+            .join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == LocalFootstep.event_id,
+            )
             .where(LocalFootstep.event_id.in_(local_event_ids))
         )
 
+        # Separate count query used for pagination.
+        count_query = (
+            select(func.count())
+            .select_from(LocalFootstep)
+            .join(
+                ManifestSwipeEvent,
+                ManifestSwipeEvent.event_id == LocalFootstep.event_id,
+            )
+            .where(LocalFootstep.event_id.in_(local_event_ids))
+        )
+
+        # Apply filters only when the caller provides them.
         if event_ids:
             items_query = items_query.where(LocalFootstep.event_id.in_(event_ids))
             count_query = count_query.where(LocalFootstep.event_id.in_(event_ids))
+
+        if participants:
+            items_query = items_query.where(
+                ManifestSwipeEvent.participant.in_(participants)
+            )
+            count_query = count_query.where(
+                ManifestSwipeEvent.participant.in_(participants)
+            )
+
+        if date_from is not None:
+            items_query = items_query.where(ManifestSwipeEvent.date >= date_from)
+            count_query = count_query.where(ManifestSwipeEvent.date >= date_from)
+
+        if date_to is not None:
+            items_query = items_query.where(ManifestSwipeEvent.date <= date_to)
+            count_query = count_query.where(ManifestSwipeEvent.date <= date_to)
+
+        if width_min is not None:
+            items_query = items_query.where(bbox_width >= int(width_min))
+            count_query = count_query.where(bbox_width >= int(width_min))
+
+        if width_max is not None:
+            items_query = items_query.where(bbox_width <= int(width_max))
+            count_query = count_query.where(bbox_width <= int(width_max))
+
+        if height_min is not None:
+            items_query = items_query.where(bbox_height >= int(height_min))
+            count_query = count_query.where(bbox_height >= int(height_min))
+
+        if height_max is not None:
+            items_query = items_query.where(bbox_height <= int(height_max))
+            count_query = count_query.where(bbox_height <= int(height_max))
 
         if size_min is not None:
             items_query = items_query.where(bbox_area >= int(size_min))
@@ -299,6 +400,7 @@ class DB:
             items_query = items_query.where(bbox_area <= int(size_max))
             count_query = count_query.where(bbox_area <= int(size_max))
 
+        # Apply stable ordering before pagination.
         items_query = (
             items_query.order_by(
                 LocalFootstep.event_id,
@@ -333,6 +435,7 @@ def _init_db():
 
     @event.listens_for(engine, "connect")
     def _attach_manifest(dbapi_conn, _):
+        # Attach the read-only manifest DB every time a new SQLite connection opens.
         cur = dbapi_conn.cursor()
         cur.execute(
             "ATTACH DATABASE ? AS manifest;",
@@ -355,6 +458,7 @@ def _init_db():
 
 
 def _seed_db(db: DB):
+    # Scan the local dataset and register the swipe events that exist on disk.
     for swipe_data in iter_swipes(DATAROOT):
         swipe_event_obj = LocalSwipeEvent(**swipe_data)
         with db._get_session() as session:
@@ -373,17 +477,11 @@ def _seed_db(db: DB):
 
 
 def copy_metrics_from_manifest_to_local(db) -> int:
-    """
-    Copies rows from manifest.global_metrics into local_metrics
-    for event_ids that exist in local_swipe_event with present == True.
+    # Copy metrics for locally present events from manifest.global_metrics
+    # into local_metrics. Existing rows are updated in place.
+    #
+    # Returns the number of rows SQLite reports as affected.
 
-    Returns number of rows attempted/affected (SQLite reports rowcount best-effort).
-
-    Generated by ChatGPT 5.2 with the following prompt:
-    -------------------------------------------------
-    Write a function that copies rows from manifest.global_metrics into local_metrics
-    for event_ids that exist in local_swipe_event with present == True.
-    """
     with db._get_session() as session:
         # event_ids that exist locally and are marked present
         local_event_ids = select(LocalSwipeEvent.event_id).where(
@@ -416,10 +514,11 @@ def copy_metrics_from_manifest_to_local(db) -> int:
 
 
 def copy_footsteps_from_manifest_to_local(db) -> int:
-    """
-    Copies rows from manifest.footsteps into local_footsteps
-    for event_ids that exist in local_swipe_event with present == True.
-    """
+    # Copy footstep rows for locally present events from manifest.footsteps
+    # into local_footsteps. Existing rows are updated in place.
+    #
+    # The label field is not overwritten because it belongs to local review state.
+
     with db._get_session() as session:
         # event_ids that exist locally and are marked present
         local_event_ids = select(LocalSwipeEvent.event_id).where(
