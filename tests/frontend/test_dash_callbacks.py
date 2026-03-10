@@ -359,8 +359,6 @@ def test_search_footsteps_builds_all_filter_params(monkeypatch):
 
 @pytest.mark.unit
 def test_create_footstep_api(monkeypatch):
-    captured = {}
-
     monkeypatch.setattr(
         api.requests,
         "post",
