@@ -296,6 +296,22 @@ def FootstepView():
                                         className="footstep-review-actions",
                                         children=[
                                             html.Button(
+                                                "Create New",
+                                                id="btn-create-footstep",
+                                                className="mode-btn",
+                                            ),
+                                            html.Button(
+                                                "Cancel Create",
+                                                id="btn-cancel-create-footstep",
+                                                className="mode-btn",
+                                                style={"display": "none"},
+                                            ),
+                                            html.Button(
+                                                "Delete Footstep",
+                                                id="btn-delete-footstep",
+                                                className="mode-btn",
+                                            ),
+                                            html.Button(
                                                 "Show Changelog",
                                                 id="btn-show-footstep-history",
                                                 className="mode-btn",
@@ -334,6 +350,28 @@ def FootstepView():
                             html.Div(
                                 className="footstep-review-fields",
                                 children=[
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("start_frame"),
+                                            dcc.Input(
+                                                id="footstep-create-start-frame",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("end_frame"),
+                                            dcc.Input(
+                                                id="footstep-create-end-frame",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
                                     html.Div(
                                         className="metrics-field",
                                         children=[
@@ -423,6 +461,39 @@ def FootstepView():
                                 id="footstep-review-history",
                                 className="footstep-review-history",
                                 children="No local changes yet.",
+                            ),
+                        ],
+                    )
+                ],
+            ),
+            html.Div(
+                id="footstep-delete-modal",
+                className="footstep-history-modal",
+                style={"display": "none"},
+                children=[
+                    html.Div(
+                        className="footstep-history-modal-card",
+                        children=[
+                            html.H3("Delete local footstep?", className="panel-title"),
+                            html.Div(
+                                "This will remove the selected footstep from local.db. "
+                                "The original source files will not be changed.",
+                                style={"marginBottom": "12px"},
+                            ),
+                            html.Div(
+                                className="footstep-review-actions",
+                                children=[
+                                    html.Button(
+                                        "Cancel",
+                                        id="btn-cancel-delete-footstep",
+                                        className="mode-btn",
+                                    ),
+                                    html.Button(
+                                        "Delete",
+                                        id="btn-confirm-delete-footstep",
+                                        className="ok-btn",
+                                    ),
+                                ],
                             ),
                         ],
                     )

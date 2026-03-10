@@ -311,6 +311,105 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).all()
 
+    def get_next_local_footstep_id(self, event_id: str):
+        # Return the next available local footstep ID for one event.
+        query = select(func.max(LocalFootstep.footstep_id)).where(
+            LocalFootstep.event_id == event_id
+        )
+
+        with self._get_session() as session:
+            current_max = session.execute(query).scalar_one_or_none()
+
+        if current_max is None:
+            return 0
+
+        return int(current_max) + 1
+
+    def create_local_footstep(
+        self,
+        event_id: str,
+        *,
+        start_frame: int,
+        end_frame: int,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        label: str | None,
+    ):
+        # Create one new local footstep row and log the create action.
+        with self._get_session() as session:
+            next_footstep_id = self.get_next_local_footstep_id(event_id)
+
+            row = LocalFootstep(
+                event_id=event_id,
+                footstep_id=next_footstep_id,
+                start_frame=int(start_frame),
+                end_frame=int(end_frame),
+                x_min=int(x_min),
+                x_max=int(x_max),
+                y_min=int(y_min),
+                y_max=int(y_max),
+                label=label,
+            )
+
+            session.add(row)
+
+            session.add(
+                LocalFootstepChange(
+                    event_id=event_id,
+                    footstep_id=next_footstep_id,
+                    action="create",
+                    old_x_min=None,
+                    old_x_max=None,
+                    old_y_min=None,
+                    old_y_max=None,
+                    old_label=None,
+                    new_x_min=int(x_min),
+                    new_x_max=int(x_max),
+                    new_y_min=int(y_min),
+                    new_y_max=int(y_max),
+                    new_label=label,
+                )
+            )
+
+            session.flush()
+            session.refresh(row)
+            return row
+
+    def delete_local_footstep(self, event_id: str, footstep_id: int):
+        # Delete one local footstep row and log the delete action.
+        query = select(LocalFootstep).where(
+            LocalFootstep.event_id == event_id,
+            LocalFootstep.footstep_id == footstep_id,
+        )
+
+        with self._get_session() as session:
+            row = session.scalars(query).first()
+            if row is None:
+                return None
+
+            session.add(
+                LocalFootstepChange(
+                    event_id=event_id,
+                    footstep_id=footstep_id,
+                    action="delete",
+                    old_x_min=int(row.x_min),
+                    old_x_max=int(row.x_max),
+                    old_y_min=int(row.y_min),
+                    old_y_max=int(row.y_max),
+                    old_label=row.label,
+                    new_x_min=None,
+                    new_x_max=None,
+                    new_y_min=None,
+                    new_y_max=None,
+                    new_label=None,
+                )
+            )
+
+            session.delete(row)
+            return True
+
     def update_local_footstep(
         self,
         event_id: str,

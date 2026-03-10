@@ -78,6 +78,7 @@ def build_layout():
                             "footstep_id": None,
                             "review": None,
                             "message": None,
+                            "create_mode": False,
                         },
                         storage_type="memory",
                     ),
