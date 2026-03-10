@@ -119,3 +119,34 @@ class LocalFootstep(LocalBase):
     # Local-only optional label. This supports future manual review/editing
     # without changing the immutable manifest database.
     label: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class LocalFootstepChange(LocalBase):
+    __tablename__ = "local_footstep_changes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    event_id: Mapped[str] = mapped_column(String, nullable=False)
+    footstep_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # For now this will always be "edit".
+    # Later this can also support "create" and "delete".
+    action: Mapped[str] = mapped_column(String, nullable=False)
+
+    changed_at: Mapped[datetime.datetime] = mapped_column(
+        TIMESTAMP,
+        nullable=False,
+        default=datetime.datetime.utcnow,
+    )
+
+    old_x_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    old_x_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    old_y_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    old_y_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    old_label: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    new_x_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_x_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_y_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_y_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_label: Mapped[str | None] = mapped_column(String, nullable=True)

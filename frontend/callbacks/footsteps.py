@@ -1,6 +1,6 @@
 # frontend/callbacks/footsteps.py
 
-from dash import ALL, Input, Output, State, Patch, callback, ctx
+from dash import ALL, Input, Output, State, Patch, callback, ctx, html
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 
@@ -105,6 +105,36 @@ def _make_figure(review: dict, bbox: dict):
     )
 
     return fig
+
+
+def _render_history(changes: list[dict]):
+    if not changes:
+        return "No local changes yet."
+
+    items = []
+    for change in changes:
+        items.append(
+            html.Div(
+                className="footstep-history-item",
+                children=[
+                    html.Div(
+                        f"{change['changed_at']} · {change['action']}",
+                        className="footstep-history-time",
+                    ),
+                    html.Div(
+                        f"BBox: "
+                        f"({change['old_x_min']}, {change['old_y_min']}) - "
+                        f"({change['old_x_max']}, {change['old_y_max']}) "
+                        f"→ "
+                        f"({change['new_x_min']}, {change['new_y_min']}) - "
+                        f"({change['new_x_max']}, {change['new_y_max']})",
+                    ),
+                    html.Div(f"Label: {change['old_label']} → {change['new_label']}"),
+                ],
+            )
+        )
+
+    return items
 
 
 def register(app):
@@ -366,6 +396,7 @@ def register(app):
         Output("footstep-review-y-min", "value"),
         Output("footstep-review-y-max", "value"),
         Output("footstep-review-label", "value"),
+        Output("footstep-review-history", "children"),
         Input("footstep-review-store", "data"),
         prevent_initial_call=False,
     )
@@ -384,6 +415,7 @@ def register(app):
                 None,
                 None,
                 None,
+                "No local changes yet.",
             )
 
         review = review_store["review"]
@@ -400,7 +432,44 @@ def register(app):
             bbox["y_min"],
             bbox["y_max"],
             item.get("label"),
+            _render_history(review.get("changes") or []),
         )
+
+    @callback(
+        Output("footstep-history-modal", "style"),
+        Input("btn-show-footstep-history", "n_clicks"),
+        Input("btn-close-footstep-history", "n_clicks"),
+        Input("footstep-review-store", "data"),
+        State("footstep-history-modal", "style"),
+        prevent_initial_call=False,
+    )
+    def toggle_footstep_history_modal(
+        _show_clicks,
+        _close_clicks,
+        review_store,
+        current_style,
+    ):
+        # Hide the modal if no review is open.
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+        ):
+            return {"display": "none"}
+
+        triggered = ctx.triggered_id
+
+        if triggered == "btn-show-footstep-history":
+            return {"display": "flex"}
+
+        if triggered == "btn-close-footstep-history":
+            return {"display": "none"}
+
+        # Keep the modal open across review-store refreshes if it was already open.
+        if current_style and current_style.get("display") == "flex":
+            return {"display": "flex"}
+
+        return {"display": "none"}
 
     @callback(
         Output("footstep-review-graph", "figure"),
