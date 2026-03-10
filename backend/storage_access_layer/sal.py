@@ -71,12 +71,28 @@ class ReviewBBoxPayload(TypedDict):
     y_max: int
 
 
+class ReviewChangePayload(TypedDict):
+    action: str
+    changed_at: str
+    old_x_min: int | None
+    old_x_max: int | None
+    old_y_min: int | None
+    old_y_max: int | None
+    old_label: str | None
+    new_x_min: int | None
+    new_x_max: int | None
+    new_y_min: int | None
+    new_y_max: int | None
+    new_label: str | None
+
+
 class FootstepReviewPayload(TypedDict):
     item: ReviewItemPayload
     bbox: ReviewBBoxPayload
     event_p100: list[list[float]]
     image_width: int
     image_height: int
+    changes: list[ReviewChangePayload]
 
 
 class SAL:
@@ -354,6 +370,27 @@ class SAL:
         if image_width <= 0 or image_height <= 0:
             return None, "missing_file"
 
+        changes: list[ReviewChangePayload] = []
+        for change in self.db.get_local_footstep_changes(event_id, footstep_id):
+            changes.append(
+                {
+                    "action": change.action,
+                    "changed_at": change.changed_at.isoformat(
+                        sep=" ", timespec="seconds"
+                    ),
+                    "old_x_min": change.old_x_min,
+                    "old_x_max": change.old_x_max,
+                    "old_y_min": change.old_y_min,
+                    "old_y_max": change.old_y_max,
+                    "old_label": change.old_label,
+                    "new_x_min": change.new_x_min,
+                    "new_x_max": change.new_x_max,
+                    "new_y_min": change.new_y_min,
+                    "new_y_max": change.new_y_max,
+                    "new_label": change.new_label,
+                }
+            )
+
         payload: FootstepReviewPayload = {
             "item": {
                 "event_id": event_id,
@@ -371,6 +408,7 @@ class SAL:
             "event_p100": p100,
             "image_width": image_width,
             "image_height": image_height,
+            "changes": changes,
         }
 
         return payload, None

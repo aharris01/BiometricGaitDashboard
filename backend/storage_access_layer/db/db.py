@@ -17,6 +17,7 @@ from .schema import (
     LocalSwipeEvent,
     LocalMetrics,
     LocalFootstep,
+    LocalFootstepChange,
     ManifestMetrics,
     ManifestSwipeEvent,
     ManifestFootstep,
@@ -293,6 +294,23 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).first()
 
+    def get_local_footstep_changes(self, event_id: str, footstep_id: int):
+        # Return all local changelog rows for one footstep.
+        query = (
+            select(LocalFootstepChange)
+            .where(
+                LocalFootstepChange.event_id == event_id,
+                LocalFootstepChange.footstep_id == footstep_id,
+            )
+            .order_by(
+                LocalFootstepChange.changed_at.desc(),
+                LocalFootstepChange.id.desc(),
+            )
+        )
+
+        with self._get_session() as session:
+            return session.scalars(query).all()
+
     def update_local_footstep(
         self,
         event_id: str,
@@ -306,8 +324,8 @@ class DB:
     ):
         # Update one local footstep row in local.db.
         #
-        # This is the write path used by the review editor. The SAL is still
-        # responsible for validating the bbox against the full event image.
+        # Before the row is updated, write the old/new values to the local
+        # changelog table so manual edits remain traceable.
         query = select(LocalFootstep).where(
             LocalFootstep.event_id == event_id,
             LocalFootstep.footstep_id == footstep_id,
@@ -318,11 +336,51 @@ class DB:
             if row is None:
                 return None
 
-            row.x_min = int(x_min)
-            row.x_max = int(x_max)
-            row.y_min = int(y_min)
-            row.y_max = int(y_max)
-            row.label = label
+            old_x_min = int(row.x_min)
+            old_x_max = int(row.x_max)
+            old_y_min = int(row.y_min)
+            old_y_max = int(row.y_max)
+            old_label = row.label
+
+            new_x_min = int(x_min)
+            new_x_max = int(x_max)
+            new_y_min = int(y_min)
+            new_y_max = int(y_max)
+            new_label = label
+
+            # Do not create a changelog row if nothing actually changed.
+            if (
+                old_x_min == new_x_min
+                and old_x_max == new_x_max
+                and old_y_min == new_y_min
+                and old_y_max == new_y_max
+                and old_label == new_label
+            ):
+                return row
+
+            session.add(
+                LocalFootstepChange(
+                    event_id=event_id,
+                    footstep_id=footstep_id,
+                    action="edit",
+                    old_x_min=old_x_min,
+                    old_x_max=old_x_max,
+                    old_y_min=old_y_min,
+                    old_y_max=old_y_max,
+                    old_label=old_label,
+                    new_x_min=new_x_min,
+                    new_x_max=new_x_max,
+                    new_y_min=new_y_min,
+                    new_y_max=new_y_max,
+                    new_label=new_label,
+                )
+            )
+
+            row.x_min = new_x_min
+            row.x_max = new_x_max
+            row.y_min = new_y_min
+            row.y_max = new_y_max
+            row.label = new_label
 
             session.flush()
             session.refresh(row)
@@ -483,11 +541,10 @@ def _init_db():
             text("SELECT name FROM sqlite_master WHERE type='table';")
         ).fetchall()
 
-    created_new = False
-    # No tables returned means the file has just been created and needs to be initialized with tables
-    if not rows:
-        LocalBase.metadata.create_all(engine)
-        created_new = True
+    created_new = not rows
+
+    # Always create any missing local tables.
+    LocalBase.metadata.create_all(engine)
 
     return engine, created_new
 

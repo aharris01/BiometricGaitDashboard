@@ -81,7 +81,10 @@ def FootstepView():
     # This page is split into three main parts:
     # - a filter sidebar on the left
     # - a results panel in the middle
-    # - a review/edit panel on the right
+    # - a review/editor panel on the right
+    #
+    # The changelog opens in a modal so it does not steal width from the
+    # review graph or the thumbnail grid.
     return html.Div(
         id="footstep-view",
         className="hidden",
@@ -116,7 +119,6 @@ def FootstepView():
                                     ),
                                 ],
                             ),
-                            # Filter by participant
                             html.Details(
                                 open=False,
                                 children=[
@@ -140,7 +142,6 @@ def FootstepView():
                                     ),
                                 ],
                             ),
-                            # Filter by date range
                             html.Details(
                                 open=False,
                                 children=[
@@ -162,7 +163,6 @@ def FootstepView():
                                     ),
                                 ],
                             ),
-                            # Filter by footstep size measurements
                             html.Details(
                                 open=False,
                                 children=[
@@ -173,7 +173,6 @@ def FootstepView():
                                     html.Div(
                                         className="filter_box_no_scroll",
                                         children=[
-                                            # Bounding-box height range
                                             html.Div(
                                                 className="metrics-field",
                                                 children=[
@@ -194,7 +193,6 @@ def FootstepView():
                                                     ),
                                                 ],
                                             ),
-                                            # Bounding-box width range
                                             html.Div(
                                                 className="metrics-field",
                                                 children=[
@@ -215,7 +213,6 @@ def FootstepView():
                                                     ),
                                                 ],
                                             ),
-                                            # Total bounding-box area range
                                             html.Div(
                                                 className="metrics-field",
                                                 children=[
@@ -299,6 +296,11 @@ def FootstepView():
                                         className="footstep-review-actions",
                                         children=[
                                             html.Button(
+                                                "Show Changelog",
+                                                id="btn-show-footstep-history",
+                                                className="mode-btn",
+                                            ),
+                                            html.Button(
                                                 "Close",
                                                 id="btn-close-footstep-review",
                                                 className="mode-btn",
@@ -319,7 +321,7 @@ def FootstepView():
                             ),
                             dcc.Graph(
                                 id="footstep-review-graph",
-                                style={"height": "850px"},
+                                style={"height": "780px"},
                                 config={
                                     "displaylogo": False,
                                     "modeBarButtonsToAdd": [
@@ -392,6 +394,39 @@ def FootstepView():
                         ],
                     ),
                 ],
-            )
+            ),
+            # -------------------------------------------------
+            # Changelog modal
+            # -------------------------------------------------
+            html.Div(
+                id="footstep-history-modal",
+                className="footstep-history-modal",
+                style={"display": "none"},
+                children=[
+                    html.Div(
+                        className="footstep-history-modal-card",
+                        children=[
+                            html.Div(
+                                className="panel-header",
+                                children=[
+                                    html.H3(
+                                        "Local Change History", className="panel-title"
+                                    ),
+                                    html.Button(
+                                        "Close",
+                                        id="btn-close-footstep-history",
+                                        className="mode-btn",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                id="footstep-review-history",
+                                className="footstep-review-history",
+                                children="No local changes yet.",
+                            ),
+                        ],
+                    )
+                ],
+            ),
         ],
     )
