@@ -33,6 +33,7 @@ def render_footstep_cards(items: list[dict]):
         event_id = str(item["event_id"])
         footstep_id = int(item["footstep_id"])
         bbox_area = item.get("bbox_area")
+        has_thumbnail = bool(item.get("has_thumbnail", True))
 
         cards.append(
             html.Div(
@@ -54,6 +55,11 @@ def render_footstep_cards(items: list[dict]):
                             html.Img(
                                 src=f"{API_BASE_URL}/api/events/{event_id}/footsteps/{footstep_id}/image",
                                 className="footstep-card-image",
+                            )
+                            if has_thumbnail
+                            else html.Div(
+                                "Placeholder",
+                                className="footstep-card-placeholder",
                             )
                         ],
                     ),

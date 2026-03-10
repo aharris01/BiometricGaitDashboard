@@ -527,11 +527,19 @@ class DB:
                 bbox_width.label("bbox_width"),
                 bbox_height.label("bbox_height"),
                 bbox_area.label("bbox_area"),
+                (ManifestFootstep.footstep_id.is_not(None)).label("has_thumbnail"),
             )
             .select_from(LocalFootstep)
             .join(
                 ManifestSwipeEvent,
                 ManifestSwipeEvent.event_id == LocalFootstep.event_id,
+            )
+            .outerjoin(
+                ManifestFootstep,
+                and_(
+                    ManifestFootstep.event_id == LocalFootstep.event_id,
+                    ManifestFootstep.footstep_id == LocalFootstep.footstep_id,
+                ),
             )
             .where(LocalFootstep.event_id.in_(local_event_ids))
         )

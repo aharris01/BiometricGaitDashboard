@@ -1060,6 +1060,7 @@ class SAL:
                     "bbox_width": row["bbox_width"],
                     "bbox_height": row["bbox_height"],
                     "bbox_area": row["bbox_area"],
+                    "has_thumbnail": bool(row["has_thumbnail"]),
                 }
             )
 
