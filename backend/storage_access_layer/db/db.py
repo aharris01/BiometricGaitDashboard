@@ -558,8 +558,8 @@ def copy_metrics_from_manifest_to_local(db: DB):
             },
         )
 
-        result = session.execute(stmt)
-        return int(result.rowcount) or 0
+        result = session.execute(stmt.returning(LocalMetrics.event_id))
+        return int(len(result.scalars().all())) or 0
 
 
 def copy_footsteps_from_manifest_to_local(db: DB) -> int:
@@ -615,5 +615,5 @@ def copy_footsteps_from_manifest_to_local(db: DB) -> int:
             },
         )
 
-        result = session.execute(stmt)
-        return int(result.rowcount) or 0
+        result = session.execute(stmt.returning(LocalFootstep.event_id))
+        return int(len(result.scalars().all())) or 0
