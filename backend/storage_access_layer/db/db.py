@@ -533,10 +533,11 @@ def copy_metrics_from_manifest_to_local(db: DB):
             .where(LocalSwipeEvent.present.is_(True)),
         )
 
-        session.execute(stmt)
+        result = session.execute(stmt)
+        return int(result.rowcount) or 0
 
 
-def copy_footsteps_from_manifest_to_local(db: DB):
+def copy_footsteps_from_manifest_to_local(db: DB) -> int:
     # Copy footstep rows for locally present events from manifest.footsteps
     # into local_footsteps. Existing rows are updated in place.
     #
@@ -589,4 +590,5 @@ def copy_footsteps_from_manifest_to_local(db: DB):
             },
         )
 
-        session.execute(stmt)
+        result = session.execute(stmt)
+        return int(result.rowcount) or 0
