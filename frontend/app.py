@@ -1,5 +1,6 @@
 # frontend/app.py
 import os
+import logging
 
 from dash import Dash, Input, Output, State
 import plotly.express as px
@@ -49,11 +50,15 @@ app.clientside_callback(
 )
 
 
-def run_dash() -> None:
+def run_dash(debug_mode: bool = False) -> None:
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
     app.run(
-        host=DASH_HOST, port=DASH_PORT, debug=DASH_DEBUG, dev_tools_hot_reload=False
+        host=DASH_HOST,
+        port=DASH_PORT,
+        debug=debug_mode,
+        dev_tools_hot_reload=debug_mode,
     )
 
 
 if __name__ == "__main__":
-    run_dash()
+    run_dash(True)
