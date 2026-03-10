@@ -1,6 +1,7 @@
 # backend/src/routes/footsteps.py
 
 from datetime import date as date_type
+from typing import TypedDict, cast
 
 from flask import Blueprint, jsonify, request
 
@@ -18,6 +19,18 @@ footsteps_bp = Blueprint("footsteps", __name__)
 # -------------------------------------------------
 # Request parsing helpers
 # -------------------------------------------------
+
+
+class ReviewRequestPayload(TypedDict):
+    x_min: int
+    x_max: int
+    y_min: int
+    y_max: int
+    label: str | None
+
+
+class _ReviewPayloadError(ValueError):
+    pass
 
 
 def _parse_event_ids(raw: str | None) -> list[str]:
@@ -85,6 +98,63 @@ def _parse_iso_date(raw: str | None):
             "bad_request",
             f"Invalid date format: {raw}. Expected YYYY-MM-DD",
         )
+
+
+def _coerce_review_int(value: object, key: str) -> int:
+    # Parse one required bbox field from the JSON body.
+    #
+    # Only simple JSON-compatible scalar values are accepted here.
+    # This keeps the parser explicit and Pylance-friendly.
+    if value is None:
+        raise _ReviewPayloadError(f"Missing required field: {key}")
+
+    if not isinstance(value, (int, float, str)):
+        raise _ReviewPayloadError(f"Field {key} must be an integer")
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise _ReviewPayloadError(f"Field {key} must be an integer")
+
+
+def _parse_review_payload():
+    # Parse and validate the JSON body for a bbox/label save request.
+    raw_body = request.get_json(silent=True)
+
+    body: dict[str, object]
+    if isinstance(raw_body, dict):
+        body = cast(dict[str, object], raw_body)
+    else:
+        body = {}
+
+    try:
+        x_min = _coerce_review_int(body.get("x_min"), "x_min")
+        x_max = _coerce_review_int(body.get("x_max"), "x_max")
+        y_min = _coerce_review_int(body.get("y_min"), "y_min")
+        y_max = _coerce_review_int(body.get("y_max"), "y_max")
+    except _ReviewPayloadError as exc:
+        return None, make_error(
+            400,
+            "bad_request",
+            str(exc),
+        )
+
+    label_raw = body.get("label")
+    label: str | None
+    if label_raw is None:
+        label = None
+    else:
+        label = str(label_raw).strip() or None
+
+    parsed: ReviewRequestPayload = {
+        "x_min": x_min,
+        "x_max": x_max,
+        "y_min": y_min,
+        "y_max": y_max,
+        "label": label,
+    }
+
+    return parsed, None
 
 
 # -------------------------------------------------
@@ -181,4 +251,80 @@ def api_search_footsteps():
 
     except Exception as e:
         # Keep unexpected failures in a consistent API error shape.
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@footsteps_bp.get("/api/footsteps/<event_id>/<int:footstep_id>/review")
+def api_get_footstep_review(event_id: str, footstep_id: int):
+    # Return the full-event review payload for one footstep.
+    try:
+        result, err = get_sal().get_footstep_review_context(event_id, footstep_id)
+
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+
+        if err == "missing_file":
+            return make_error(404, "not_found", "footstep not found")
+
+        if result is None:
+            return make_error(
+                500,
+                "internal_error",
+                "review load returned no payload",
+            )
+
+        return jsonify(result)
+
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@footsteps_bp.post("/api/footsteps/<event_id>/<int:footstep_id>/review")
+def api_save_footstep_review(event_id: str, footstep_id: int):
+    # Save one local bbox/label edit and return the refreshed review payload.
+    try:
+        parsed, err = _parse_review_payload()
+        if err:
+            return err
+
+        if parsed is None:
+            return make_error(
+                500,
+                "internal_error",
+                "review payload parser returned no data",
+            )
+
+        result, err = get_sal().save_footstep_review(
+            event_id,
+            footstep_id,
+            x_min=parsed["x_min"],
+            x_max=parsed["x_max"],
+            y_min=parsed["y_min"],
+            y_max=parsed["y_max"],
+            label=parsed["label"],
+        )
+
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+
+        if err == "missing_file":
+            return make_error(404, "not_found", "footstep not found")
+
+        if err == "invalid_bbox":
+            return make_error(
+                400,
+                "bad_request",
+                "bbox must stay inside the full event image and have positive size",
+            )
+
+        if result is None:
+            return make_error(
+                500,
+                "internal_error",
+                "review save returned no payload",
+            )
+
+        return jsonify(result)
+
+    except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))

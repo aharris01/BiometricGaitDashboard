@@ -293,6 +293,41 @@ class DB:
         with self._get_session() as session:
             return session.scalars(query).first()
 
+    def update_local_footstep(
+        self,
+        event_id: str,
+        footstep_id: int,
+        *,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        label: str | None,
+    ):
+        # Update one local footstep row in local.db.
+        #
+        # This is the write path used by the review editor. The SAL is still
+        # responsible for validating the bbox against the full event image.
+        query = select(LocalFootstep).where(
+            LocalFootstep.event_id == event_id,
+            LocalFootstep.footstep_id == footstep_id,
+        )
+
+        with self._get_session() as session:
+            row = session.scalars(query).first()
+            if row is None:
+                return None
+
+            row.x_min = int(x_min)
+            row.x_max = int(x_max)
+            row.y_min = int(y_min)
+            row.y_max = int(y_max)
+            row.label = label
+
+            session.flush()
+            session.refresh(row)
+            return row
+
     def search_footsteps(
         self,
         event_ids: list[str] | None = None,

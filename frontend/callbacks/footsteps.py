@@ -1,39 +1,119 @@
 # frontend/callbacks/footsteps.py
 
-from dash import Input, Output, State, Patch, callback
+from dash import ALL, Input, Output, State, Patch, callback, ctx
 from dash.exceptions import PreventUpdate
+import plotly.graph_objects as go
 
-from frontend.api import get_date_bounds, get_participants, search_footsteps
+from frontend.api import (
+    get_date_bounds,
+    get_footstep_review,
+    get_participants,
+    save_footstep_review,
+    search_footsteps,
+)
 from frontend.views.footstep_view import render_footstep_cards, render_footstep_empty
 
 
-# -------------------------------------------------
-# Small display helpers
-# -------------------------------------------------
+def _empty_review():
+    return {
+        "open": False,
+        "event_id": None,
+        "footstep_id": None,
+        "review": None,
+        "message": None,
+    }
+
+
+def _open_review(event_id: str, footstep_id: int, review: dict, message: str):
+    return {
+        "open": True,
+        "event_id": event_id,
+        "footstep_id": footstep_id,
+        "review": review,
+        "message": message,
+    }
 
 
 def _status_text(loaded: int, total: int) -> str:
-    # Build the status text shown above the footstep results grid.
     return f"Showing {loaded} of {total} footsteps"
 
 
-# -------------------------------------------------
-# Footstep page callbacks
-# -------------------------------------------------
+def _to_int(value, fallback: int) -> int:
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _get_bbox(review: dict, x_min=None, x_max=None, y_min=None, y_max=None):
+    saved = review.get("bbox") or {}
+
+    left = _to_int(x_min, saved.get("x_min", 0))
+    right = _to_int(x_max, saved.get("x_max", 1))
+    top = _to_int(y_min, saved.get("y_min", 0))
+    bottom = _to_int(y_max, saved.get("y_max", 1))
+
+    if left > right:
+        left, right = right, left
+
+    if top > bottom:
+        top, bottom = bottom, top
+
+    return {
+        "x_min": left,
+        "x_max": right,
+        "y_min": top,
+        "y_max": bottom,
+    }
+
+
+def _make_figure(review: dict, bbox: dict):
+    p100 = review.get("event_p100") or []
+
+    fig = go.Figure()
+
+    if p100:
+        fig.add_trace(
+            go.Heatmap(
+                z=p100,
+                colorscale="Jet",
+                showscale=False,
+            )
+        )
+
+        fig.add_shape(
+            type="rect",
+            x0=bbox["x_min"],
+            x1=bbox["x_max"],
+            y0=bbox["y_min"],
+            y1=bbox["y_max"],
+            line={"color": "#00ff66", "width": 2},
+        )
+
+    fig.update_layout(
+        margin={"l": 10, "r": 10, "t": 10, "b": 10},
+        dragmode="drawrect",
+    )
+
+    fig.update_xaxes(showgrid=False, zeroline=False, constrain="domain")
+    fig.update_yaxes(
+        showgrid=False,
+        zeroline=False,
+        autorange="reversed",
+        scaleanchor="x",
+        constrain="domain",
+    )
+
+    return fig
 
 
 def register(app):
-    # -------------------------------------------------
-    # Filter setup / reset
-    # -------------------------------------------------
-
     @callback(
         Output("footstep-participant-filter", "options"),
         Input("page-load", "n_intervals"),
         prevent_initial_call=False,
     )
     def load_footstep_participant_options(_n_intervals):
-        # Load available participant options when the page first initializes.
         return get_participants(logger=app.logger) or []
 
     @callback(
@@ -43,13 +123,8 @@ def register(app):
         prevent_initial_call=False,
     )
     def update_footstep_date_bounds(participants):
-        # Update the allowed date range whenever the participant filter changes.
-        # This keeps the date picker limited to valid values for the current selection.
         bounds = get_date_bounds(participants=participants, logger=app.logger) or {}
-        return (
-            bounds.get("min_date"),
-            bounds.get("max_date"),
-        )
+        return bounds.get("min_date"), bounds.get("max_date")
 
     @callback(
         Output("footstep-participant-filter", "value"),
@@ -58,11 +133,11 @@ def register(app):
         Output("footstep-height-slider", "value"),
         Output("footstep-width-slider", "value"),
         Output("footstep-size-slider", "value"),
+        Output("footstep-review-store", "data", allow_duplicate=True),
         Input("btn-clear-footstep-filters", "n_clicks"),
         prevent_initial_call=True,
     )
     def clear_footstep_filters(_n_clicks):
-        # Reset all footstep view filters back to their default values.
         return (
             [],
             None,
@@ -70,17 +145,15 @@ def register(app):
             [10, 150],
             [10, 130],
             [0, 10000],
+            _empty_review(),
         )
-
-    # -------------------------------------------------
-    # Initial footstep search
-    # -------------------------------------------------
 
     @callback(
         Output("footstep-results-grid", "children"),
         Output("footstep-results-status", "children"),
         Output("footstep-load-more-wrap", "style"),
         Output("footstep-pagination-store", "data"),
+        Output("footstep-review-store", "data", allow_duplicate=True),
         Input("btn-apply-footstep-filters", "n_clicks"),
         State("footstep-size-slider", "value"),
         State("footstep-participant-filter", "value"),
@@ -99,8 +172,6 @@ def register(app):
         height_range,
         width_range,
     ):
-        # Convert slider values into explicit min/max numbers before passing
-        # them into the API search call.
         size_min = None
         size_max = None
         height_min = None
@@ -120,7 +191,6 @@ def register(app):
             width_min = int(width_range[0])
             width_max = int(width_range[1])
 
-        # Start a new search from the first page of results.
         limit = 60
 
         result = search_footsteps(
@@ -142,43 +212,38 @@ def register(app):
         items = result.get("items", [])
         total = int(result.get("total", 0))
 
-        # Render either cards or an empty-state message.
         children = (
             render_footstep_cards(items)
             if items
             else render_footstep_empty("No matching footsteps.")
         )
 
-        # Only show the Load More button if there are more results to fetch.
         load_more_style = (
             {"display": "block", "marginTop": "12px"}
             if total > len(items)
             else {"display": "none"}
         )
 
-        # Save the active filters in pagination_store so later "load more"
-        # requests can continue using the same filter set.
+        pagination_store = {
+            "offset": len(items),
+            "limit": limit,
+            "total": total,
+            "applied": True,
+            "participants": participants or [],
+            "start_date": start_date,
+            "end_date": end_date,
+            "height_range": height_range or [10, 150],
+            "width_range": width_range or [10, 130],
+            "size_range": size_range or [0, 10000],
+        }
+
         return (
             children,
             _status_text(len(items), total),
             load_more_style,
-            {
-                "offset": len(items),
-                "limit": limit,
-                "total": total,
-                "applied": True,
-                "participants": participants or [],
-                "start_date": start_date,
-                "end_date": end_date,
-                "height_range": height_range or [10, 150],
-                "width_range": width_range or [10, 130],
-                "size_range": size_range or [0, 10000],
-            },
+            pagination_store,
+            _empty_review(),
         )
-
-    # -------------------------------------------------
-    # Pagination / load more
-    # -------------------------------------------------
 
     @callback(
         Output("footstep-results-grid", "children", allow_duplicate=True),
@@ -190,7 +255,6 @@ def register(app):
         prevent_initial_call=True,
     )
     def load_more_footsteps(_n_clicks, pagination_store):
-        # Do nothing if no search has been applied yet.
         if not pagination_store or not pagination_store.get("applied"):
             raise PreventUpdate
 
@@ -198,33 +262,24 @@ def register(app):
         limit = int(pagination_store.get("limit", 60))
         total = int(pagination_store.get("total", 0))
 
-        # Stop if all matching results have already been loaded.
         if offset >= total:
             raise PreventUpdate
 
-        # Reuse the most recently applied filter values.
         size_range = pagination_store.get("size_range", [0, 10000])
         height_range = pagination_store.get("height_range", [10, 150])
         width_range = pagination_store.get("width_range", [10, 130])
-
-        size_min = int(size_range[0])
-        size_max = int(size_range[1])
-        height_min = int(height_range[0])
-        height_max = int(height_range[1])
-        width_min = int(width_range[0])
-        width_max = int(width_range[1])
 
         result = search_footsteps(
             event_ids=None,
             participants=pagination_store.get("participants") or None,
             date_from=pagination_store.get("start_date"),
             date_to=pagination_store.get("end_date"),
-            width_min=width_min,
-            width_max=width_max,
-            height_min=height_min,
-            height_max=height_max,
-            size_min=size_min,
-            size_max=size_max,
+            width_min=int(width_range[0]),
+            width_max=int(width_range[1]),
+            height_min=int(height_range[0]),
+            height_max=int(height_range[1]),
+            size_min=int(size_range[0]),
+            size_max=int(size_range[1]),
             offset=offset,
             limit=limit,
             logger=app.logger,
@@ -234,14 +289,11 @@ def register(app):
         if not items:
             raise PreventUpdate
 
-        # Append new cards to the existing results instead of rebuilding
-        # the whole grid from scratch.
         patch = Patch()
         for card in render_footstep_cards(items):
             patch.append(card)
 
         new_offset = offset + len(items)
-
         load_more_style = (
             {"display": "block", "marginTop": "12px"}
             if new_offset < total
@@ -256,4 +308,275 @@ def register(app):
                 **pagination_store,
                 "offset": new_offset,
             },
+        )
+
+    @callback(
+        Output("footstep-review-store", "data", allow_duplicate=True),
+        Input(
+            {"type": "footstep-review-open", "event_id": ALL, "footstep_id": ALL},
+            "n_clicks",
+        ),
+        Input("btn-close-footstep-review", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def open_or_close_footstep_review(_open_clicks, _close_clicks):
+        triggered = ctx.triggered_id
+
+        if triggered == "btn-close-footstep-review":
+            return _empty_review()
+
+        if not isinstance(triggered, dict):
+            raise PreventUpdate
+
+        if triggered.get("type") != "footstep-review-open":
+            raise PreventUpdate
+
+        clicked_value = None
+        if ctx.inputs_list and isinstance(ctx.inputs_list[0], list):
+            for item in ctx.inputs_list[0]:
+                if item.get("id") == triggered:
+                    clicked_value = item.get("value")
+                    break
+
+        if clicked_value in (None, 0):
+            raise PreventUpdate
+
+        event_id = str(triggered["event_id"])
+        footstep_id = int(triggered["footstep_id"])
+
+        review = get_footstep_review(
+            event_id,
+            footstep_id,
+            logger=app.logger,
+        )
+
+        return _open_review(
+            event_id,
+            footstep_id,
+            review,
+            "Drag the box or edit the numbers, then click Save.",
+        )
+
+    @callback(
+        Output("footstep-review-panel", "style"),
+        Output("footstep-review-title", "children"),
+        Output("footstep-review-status", "children"),
+        Output("footstep-review-x-min", "value"),
+        Output("footstep-review-x-max", "value"),
+        Output("footstep-review-y-min", "value"),
+        Output("footstep-review-y-max", "value"),
+        Output("footstep-review-label", "value"),
+        Input("footstep-review-store", "data"),
+        prevent_initial_call=False,
+    )
+    def populate_footstep_review_panel(review_store):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+        ):
+            return (
+                {"display": "none"},
+                "Review",
+                "Click a footstep thumbnail to edit its bbox on the full event image.",
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+
+        review = review_store["review"]
+        item = review["item"]
+        bbox = review["bbox"]
+
+        return (
+            {"display": "block"},
+            f"{item['event_id']} · Step {item['footstep_id']}",
+            review_store.get("message")
+            or "Drag the box or edit the numbers, then click Save.",
+            bbox["x_min"],
+            bbox["x_max"],
+            bbox["y_min"],
+            bbox["y_max"],
+            item.get("label"),
+        )
+
+    @callback(
+        Output("footstep-review-graph", "figure"),
+        Input("footstep-review-store", "data"),
+        Input("footstep-review-x-min", "value"),
+        Input("footstep-review-x-max", "value"),
+        Input("footstep-review-y-min", "value"),
+        Input("footstep-review-y-max", "value"),
+        prevent_initial_call=False,
+    )
+    def draw_footstep_review_graph(review_store, x_min, x_max, y_min, y_max):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+        ):
+            return go.Figure()
+
+        review = review_store["review"]
+        bbox = _get_bbox(
+            review,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+        )
+        return _make_figure(review, bbox)
+
+    @callback(
+        Output("footstep-review-x-min", "value", allow_duplicate=True),
+        Output("footstep-review-x-max", "value", allow_duplicate=True),
+        Output("footstep-review-y-min", "value", allow_duplicate=True),
+        Output("footstep-review-y-max", "value", allow_duplicate=True),
+        Input("footstep-review-graph", "relayoutData"),
+        State("footstep-review-store", "data"),
+        State("footstep-review-x-min", "value"),
+        State("footstep-review-x-max", "value"),
+        State("footstep-review-y-min", "value"),
+        State("footstep-review-y-max", "value"),
+        prevent_initial_call=True,
+    )
+    def sync_bbox_inputs_from_graph(
+        relayout_data,
+        review_store,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+    ):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+            or not relayout_data
+        ):
+            raise PreventUpdate
+
+        review = review_store["review"]
+        bbox = _get_bbox(
+            review,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+        )
+
+        if "shapes" in relayout_data and relayout_data["shapes"]:
+            shape = relayout_data["shapes"][-1]
+            return (
+                int(
+                    round(
+                        min(
+                            shape.get("x0", bbox["x_min"]),
+                            shape.get("x1", bbox["x_max"]),
+                        )
+                    )
+                ),
+                int(
+                    round(
+                        max(
+                            shape.get("x0", bbox["x_min"]),
+                            shape.get("x1", bbox["x_max"]),
+                        )
+                    )
+                ),
+                int(
+                    round(
+                        min(
+                            shape.get("y0", bbox["y_min"]),
+                            shape.get("y1", bbox["y_max"]),
+                        )
+                    )
+                ),
+                int(
+                    round(
+                        max(
+                            shape.get("y0", bbox["y_min"]),
+                            shape.get("y1", bbox["y_max"]),
+                        )
+                    )
+                ),
+            )
+
+        if (
+            "shapes[0].x0" in relayout_data
+            and "shapes[0].x1" in relayout_data
+            and "shapes[0].y0" in relayout_data
+            and "shapes[0].y1" in relayout_data
+        ):
+            x0 = relayout_data["shapes[0].x0"]
+            x1 = relayout_data["shapes[0].x1"]
+            y0 = relayout_data["shapes[0].y0"]
+            y1 = relayout_data["shapes[0].y1"]
+
+            return (
+                int(round(min(x0, x1))),
+                int(round(max(x0, x1))),
+                int(round(min(y0, y1))),
+                int(round(max(y0, y1))),
+            )
+
+        raise PreventUpdate
+
+    @callback(
+        Output("footstep-review-store", "data", allow_duplicate=True),
+        Input("btn-save-footstep-review", "n_clicks"),
+        State("footstep-review-store", "data"),
+        State("footstep-review-x-min", "value"),
+        State("footstep-review-x-max", "value"),
+        State("footstep-review-y-min", "value"),
+        State("footstep-review-y-max", "value"),
+        State("footstep-review-label", "value"),
+        prevent_initial_call=True,
+    )
+    def save_current_footstep_review(
+        _n_clicks,
+        review_store,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        label,
+    ):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+        ):
+            raise PreventUpdate
+
+        event_id = str(review_store["event_id"])
+        footstep_id = int(review_store["footstep_id"])
+        review = review_store["review"]
+
+        bbox = _get_bbox(
+            review,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+        )
+
+        saved = save_footstep_review(
+            event_id,
+            footstep_id,
+            x_min=bbox["x_min"],
+            x_max=bbox["x_max"],
+            y_min=bbox["y_min"],
+            y_max=bbox["y_max"],
+            label=label,
+            logger=app.logger,
+        )
+
+        return _open_review(
+            event_id,
+            footstep_id,
+            saved,
+            "Saved local bbox and label.",
         )

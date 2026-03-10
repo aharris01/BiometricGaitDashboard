@@ -71,6 +71,17 @@ def build_layout():
                         storage_type="session",
                     ),
                     Store(
+                        id="footstep-review-store",
+                        data={
+                            "open": False,
+                            "event_id": None,
+                            "footstep_id": None,
+                            "review": None,
+                            "message": None,
+                        },
+                        storage_type="memory",
+                    ),
+                    Store(
                         id="metrics_filter_participant_state",
                         data={"prev": []},
                         storage_type="session",

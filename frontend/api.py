@@ -57,6 +57,40 @@ def fetch_json(
         raise PreventUpdate
 
 
+def post_json(
+    url: str,
+    *,
+    payload: dict,
+    timeout: int = 5,
+    context: str = "api_post",
+    logger=None,
+):
+    # Send a POST request and return the decoded JSON body.
+    #
+    # If the request fails, log the error and raise PreventUpdate
+    # so the Dash callback can fail quietly instead of crashing the UI.
+    try:
+        resp = requests.post(url, json=payload, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        message = None
+        details = None
+        resp = getattr(exc, "response", None)
+        if resp is not None:
+            try:
+                data = resp.json()
+                message = data.get("message")
+                details = data.get("details")
+            except Exception:
+                pass
+
+        if logger:
+            logger.error(f"[{context}] Failed to post {url}: {message} - {details}")
+
+        raise PreventUpdate
+
+
 # -------------------------------------------------
 # Basic metadata lookups
 # -------------------------------------------------
@@ -294,5 +328,40 @@ def search_footsteps(
         f"{API_BASE_URL}/api/footsteps/search",
         params=params,
         context="search_footsteps",
+        logger=logger,
+    )
+
+
+def get_footstep_review(event_id: str, footstep_id: int, *, logger=None):
+    # Fetch the full-event review payload for one footstep.
+    return fetch_json(
+        f"{API_BASE_URL}/api/footsteps/{event_id}/{footstep_id}/review",
+        context="get_footstep_review",
+        logger=logger,
+    )
+
+
+def save_footstep_review(
+    event_id: str,
+    footstep_id: int,
+    *,
+    x_min: int,
+    x_max: int,
+    y_min: int,
+    y_max: int,
+    label: str | None,
+    logger=None,
+):
+    # Save one local footstep bbox/label edit and return the refreshed payload.
+    return post_json(
+        f"{API_BASE_URL}/api/footsteps/{event_id}/{footstep_id}/review",
+        payload={
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_min,
+            "y_max": y_max,
+            "label": label,
+        },
+        context="save_footstep_review",
         logger=logger,
     )
