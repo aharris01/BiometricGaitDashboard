@@ -1,5 +1,5 @@
 # frontend/callbacks/footsteps.py
-
+import numpy as np
 from dash import ALL, Input, Output, State, Patch, callback, ctx, html
 from dash.exceptions import PreventUpdate
 import plotly.express as px
@@ -484,7 +484,7 @@ def register(app, *, cmap):
             or not review_store.get("open")
             or not review_store.get("review")
         ):
-            return px.imshow([])
+            return px.imshow(np.zeros((720, 480)))
 
         review = review_store["review"]
         bbox = _get_bbox(
