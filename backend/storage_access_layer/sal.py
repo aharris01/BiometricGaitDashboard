@@ -307,40 +307,23 @@ class SAL:
         if event is None:
             return None, "missing_event"
 
-        # try:
-        #     trial_path = uri_to_path(event.trial_npz_uri)
-        # except ValueError:
-        #     return None, "missing_file"
-
-        # meta_path = trial_path.with_name("metadata.csv")
-        # if not meta_path.exists():
-        #     return None, "missing_file"
-
         rows = self.db.get_event_footsteps(event_id)
 
-        # try:
-        #     with meta_path.open(newline="") as f:
-        #         reader = csv.DictReader(f)
-        #         rows = list(reader)
-        # except Exception:
-        #     return None, "missing_file"
-
         steps: list[dict] = []
-        try:
-            for row in rows:
-                steps.append(
-                    {
-                        "id": int(row.footstep_id),
-                        "start_frame": int(row.start_frame),
-                        "end_frame": int(row.end_frame),
-                        "x_min": int(row.x_min),
-                        "x_max": int(row.x_max),
-                        "y_min": int(row.y_min),
-                        "y_max": int(row.y_max),
-                    }
-                )
-        except (KeyError, ValueError):
-            return None, "missing_file"
+        for row in rows:
+            steps.append(
+                {
+                    "id": int(row.footstep_id),
+                    "start_frame": int(row.start_frame),
+                    "end_frame": int(row.end_frame),
+                    "x_min": int(row.x_min),
+                    "x_max": int(row.x_max),
+                    "y_min": int(row.y_min),
+                    "y_max": int(row.y_max),
+                }
+            )
+        if len(steps) == 0:
+            return None, "missing_footsteps"
 
         return steps, None
 
@@ -359,7 +342,7 @@ class SAL:
         row = self.db.get_single_footstep(event_id, footstep_id)
 
         if row is None:
-            return None, "missing_file"
+            return None, "no_footstep"
 
         return (
             {

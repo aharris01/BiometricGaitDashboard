@@ -44,6 +44,9 @@ def fake_db():
         def get_distinct_date_part(self, part):
             return []
 
+        def get_event_footsteps(self, event_id):
+            return []
+
         def _get_session(self):
             raise NotImplementedError
 
@@ -82,17 +85,20 @@ def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
 
 
 @pytest.mark.unit
-def test_get_footsteps_bad_csv_returns_missing_file(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((2, 2)))
+def test_get_footsteps_no_event(sal, fake_db):
+    fake_db._event = None
+    footsteps, err = sal.get_footsteps("evt-1")
+    assert footsteps is None
+    assert err == "missing_event"
 
-    meta = trial.with_name("metadata.csv")
-    meta.write_text("FootstepID,StartFrame\n0,10\n")
 
-    fake_db._event = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
-    steps, err = sal.get_footsteps("evt-1")
-    assert steps is None
-    assert err == "missing_file"
+@pytest.mark.unit
+def test_get_footsteps_no_footsteps(sal, fake_db):
+    fake_db._event = SimpleNamespace()
+    fake_db.get_event_footsteps = MagicMock(return_value=[])
+    footsteps, err = sal.get_footsteps("evt-1")
+    assert footsteps is None
+    assert err == "missing_footsteps"
 
 
 @pytest.mark.unit
@@ -307,14 +313,14 @@ def test_get_single_footstep_ok(sal, fake_db):
 
 
 @pytest.mark.unit
-def test_get_single_footstep_missing_file(sal, fake_db):
+def test_get_single_footstep_no_footstep(sal, fake_db):
     fake_db._event = SimpleNamespace()
     fake_db.get_single_footstep = MagicMock(return_value=None)
 
     out, err = sal.get_single_footstep("evt-1", 4)
 
     assert out is None
-    assert err == "missing_file"
+    assert err == "no_footstep"
 
 
 @pytest.mark.unit
