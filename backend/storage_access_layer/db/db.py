@@ -241,7 +241,7 @@ class DB:
         query = (
             select(
                 LocalMetrics.event_id,
-                LocalMetrics.average_bounding_box_size,
+                LocalMetrics.avg_bbox_size,
                 LocalMetrics.step_count,
                 ManifestSwipeEvent.participant,
             )
@@ -486,7 +486,7 @@ def copy_metrics_from_manifest_to_local(db: DB):
         stmt = sqlite_insert(LocalMetrics).from_select(
             [
                 LocalMetrics.event_id,
-                LocalMetrics.average_bounding_box_size,
+                LocalMetrics.avg_bbox_size,
                 LocalMetrics.std_dev_bounding_box_area,
                 LocalMetrics.variance_bounding_box_area,
                 LocalMetrics.mean_width,

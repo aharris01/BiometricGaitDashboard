@@ -90,7 +90,7 @@ class LocalMetrics(LocalBase):
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
 
-    average_bounding_box_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    avg_bbox_size: Mapped[int] = mapped_column(Integer, nullable=False)
     std_dev_bounding_box_area: Mapped[Float] = mapped_column(Float, nullable=True)
     variance_bounding_box_area: Mapped[int] = mapped_column(Integer, nullable=True)
     mean_width: Mapped[int] = mapped_column(Integer, nullable=True)
