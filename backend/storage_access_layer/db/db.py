@@ -241,7 +241,7 @@ class DB:
         query = (
             select(
                 LocalMetrics.event_id,
-                LocalMetrics.average_bounding_box_size,
+                LocalMetrics.avg_bbox_size,
                 LocalMetrics.step_count,
                 ManifestSwipeEvent.participant,
             )
@@ -476,44 +476,93 @@ def _seed_db(db: DB):
     copy_footsteps_from_manifest_to_local(db)
 
 
-def copy_metrics_from_manifest_to_local(db) -> int:
+def copy_metrics_from_manifest_to_local(db: DB):
     # Copy metrics for locally present events from manifest.global_metrics
     # into local_metrics. Existing rows are updated in place.
     #
     # Returns the number of rows SQLite reports as affected.
 
     with db._get_session() as session:
-        # event_ids that exist locally and are marked present
         local_event_ids = select(LocalSwipeEvent.event_id).where(
             LocalSwipeEvent.present.is_(True)
         )
 
-        # rows to copy from manifest.global_metrics
-        src = select(
+        select_stmt = select(
             ManifestMetrics.event_id,
             ManifestMetrics.avg_bbox_size,
+            ManifestMetrics.std_dev_bounding_box_area,
+            ManifestMetrics.variance_bounding_box_area,
+            ManifestMetrics.mean_width,
+            ManifestMetrics.mean_height,
+            ManifestMetrics.variance_bounding_box_width,
+            ManifestMetrics.variance_bounding_box_height,
             ManifestMetrics.step_count,
+            ManifestMetrics.step_count_on_path,
+            ManifestMetrics.total_trial_area,
+            ManifestMetrics.mean_step_distance,
+            ManifestMetrics.variance_step_distance,
+            ManifestMetrics.active_trial_duration_all,
+            ManifestMetrics.active_trial_duration_path,
+            ManifestMetrics.max_footstep_duration_frames,
+            ManifestMetrics.mean_heading_angle,
+            ManifestMetrics.std_heading_angle,
+            ManifestMetrics.variance_heading_angle,
         ).where(ManifestMetrics.event_id.in_(local_event_ids))
 
-        # INSERT ... SELECT ... with ON CONFLICT(event_id) DO UPDATE
         insert_stmt = sqlite_insert(LocalMetrics).from_select(
-            ["event_id", "average_bounding_box_size", "step_count"],
-            src,
+            [
+                LocalMetrics.event_id,
+                LocalMetrics.avg_bbox_size,
+                LocalMetrics.std_dev_bounding_box_area,
+                LocalMetrics.variance_bounding_box_area,
+                LocalMetrics.mean_width,
+                LocalMetrics.mean_height,
+                LocalMetrics.variance_bounding_box_width,
+                LocalMetrics.variance_bounding_box_height,
+                LocalMetrics.step_count,
+                LocalMetrics.step_count_on_path,
+                LocalMetrics.total_trial_area,
+                LocalMetrics.mean_step_distance,
+                LocalMetrics.variance_step_distance,
+                LocalMetrics.active_trial_duration_all,
+                LocalMetrics.active_trial_duration_path,
+                LocalMetrics.max_footstep_duration_frames,
+                LocalMetrics.mean_heading_angle,
+                LocalMetrics.std_heading_angle,
+                LocalMetrics.variance_heading_angle,
+            ],
+            select_stmt,
         )
+
         stmt = insert_stmt.on_conflict_do_update(
             index_elements=[LocalMetrics.event_id],
             set_={
-                "average_bounding_box_size": insert_stmt.excluded.average_bounding_box_size,
+                "avg_bbox_size": insert_stmt.excluded.avg_bbox_size,
+                "std_dev_bounding_box_area": insert_stmt.excluded.std_dev_bounding_box_area,
+                "variance_bounding_box_area": insert_stmt.excluded.variance_bounding_box_area,
+                "mean_width": insert_stmt.excluded.mean_width,
+                "mean_height": insert_stmt.excluded.mean_height,
+                "variance_bounding_box_width": insert_stmt.excluded.variance_bounding_box_width,
+                "variance_bounding_box_height": insert_stmt.excluded.variance_bounding_box_height,
                 "step_count": insert_stmt.excluded.step_count,
+                "step_count_on_path": insert_stmt.excluded.step_count_on_path,
+                "total_trial_area": insert_stmt.excluded.total_trial_area,
+                "mean_step_distance": insert_stmt.excluded.mean_step_distance,
+                "variance_step_distance": insert_stmt.excluded.variance_step_distance,
+                "active_trial_duration_all": insert_stmt.excluded.active_trial_duration_all,
+                "active_trial_duration_path": insert_stmt.excluded.active_trial_duration_path,
+                "max_footstep_duration_frames": insert_stmt.excluded.max_footstep_duration_frames,
+                "mean_heading_angle": insert_stmt.excluded.mean_heading_angle,
+                "std_heading_angle": insert_stmt.excluded.std_heading_angle,
+                "variance_heading_angle": insert_stmt.excluded.variance_heading_angle,
             },
         )
 
-        result = session.execute(stmt)
-        # session.commit() is handled by your context manager
-        return int(result.rowcount or 0)
+        result = session.execute(stmt.returning(LocalMetrics.event_id))
+        return int(len(result.scalars().all())) or 0
 
 
-def copy_footsteps_from_manifest_to_local(db) -> int:
+def copy_footsteps_from_manifest_to_local(db: DB) -> int:
     # Copy footstep rows for locally present events from manifest.footsteps
     # into local_footsteps. Existing rows are updated in place.
     #
@@ -566,5 +615,5 @@ def copy_footsteps_from_manifest_to_local(db) -> int:
             },
         )
 
-        result = session.execute(stmt)
-        return int(result.rowcount or 0)
+        result = session.execute(stmt.returning(LocalFootstep.event_id))
+        return int(len(result.scalars().all())) or 0
