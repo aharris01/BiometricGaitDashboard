@@ -16,6 +16,7 @@ import numpy as np
 from . import validators as v
 from .db.db import DB
 from .db.schema import (
+    LocalMetrics,
     LocalSwipeEvent,
     ManifestMetrics,
     ManifestSwipeEvent,
@@ -905,14 +906,14 @@ class SAL:
         with self.db._get_session() as session:
             query = (
                 select(
-                    ManifestMetrics.event_id,
-                    getattr(ManifestMetrics, x).label(x),
-                    getattr(ManifestMetrics, y).label(y),
+                    LocalMetrics.event_id,
+                    getattr(LocalMetrics, x).label(x),
+                    getattr(LocalMetrics, y).label(y),
                 )
-                .select_from(ManifestMetrics)
+                .select_from(LocalMetrics)
                 .join(
                     ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                    ManifestSwipeEvent.event_id == LocalMetrics.event_id,
                 )
             )
 
@@ -946,10 +947,10 @@ class SAL:
                     func.min(ManifestSwipeEvent.date),
                     func.max(ManifestSwipeEvent.date),
                 )
-                .select_from(ManifestMetrics)
+                .select_from(LocalMetrics)
                 .join(
                     ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                    ManifestSwipeEvent.event_id == LocalMetrics.event_id,
                 )
             )
 
@@ -973,10 +974,10 @@ class SAL:
         with self.db._get_session() as session:
             query = (
                 select(extract(part, ManifestSwipeEvent.date).label(part))
-                .select_from(ManifestMetrics)
+                .select_from(LocalMetrics)
                 .join(
                     ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                    ManifestSwipeEvent.event_id == LocalMetrics.event_id,
                 )
                 .distinct()
                 .order_by(part)

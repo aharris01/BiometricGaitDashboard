@@ -69,7 +69,7 @@ def test_copy_metrics_upserts(seeded_db):
     assert again in (0, 1)
     with seeded_db._get_session() as s:
         row = s.get(LocalMetrics, "EV_PRESENT")
-        assert row.average_bounding_box_size == 3.14
+        assert row.avg_bbox_size == 3.14
         assert row.step_count == 7
 
 
