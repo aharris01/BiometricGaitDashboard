@@ -3,7 +3,6 @@
 # Standard library
 import atexit
 import os
-import csv
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -275,34 +274,36 @@ class SAL:
         if event is None:
             return None, "missing_event"
 
-        try:
-            trial_path = uri_to_path(event.trial_npz_uri)
-        except ValueError:
-            return None, "missing_file"
+        # try:
+        #     trial_path = uri_to_path(event.trial_npz_uri)
+        # except ValueError:
+        #     return None, "missing_file"
 
-        meta_path = trial_path.with_name("metadata.csv")
-        if not meta_path.exists():
-            return None, "missing_file"
+        # meta_path = trial_path.with_name("metadata.csv")
+        # if not meta_path.exists():
+        #     return None, "missing_file"
 
-        try:
-            with meta_path.open(newline="") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-        except Exception:
-            return None, "missing_file"
+        rows = self.db.get_event_footsteps(event_id)
+
+        # try:
+        #     with meta_path.open(newline="") as f:
+        #         reader = csv.DictReader(f)
+        #         rows = list(reader)
+        # except Exception:
+        #     return None, "missing_file"
 
         steps: list[dict] = []
         try:
             for row in rows:
                 steps.append(
                     {
-                        "id": int(row["FootstepID"]),
-                        "start_frame": int(row["StartFrame"]),
-                        "end_frame": int(row["EndFrame"]),
-                        "x_min": int(row["XMin"]),
-                        "x_max": int(row["XMax"]),
-                        "y_min": int(row["YMin"]),
-                        "y_max": int(row["YMax"]),
+                        "id": int(row.footstep_id),
+                        "start_frame": int(row.start_frame),
+                        "end_frame": int(row.end_frame),
+                        "x_min": int(row.x_min),
+                        "x_max": int(row.x_max),
+                        "y_min": int(row.y_min),
+                        "y_max": int(row.y_max),
                     }
                 )
         except (KeyError, ValueError):
