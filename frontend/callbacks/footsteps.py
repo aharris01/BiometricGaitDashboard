@@ -95,6 +95,7 @@ def _make_figure(review: dict, bbox: dict, cmap):
         margin={"l": 10, "r": 10, "t": 10, "b": 10},
         dragmode="drawrect",
         coloraxis_showscale=False,
+        uirevision=True,
     )
 
     fig.update_xaxes(showgrid=False, zeroline=False, constrain="domain")
