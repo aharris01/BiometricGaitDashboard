@@ -1,6 +1,6 @@
 # frontend/callbacks/footsteps.py
 
-from dash import ALL, Input, Output, State, Patch, callback, ctx, html
+from dash import ALL, Input, Output, State, Patch, callback, ctx, html, no_update
 from dash.exceptions import PreventUpdate
 import numpy as np
 import plotly.express as px
@@ -691,8 +691,10 @@ def register(app, *, cmap):
 
     @callback(
         Output("footstep-review-store", "data", allow_duplicate=True),
+        Output("btn-apply-footstep-filters", "n_clicks", allow_duplicate=True),
         Input("btn-create-footstep", "n_clicks"),
         State("footstep-review-store", "data"),
+        State("btn-apply-footstep-filters", "n_clicks"),
         State("footstep-create-start-frame", "value"),
         State("footstep-create-end-frame", "value"),
         State("footstep-review-x-min", "value"),
@@ -705,6 +707,7 @@ def register(app, *, cmap):
     def create_or_enter_create_mode(
         _n_clicks,
         review_store,
+        ok_clicks,
         start_frame,
         end_frame,
         x_min,
@@ -724,11 +727,14 @@ def register(app, *, cmap):
         review = review_store["review"]
 
         if not review_store.get("create_mode"):
-            return {
-                **review_store,
-                "create_mode": True,
-                "message": "Create mode is active.",
-            }
+            return (
+                {
+                    **review_store,
+                    "create_mode": True,
+                    "message": "Create mode is active.",
+                },
+                no_update,
+            )
 
         bbox = _get_bbox(
             review,
@@ -755,11 +761,14 @@ def register(app, *, cmap):
 
         new_footstep_id = int(created["item"]["footstep_id"])
 
-        return _open_review(
-            event_id,
-            new_footstep_id,
-            created,
-            "Created new footstep locally.",
+        return (
+            _open_review(
+                event_id,
+                new_footstep_id,
+                created,
+                "Created new footstep locally.",
+            ),
+            (ok_clicks or 0) + 1,
         )
 
     @callback(
@@ -785,11 +794,13 @@ def register(app, *, cmap):
 
     @callback(
         Output("footstep-review-store", "data", allow_duplicate=True),
+        Output("btn-apply-footstep-filters", "n_clicks", allow_duplicate=True),
         Input("btn-confirm-delete-footstep", "n_clicks"),
         State("footstep-review-store", "data"),
+        State("btn-apply-footstep-filters", "n_clicks"),
         prevent_initial_call=True,
     )
-    def confirm_delete_footstep(_n_clicks, review_store):
+    def confirm_delete_footstep(_n_clicks, review_store, ok_clicks):
         if (
             not review_store
             or not review_store.get("open")
@@ -807,7 +818,7 @@ def register(app, *, cmap):
             logger=app.logger,
         )
 
-        return _empty_review()
+        return _empty_review(), (ok_clicks or 0) + 1
 
     @callback(
         Output("footstep-review-store", "data", allow_duplicate=True),
