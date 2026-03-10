@@ -29,6 +29,16 @@ class ReviewRequestPayload(TypedDict):
     label: str | None
 
 
+class CreateFootstepRequestPayload(TypedDict):
+    start_frame: int
+    end_frame: int
+    x_min: int
+    x_max: int
+    y_min: int
+    y_max: int
+    label: str | None
+
+
 class _ReviewPayloadError(ValueError):
     pass
 
@@ -147,6 +157,49 @@ def _parse_review_payload():
         label = str(label_raw).strip() or None
 
     parsed: ReviewRequestPayload = {
+        "x_min": x_min,
+        "x_max": x_max,
+        "y_min": y_min,
+        "y_max": y_max,
+        "label": label,
+    }
+
+    return parsed, None
+
+
+def _parse_create_footstep_payload():
+    raw_body = request.get_json(silent=True)
+
+    body: dict[str, object]
+    if isinstance(raw_body, dict):
+        body = cast(dict[str, object], raw_body)
+    else:
+        body = {}
+
+    try:
+        start_frame = _coerce_review_int(body.get("start_frame"), "start_frame")
+        end_frame = _coerce_review_int(body.get("end_frame"), "end_frame")
+        x_min = _coerce_review_int(body.get("x_min"), "x_min")
+        x_max = _coerce_review_int(body.get("x_max"), "x_max")
+        y_min = _coerce_review_int(body.get("y_min"), "y_min")
+        y_max = _coerce_review_int(body.get("y_max"), "y_max")
+    except _ReviewPayloadError as exc:
+        return None, make_error(
+            400,
+            "bad_request",
+            str(exc),
+        )
+
+    label_raw = body.get("label")
+    label: str | None
+    if label_raw is None:
+        label = None
+    else:
+        label = str(label_raw).strip() or None
+
+    parsed: CreateFootstepRequestPayload = {
+        "start_frame": start_frame,
+        "end_frame": end_frame,
         "x_min": x_min,
         "x_max": x_max,
         "y_min": y_min,
@@ -322,6 +375,88 @@ def api_save_footstep_review(event_id: str, footstep_id: int):
                 500,
                 "internal_error",
                 "review save returned no payload",
+            )
+
+        return jsonify(result)
+
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@footsteps_bp.post("/api/footsteps/<event_id>/create")
+def api_create_footstep(event_id: str):
+    try:
+        parsed, err = _parse_create_footstep_payload()
+        if err:
+            return err
+
+        if parsed is None:
+            return make_error(
+                500,
+                "internal_error",
+                "create payload parser returned no data",
+            )
+
+        result, err = get_sal().create_footstep(
+            event_id,
+            start_frame=parsed["start_frame"],
+            end_frame=parsed["end_frame"],
+            x_min=parsed["x_min"],
+            x_max=parsed["x_max"],
+            y_min=parsed["y_min"],
+            y_max=parsed["y_max"],
+            label=parsed["label"],
+        )
+
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+
+        if err == "missing_file":
+            return make_error(404, "not_found", "footstep source data not found")
+
+        if err == "invalid_bbox":
+            return make_error(
+                400,
+                "bad_request",
+                "bbox must stay inside the full event image and have positive size",
+            )
+
+        if err == "invalid_frame":
+            return make_error(
+                400,
+                "bad_request",
+                "start_frame and end_frame must be inside the trial and end_frame must be greater than start_frame",
+            )
+
+        if result is None:
+            return make_error(
+                500,
+                "internal_error",
+                "create footstep returned no payload",
+            )
+
+        return jsonify(result)
+
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@footsteps_bp.post("/api/footsteps/<event_id>/<int:footstep_id>/delete")
+def api_delete_footstep(event_id: str, footstep_id: int):
+    try:
+        result, err = get_sal().delete_footstep(event_id, footstep_id)
+
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+
+        if err == "missing_file":
+            return make_error(404, "not_found", "footstep not found")
+
+        if result is None:
+            return make_error(
+                500,
+                "internal_error",
+                "delete footstep returned no payload",
             )
 
         return jsonify(result)

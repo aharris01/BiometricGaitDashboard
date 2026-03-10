@@ -365,3 +365,49 @@ def save_footstep_review(
         context="save_footstep_review",
         logger=logger,
     )
+
+
+# Create Footstep Helper Function
+def create_footstep(
+    event_id: str,
+    *,
+    start_frame: int,
+    end_frame: int,
+    x_min: int,
+    x_max: int,
+    y_min: int,
+    y_max: int,
+    label: str | None,
+    logger=None,
+):
+    # Create one new local footstep and return its review payload.
+    return post_json(
+        f"{API_BASE_URL}/api/footsteps/{event_id}/create",
+        payload={
+            "start_frame": start_frame,
+            "end_frame": end_frame,
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_min,
+            "y_max": y_max,
+            "label": label,
+        },
+        context="create_footstep",
+        logger=logger,
+    )
+
+
+# Delete Function Helper Function
+def delete_footstep(
+    event_id: str,
+    footstep_id: int,
+    *,
+    logger=None,
+):
+    # Delete one local footstep.
+    return post_json(
+        f"{API_BASE_URL}/api/footsteps/{event_id}/{footstep_id}/delete",
+        payload={},
+        context="delete_footstep",
+        logger=logger,
+    )

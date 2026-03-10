@@ -15,6 +15,7 @@ import numpy as np
 from . import validators as v
 from .db.db import DB
 from .db.schema import (
+    LocalMetrics,
     LocalSwipeEvent,
     ManifestMetrics,
     ManifestSwipeEvent,
@@ -222,6 +223,38 @@ class SAL:
         array = loaded_file["arr_0"]
         return array.tolist()
 
+    # Read the frame count from the full trial volume for one event.
+    #
+    # Create mode needs this so new start_frame and end_frame values can be
+    # checked against the real trial length before a local footstep is created.
+    # This does not load any per-step data or recreate extraction outputs.
+    def _get_trial_frame_count(self, event_id: str):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        try:
+            file_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, "missing_file"
+
+        try:
+            loaded_file = np.load(file_path)
+        except FileNotFoundError:
+            return None, "missing_file"
+        except Exception:
+            return None, "missing_file"
+
+        try:
+            array = loaded_file["arr_0"]
+        except Exception:
+            return None, "missing_file"
+
+        if getattr(array, "ndim", 0) < 1:
+            return None, "missing_file"
+
+        return int(array.shape[0]), None
+
     def get_grf(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
         if event is None:
@@ -341,14 +374,17 @@ class SAL:
             None,
         )
 
+    # Build the review payload for one footstep.
+    #
+    # Important:
+    # - the selected footstep still comes from the Footsteps view thumbnail
+    # - review/editing happens on the full event p100 image
+    # - bbox, label, and frame values come from local.db
+    # - local edit history is included from the changelog table
+    #
+    # This payload is the single source used by the frontend review panel.
+
     def get_footstep_review_context(self, event_id: str, footstep_id: int):
-        # Build the review payload for one footstep.
-        #
-        # Important:
-        # - selection still comes from the Footsteps view thumbnail, which is
-        #   rendered from steps.npz
-        # - editing happens on the full event p100 image from trial.p100.npz
-        # - bbox and label come from the local_footsteps table
         event = self.db.get_swipe_event(event_id)
         if event is None:
             return None, "missing_event"
@@ -425,10 +461,13 @@ class SAL:
         y_max: int,
         label: str | None,
     ):
-        # Validate and save one local footstep bbox/label edit.
+        # Validate and save one local footstep edit.
         #
         # Validation is done here because the SAL knows the real event image
-        # bounds and keeps the write path abstracted away from the route layer.
+        # bounds and keeps write behavior behind the DB layer. This updates the
+        # current local footstep row and lets the DB layer write the matching
+        # changelog entry for the edit.
+
         review, err = self.get_footstep_review_context(event_id, footstep_id)
         if err:
             return None, err
@@ -469,6 +508,105 @@ class SAL:
             return None, "missing_file"
 
         return self.get_footstep_review_context(event_id, footstep_id)
+
+    def create_footstep(
+        self,
+        event_id: str,
+        *,
+        start_frame: int,
+        end_frame: int,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        label: str | None,
+    ):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        p100 = self.get_p100(event_id)
+        if p100 is None or not isinstance(p100, list) or not p100:
+            return None, "missing_file"
+
+        first_row = p100[0]
+        if not isinstance(first_row, list) or not first_row:
+            return None, "missing_file"
+
+        image_height = len(p100)
+        image_width = len(first_row)
+
+        if image_width <= 0 or image_height <= 0:
+            return None, "missing_file"
+
+        frame_count, err = self._get_trial_frame_count(event_id)
+        if err:
+            return None, err
+
+        if frame_count is None:
+            return None, "missing_file"
+
+        start_frame = int(start_frame)
+        end_frame = int(end_frame)
+        x_min = int(x_min)
+        x_max = int(x_max)
+        y_min = int(y_min)
+        y_max = int(y_max)
+
+        if start_frame < 0 or end_frame < 0:
+            return None, "invalid_frame"
+
+        if start_frame >= end_frame:
+            return None, "invalid_frame"
+
+        if start_frame >= frame_count or end_frame >= frame_count:
+            return None, "invalid_frame"
+
+        if x_min < 0 or y_min < 0:
+            return None, "invalid_bbox"
+
+        if x_min >= x_max or y_min >= y_max:
+            return None, "invalid_bbox"
+
+        if x_max > image_width or y_max > image_height:
+            return None, "invalid_bbox"
+
+        if label is not None:
+            label = str(label).strip() or None
+
+        created = self.db.create_local_footstep(
+            event_id,
+            start_frame=start_frame,
+            end_frame=end_frame,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+            label=label,
+        )
+        if created is None:
+            return None, "missing_file"
+
+        return self.get_footstep_review_context(event_id, int(created.footstep_id))
+
+    def delete_footstep(self, event_id: str, footstep_id: int):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        row = self.db.get_single_footstep(event_id, footstep_id)
+        if row is None:
+            return None, "missing_file"
+
+        deleted = self.db.delete_local_footstep(event_id, footstep_id)
+        if deleted is None:
+            return None, "missing_file"
+
+        return {
+            "ok": True,
+            "event_id": event_id,
+            "footstep_id": footstep_id,
+        }, None
 
     def get_footstep_data(self, event_id: str, step_id: int):
         event = self.db.get_swipe_event(event_id)
@@ -769,14 +907,14 @@ class SAL:
         with self.db._get_session() as session:
             query = (
                 select(
-                    ManifestMetrics.event_id,
-                    getattr(ManifestMetrics, x).label(x),
-                    getattr(ManifestMetrics, y).label(y),
+                    LocalMetrics.event_id,
+                    getattr(LocalMetrics, x).label(x),
+                    getattr(LocalMetrics, y).label(y),
                 )
-                .select_from(ManifestMetrics)
+                .select_from(LocalMetrics)
                 .join(
                     ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                    ManifestSwipeEvent.event_id == LocalMetrics.event_id,
                 )
             )
 
@@ -810,10 +948,10 @@ class SAL:
                     func.min(ManifestSwipeEvent.date),
                     func.max(ManifestSwipeEvent.date),
                 )
-                .select_from(ManifestMetrics)
+                .select_from(LocalMetrics)
                 .join(
                     ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                    ManifestSwipeEvent.event_id == LocalMetrics.event_id,
                 )
             )
 
@@ -837,10 +975,10 @@ class SAL:
         with self.db._get_session() as session:
             query = (
                 select(extract(part, ManifestSwipeEvent.date).label(part))
-                .select_from(ManifestMetrics)
+                .select_from(LocalMetrics)
                 .join(
                     ManifestSwipeEvent,
-                    ManifestSwipeEvent.event_id == ManifestMetrics.event_id,
+                    ManifestSwipeEvent.event_id == LocalMetrics.event_id,
                 )
                 .distinct()
                 .order_by(part)
@@ -923,6 +1061,7 @@ class SAL:
                     "bbox_width": row["bbox_width"],
                     "bbox_height": row["bbox_height"],
                     "bbox_area": row["bbox_area"],
+                    "has_thumbnail": bool(row["has_thumbnail"]),
                 }
             )
 

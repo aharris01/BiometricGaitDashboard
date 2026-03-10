@@ -640,6 +640,7 @@ def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
                 "bbox_width": 20,
                 "bbox_height": 30,
                 "bbox_area": 600,
+                "has_thumbnail": True,
             }
         ],
         1,
@@ -691,6 +692,7 @@ def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
                 "bbox_width": 20,
                 "bbox_height": 30,
                 "bbox_area": 600,
+                "has_thumbnail": True,
             }
         ],
         "total": 1,

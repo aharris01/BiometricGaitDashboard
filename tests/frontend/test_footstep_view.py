@@ -38,8 +38,18 @@ def test_render_footstep_empty_returns_single_empty_div():
 @pytest.mark.unit
 def test_render_footstep_cards_builds_titles_images_and_area_labels():
     items = [
-        {"event_id": "evt-1", "footstep_id": 3, "bbox_area": 123},
-        {"event_id": "evt-2", "footstep_id": 4, "bbox_area": None},
+        {
+            "event_id": "evt-1",
+            "footstep_id": 3,
+            "bbox_area": 123,
+            "has_thumbnail": True,
+        },
+        {
+            "event_id": "evt-2",
+            "footstep_id": 4,
+            "bbox_area": None,
+            "has_thumbnail": False,
+        },
     ]
 
     cards = render_footstep_cards(items)
@@ -53,12 +63,16 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
     assert props(first_children[0])["children"] == "evt-1 · Step 3"
     assert props(first_children[0])["className"] == "footstep-card-title"
 
-    assert isinstance(first_children[1], html.Img)
+    assert isinstance(first_children[1], html.Button)
+    assert props(first_children[1])["className"] == "footstep-card-image-button"
+    first_button_children = children_list(first_children[1])
+    assert len(first_button_children) == 1
+    assert isinstance(first_button_children[0], html.Img)
     assert (
-        props(first_children[1])["src"]
+        props(first_button_children[0])["src"]
         == f"{API_BASE_URL}/api/events/evt-1/footsteps/3/image"
     )
-    assert props(first_children[1])["className"] == "footstep-card-image"
+    assert props(first_button_children[0])["className"] == "footstep-card-image"
 
     assert isinstance(first_children[2], html.Div)
     assert props(first_children[2])["children"] == "Area: 123"
@@ -67,11 +81,12 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
     assert isinstance(second_children[0], html.Div)
     assert props(second_children[0])["children"] == "evt-2 · Step 4"
 
-    assert isinstance(second_children[1], html.Img)
-    assert (
-        props(second_children[1])["src"]
-        == f"{API_BASE_URL}/api/events/evt-2/footsteps/4/image"
-    )
+    assert isinstance(second_children[1], html.Button)
+    second_button_children = children_list(second_children[1])
+    assert len(second_button_children) == 1
+    assert isinstance(second_button_children[0], html.Div)
+    assert props(second_button_children[0])["children"] == "Placeholder"
+    assert props(second_button_children[0])["className"] == "footstep-card-placeholder"
 
     assert isinstance(second_children[2], html.Div)
     assert props(second_children[2])["children"] == "Area: N/A"
@@ -86,23 +101,37 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert props(root)["className"] == "hidden"
 
     root_children = children_list(root)
-    assert len(root_children) == 1
+    assert len(root_children) == 3
 
     row = root_children[0]
+    history_modal = root_children[1]
+    delete_modal = root_children[2]
+
     assert isinstance(row, html.Div)
     assert props(row)["className"] == "footstep-row"
 
+    assert isinstance(history_modal, html.Div)
+    assert props(history_modal)["id"] == "footstep-history-modal"
+
+    assert isinstance(delete_modal, html.Div)
+    assert props(delete_modal)["id"] == "footstep-delete-modal"
+
     row_children = children_list(row)
-    assert len(row_children) == 2
+    assert len(row_children) == 3
 
     sidebar = row_children[0]
     results_panel = row_children[1]
+    review_panel = row_children[2]
 
     assert isinstance(sidebar, html.Div)
     assert props(sidebar)["className"] == "footstep-sidebar"
 
     assert isinstance(results_panel, html.Div)
     assert props(results_panel)["className"] == "footstep-results-panel"
+
+    assert isinstance(review_panel, html.Div)
+    assert props(review_panel)["id"] == "footstep-review-panel"
+    assert props(review_panel)["className"] == "footstep-review-panel"
 
     # --------------------------------------------
     # Sidebar structure
@@ -115,7 +144,6 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     date_details = sidebar_children[2]
     size_details = sidebar_children[3]
 
-    # Header
     assert isinstance(header, html.Div)
     assert props(header)["className"] == "panel-header"
 
@@ -140,7 +168,6 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert props(actions_children[1])["id"] == "btn-apply-footstep-filters"
     assert props(actions_children[1])["children"] == "OK"
 
-    # Participant details
     assert isinstance(participant_details, html.Details)
     assert props(participant_details)["open"] is False
 
@@ -158,7 +185,6 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(participant_box_children[0], dcc.Checklist)
     assert props(participant_box_children[0])["id"] == "footstep-participant-filter"
 
-    # Date details
     assert isinstance(date_details, html.Details)
     assert props(date_details)["open"] is False
 
@@ -176,7 +202,6 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(date_box_children[0], dcc.DatePickerRange)
     assert props(date_box_children[0])["id"] == "footstep-date-range-filter"
 
-    # Size details
     assert isinstance(size_details, html.Details)
     assert props(size_details)["open"] is False
 

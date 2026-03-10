@@ -730,6 +730,19 @@
   color: #6b7280;
 }
 
+.footstep-card-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+}
 /* =========================================================
    Changelog Modal
    ========================================================= */

@@ -1,10 +1,12 @@
 # frontend/callbacks/footsteps.py
-import numpy as np
-from dash import ALL, Input, Output, State, Patch, callback, ctx, html
+from dash import ALL, Input, Output, State, Patch, callback, ctx, html, no_update
 from dash.exceptions import PreventUpdate
+import numpy as np
 import plotly.express as px
 
 from frontend.api import (
+    create_footstep,
+    delete_footstep,
     get_date_bounds,
     get_footstep_review,
     get_participants,
@@ -21,6 +23,7 @@ def _empty_review():
         "footstep_id": None,
         "review": None,
         "message": None,
+        "create_mode": False,
     }
 
 
@@ -31,6 +34,7 @@ def _open_review(event_id: str, footstep_id: int, review: dict, message: str):
         "footstep_id": footstep_id,
         "review": review,
         "message": message,
+        "create_mode": False,
     }
 
 
@@ -389,12 +393,19 @@ def register(app, *, cmap):
         Output("footstep-review-panel", "style"),
         Output("footstep-review-title", "children"),
         Output("footstep-review-status", "children"),
+        Output("footstep-create-start-frame", "value"),
+        Output("footstep-create-end-frame", "value"),
         Output("footstep-review-x-min", "value"),
         Output("footstep-review-x-max", "value"),
         Output("footstep-review-y-min", "value"),
         Output("footstep-review-y-max", "value"),
         Output("footstep-review-label", "value"),
         Output("footstep-review-history", "children"),
+        Output("btn-create-footstep", "children"),
+        Output("btn-cancel-create-footstep", "style"),
+        Output("btn-delete-footstep", "style"),
+        Output("btn-save-footstep-review", "style"),
+        Output("btn-show-footstep-history", "style"),
         Input("footstep-review-store", "data"),
         prevent_initial_call=False,
     )
@@ -413,24 +424,59 @@ def register(app, *, cmap):
                 None,
                 None,
                 None,
+                None,
+                None,
                 "No local changes yet.",
+                "Create New",
+                {"display": "none"},
+                {"display": "inline-block"},
+                {"display": "inline-block"},
+                {"display": "inline-block"},
             )
 
         review = review_store["review"]
         item = review["item"]
         bbox = review["bbox"]
+        create_mode = bool(review_store.get("create_mode"))
+
+        if create_mode:
+            return (
+                {"display": "block"},
+                f"{item['event_id']} · Create New Footstep",
+                "Create mode is active. Adjust the bbox and enter start_frame / end_frame, then click Create Footstep.",
+                item["start_frame"],
+                item["end_frame"],
+                bbox["x_min"],
+                bbox["x_max"],
+                bbox["y_min"],
+                bbox["y_max"],
+                item.get("label"),
+                "Changelog is unavailable while create mode is active.",
+                "Create Footstep",
+                {"display": "inline-block"},
+                {"display": "none"},
+                {"display": "none"},
+                {"display": "none"},
+            )
 
         return (
             {"display": "block"},
             f"{item['event_id']} · Step {item['footstep_id']}",
             review_store.get("message")
             or "Drag the box or edit the numbers, then click Save.",
+            item["start_frame"],
+            item["end_frame"],
             bbox["x_min"],
             bbox["x_max"],
             bbox["y_min"],
             bbox["y_max"],
             item.get("label"),
             _render_history(review.get("changes") or []),
+            "Create New",
+            {"display": "none"},
+            {"display": "inline-block"},
+            {"display": "inline-block"},
+            {"display": "inline-block"},
         )
 
     @callback(
@@ -447,11 +493,11 @@ def register(app, *, cmap):
         review_store,
         current_style,
     ):
-        # Hide the modal if no review is open.
         if (
             not review_store
             or not review_store.get("open")
             or not review_store.get("review")
+            or review_store.get("create_mode")
         ):
             return {"display": "none"}
 
@@ -463,7 +509,46 @@ def register(app, *, cmap):
         if triggered == "btn-close-footstep-history":
             return {"display": "none"}
 
-        # Keep the modal open across review-store refreshes if it was already open.
+        if current_style and current_style.get("display") == "flex":
+            return {"display": "flex"}
+
+        return {"display": "none"}
+
+    @callback(
+        Output("footstep-delete-modal", "style"),
+        Input("btn-delete-footstep", "n_clicks"),
+        Input("btn-cancel-delete-footstep", "n_clicks"),
+        Input("btn-confirm-delete-footstep", "n_clicks"),
+        Input("footstep-review-store", "data"),
+        State("footstep-delete-modal", "style"),
+        prevent_initial_call=False,
+    )
+    def toggle_footstep_delete_modal(
+        _open_clicks,
+        _cancel_clicks,
+        _confirm_clicks,
+        review_store,
+        current_style,
+    ):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+            or review_store.get("create_mode")
+        ):
+            return {"display": "none"}
+
+        triggered = ctx.triggered_id
+
+        if triggered == "btn-delete-footstep":
+            return {"display": "flex"}
+
+        if triggered == "btn-cancel-delete-footstep":
+            return {"display": "none"}
+
+        if triggered == "btn-confirm-delete-footstep":
+            return {"display": "none"}
+
         if current_style and current_style.get("display") == "flex":
             return {"display": "flex"}
 
@@ -484,7 +569,19 @@ def register(app, *, cmap):
             or not review_store.get("open")
             or not review_store.get("review")
         ):
-            return px.imshow(np.zeros((720, 480)))
+            fig = px.imshow(
+                np.zeros((720, 480)),
+                zmin=0,
+                zmax=1,
+                color_continuous_scale=cmap,
+            )
+            fig.update_layout(
+                margin={"l": 10, "r": 10, "t": 10, "b": 10},
+                coloraxis_showscale=False,
+            )
+            fig.update_xaxes(visible=False)
+            fig.update_yaxes(visible=False)
+            return fig
 
         review = review_store["review"]
         bbox = _get_bbox(
@@ -593,6 +690,137 @@ def register(app, *, cmap):
 
     @callback(
         Output("footstep-review-store", "data", allow_duplicate=True),
+        Output("btn-apply-footstep-filters", "n_clicks", allow_duplicate=True),
+        Input("btn-create-footstep", "n_clicks"),
+        State("footstep-review-store", "data"),
+        State("btn-apply-footstep-filters", "n_clicks"),
+        State("footstep-create-start-frame", "value"),
+        State("footstep-create-end-frame", "value"),
+        State("footstep-review-x-min", "value"),
+        State("footstep-review-x-max", "value"),
+        State("footstep-review-y-min", "value"),
+        State("footstep-review-y-max", "value"),
+        State("footstep-review-label", "value"),
+        prevent_initial_call=True,
+    )
+    def create_or_enter_create_mode(
+        _n_clicks,
+        review_store,
+        ok_clicks,
+        start_frame,
+        end_frame,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        label,
+    ):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+        ):
+            raise PreventUpdate
+
+        event_id = str(review_store["event_id"])
+        review = review_store["review"]
+
+        if not review_store.get("create_mode"):
+            return (
+                {
+                    **review_store,
+                    "create_mode": True,
+                    "message": "Create mode is active.",
+                },
+                no_update,
+            )
+
+        bbox = _get_bbox(
+            review,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+        )
+
+        if start_frame is None or end_frame is None:
+            raise PreventUpdate
+
+        created = create_footstep(
+            event_id,
+            start_frame=int(start_frame),
+            end_frame=int(end_frame),
+            x_min=bbox["x_min"],
+            x_max=bbox["x_max"],
+            y_min=bbox["y_min"],
+            y_max=bbox["y_max"],
+            label=label,
+            logger=app.logger,
+        )
+
+        new_footstep_id = int(created["item"]["footstep_id"])
+
+        return (
+            _open_review(
+                event_id,
+                new_footstep_id,
+                created,
+                "Created new footstep locally.",
+            ),
+            (ok_clicks or 0) + 1,
+        )
+
+    @callback(
+        Output("footstep-review-store", "data", allow_duplicate=True),
+        Input("btn-cancel-create-footstep", "n_clicks"),
+        State("footstep-review-store", "data"),
+        prevent_initial_call=True,
+    )
+    def cancel_create_mode(_n_clicks, review_store):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+            or not review_store.get("create_mode")
+        ):
+            raise PreventUpdate
+
+        return {
+            **review_store,
+            "create_mode": False,
+            "message": "Create mode cancelled.",
+        }
+
+    @callback(
+        Output("footstep-review-store", "data", allow_duplicate=True),
+        Output("btn-apply-footstep-filters", "n_clicks", allow_duplicate=True),
+        Input("btn-confirm-delete-footstep", "n_clicks"),
+        State("footstep-review-store", "data"),
+        State("btn-apply-footstep-filters", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def confirm_delete_footstep(_n_clicks, review_store, ok_clicks):
+        if (
+            not review_store
+            or not review_store.get("open")
+            or not review_store.get("review")
+            or review_store.get("create_mode")
+        ):
+            raise PreventUpdate
+
+        event_id = str(review_store["event_id"])
+        footstep_id = int(review_store["footstep_id"])
+
+        delete_footstep(
+            event_id,
+            footstep_id,
+            logger=app.logger,
+        )
+
+        return _empty_review(), (ok_clicks or 0) + 1
+
+    @callback(
+        Output("footstep-review-store", "data", allow_duplicate=True),
         Input("btn-save-footstep-review", "n_clicks"),
         State("footstep-review-store", "data"),
         State("footstep-review-x-min", "value"),
@@ -615,6 +843,7 @@ def register(app, *, cmap):
             not review_store
             or not review_store.get("open")
             or not review_store.get("review")
+            or review_store.get("create_mode")
         ):
             raise PreventUpdate
 
