@@ -19,4 +19,4 @@ def register_all(app, *, cmap):
     register_metrics_filters(app)
     register_modes(app)
     register_summary(app, cmap=cmap)
-    register_footsteps(app)
+    register_footsteps(app, cmap=cmap)

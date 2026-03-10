@@ -2,7 +2,7 @@
 
 from dash import ALL, Input, Output, State, Patch, callback, ctx
 from dash.exceptions import PreventUpdate
-import plotly.graph_objects as go
+import plotly.express as px
 
 from frontend.api import (
     get_date_bounds,
@@ -67,20 +67,17 @@ def _get_bbox(review: dict, x_min=None, x_max=None, y_min=None, y_max=None):
     }
 
 
-def _make_figure(review: dict, bbox: dict):
+def _make_figure(review: dict, bbox: dict, cmap):
     p100 = review.get("event_p100") or []
 
-    fig = go.Figure()
+    fig = px.imshow(
+        p100,
+        zmin=0,
+        zmax=max(max(row) for row in p100) if p100 else 1,
+        color_continuous_scale=cmap,
+    )
 
     if p100:
-        fig.add_trace(
-            go.Heatmap(
-                z=p100,
-                colorscale="Jet",
-                showscale=False,
-            )
-        )
-
         fig.add_shape(
             type="rect",
             x0=bbox["x_min"],
@@ -93,6 +90,7 @@ def _make_figure(review: dict, bbox: dict):
     fig.update_layout(
         margin={"l": 10, "r": 10, "t": 10, "b": 10},
         dragmode="drawrect",
+        coloraxis_showscale=False,
     )
 
     fig.update_xaxes(showgrid=False, zeroline=False, constrain="domain")
@@ -107,7 +105,7 @@ def _make_figure(review: dict, bbox: dict):
     return fig
 
 
-def register(app):
+def register(app, *, cmap):
     @callback(
         Output("footstep-participant-filter", "options"),
         Input("page-load", "n_intervals"),
@@ -417,7 +415,7 @@ def register(app):
             or not review_store.get("open")
             or not review_store.get("review")
         ):
-            return go.Figure()
+            return px.imshow([])
 
         review = review_store["review"]
         bbox = _get_bbox(
@@ -427,7 +425,7 @@ def register(app):
             y_min=y_min,
             y_max=y_max,
         )
-        return _make_figure(review, bbox)
+        return _make_figure(review, bbox, cmap)
 
     @callback(
         Output("footstep-review-x-min", "value", allow_duplicate=True),
