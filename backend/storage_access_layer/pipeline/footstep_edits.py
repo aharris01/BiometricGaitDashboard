@@ -1,6 +1,9 @@
+from pathlib import Path
+
 from ..db.db import DB
 from ..helpers.common import CommonHelper
-from .utils.pipeline_utils import load_metadata
+from .utils.pipeline_utils import load_metadata, identify_anchor_footstep
+from flask import current_app
 
 T_MIN = 50
 T_MAX = 400
@@ -30,10 +33,11 @@ class FootstepEditor:
             return None, footstep_err
 
         # open metadata for the event
-        metadata_file_path = event.trial_npz_uri.replace("steps.npz", "metadata.csv")
+        metadata_file_path = Path(event.trial_npz_uri).parent / "metadata.csv"
         metadata_df = load_metadata(metadata_file_path)
 
         # make edits to footstep in df
+        footstep_row = metadata_df[metadata_df["FootstepID"] == footstep_id]
         metadata_df.loc[
             metadata_df["FootstepID"] == footstep_id,
             ["XMin", "XMax", "YMin", "YMax", "StartFrame", "EndFrame"],
@@ -42,8 +46,8 @@ class FootstepEditor:
             new_footstep_data["XMax"],
             new_footstep_data["YMin"],
             new_footstep_data["YMax"],
-            new_footstep_data["StartFrame"],
-            new_footstep_data["EndFrame"],
+            new_footstep_data["StartFrame"] or footstep_row["StartFrame"].iloc[0],
+            new_footstep_data["EndFrame"] or footstep_row["EndFrame"].iloc[0],
         ]
 
         # validate footstep bounding box data
@@ -56,12 +60,18 @@ class FootstepEditor:
         metadata_df["valid"] = metadata_df["valid"].apply(bool)
 
         # find path order (anchor identification and path order identification)
+        metadata_df["path_order"] = -1  # Any footsteps not on path will be -1
+        identify_anchor_footstep(metadata_df)
+        current_app.logger.info(
+            f"Anchor footstep for event {event_id}\n{metadata_df['path_order']}"
+        )
+
         # take new bounding box data from trial recording and update steps.raw.npz and steps.npz
         # replace metadata.csv for the event to with updated df
         # make entry in footsteps table
         # update metrics for event
         # return success or failure
-        pass
+        return
 
 
 def _is_within_expected_bb_size(row):
