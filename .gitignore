@@ -10,3 +10,4 @@ secrets/
 .vscode/
 *.csv
 *.zip
+data-copy/*
