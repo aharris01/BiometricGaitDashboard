@@ -25,7 +25,7 @@ def render_footstep_cards(items: list[dict]):
     #
     # Each card shows:
     # - the event ID and step number
-    # - the footstep image
+    # - a clickable thumbnail used to open the review editor
     # - the total bounding-box area
     cards = []
 
@@ -33,6 +33,7 @@ def render_footstep_cards(items: list[dict]):
         event_id = str(item["event_id"])
         footstep_id = int(item["footstep_id"])
         bbox_area = item.get("bbox_area")
+        has_thumbnail = bool(item.get("has_thumbnail", True))
 
         cards.append(
             html.Div(
@@ -42,13 +43,33 @@ def render_footstep_cards(items: list[dict]):
                         f"{event_id} · Step {footstep_id}",
                         className="footstep-card-title",
                     ),
-                    html.Img(
-                        src=f"{API_BASE_URL}/api/events/{event_id}/footsteps/{footstep_id}/image",
-                        className="footstep-card-image",
+                    html.Button(
+                        id={
+                            "type": "footstep-review-open",
+                            "event_id": event_id,
+                            "footstep_id": footstep_id,
+                        },
+                        n_clicks=0,
+                        className="footstep-card-image-button",
+                        children=[
+                            html.Img(
+                                src=f"{API_BASE_URL}/api/events/{event_id}/footsteps/{footstep_id}/image",
+                                className="footstep-card-image",
+                            )
+                            if has_thumbnail
+                            else html.Div(
+                                "Placeholder",
+                                className="footstep-card-placeholder",
+                            )
+                        ],
                     ),
                     html.Div(
                         f"Area: {int(bbox_area) if bbox_area is not None else 'N/A'}",
                         className="footstep-card-meta",
+                    ),
+                    html.Div(
+                        "Click thumbnail to review on event image",
+                        className="footstep-card-hint",
                     ),
                 ],
             )
@@ -63,9 +84,13 @@ def render_footstep_cards(items: list[dict]):
 
 
 def FootstepView():
-    # This page is split into two main parts:
+    # This page is split into three main parts:
     # - a filter sidebar on the left
-    # - a results panel on the right
+    # - a results panel in the middle
+    # - a review/editor panel on the right
+    #
+    # The changelog opens in a modal so it does not steal width from the
+    # review graph or the thumbnail grid.
     return html.Div(
         id="footstep-view",
         className="hidden",
@@ -100,7 +125,6 @@ def FootstepView():
                                     ),
                                 ],
                             ),
-                            # Filter by participant
                             html.Details(
                                 open=False,
                                 children=[
@@ -124,7 +148,6 @@ def FootstepView():
                                     ),
                                 ],
                             ),
-                            # Filter by date range
                             html.Details(
                                 open=False,
                                 children=[
@@ -146,7 +169,6 @@ def FootstepView():
                                     ),
                                 ],
                             ),
-                            # Filter by footstep size measurements
                             html.Details(
                                 open=False,
                                 children=[
@@ -157,7 +179,6 @@ def FootstepView():
                                     html.Div(
                                         className="filter_box_no_scroll",
                                         children=[
-                                            # Bounding-box height range
                                             html.Div(
                                                 className="metrics-field",
                                                 children=[
@@ -178,7 +199,6 @@ def FootstepView():
                                                     ),
                                                 ],
                                             ),
-                                            # Bounding-box width range
                                             html.Div(
                                                 className="metrics-field",
                                                 children=[
@@ -199,7 +219,6 @@ def FootstepView():
                                                     ),
                                                 ],
                                             ),
-                                            # Total bounding-box area range
                                             html.Div(
                                                 className="metrics-field",
                                                 children=[
@@ -228,7 +247,7 @@ def FootstepView():
                         ],
                     ),
                     # -------------------------------------------------
-                    # Right panel: footstep search results
+                    # Middle panel: footstep search results
                     # -------------------------------------------------
                     html.Div(
                         className="footstep-results-panel",
@@ -263,7 +282,228 @@ def FootstepView():
                             ),
                         ],
                     ),
+                    # -------------------------------------------------
+                    # Right panel: full-event review/editor
+                    # -------------------------------------------------
+                    html.Div(
+                        id="footstep-review-panel",
+                        className="footstep-review-panel",
+                        style={"display": "none"},
+                        children=[
+                            html.Div(
+                                className="panel-header",
+                                children=[
+                                    html.H3(
+                                        "Review",
+                                        id="footstep-review-title",
+                                        className="panel-title",
+                                    ),
+                                    html.Div(
+                                        className="footstep-review-actions",
+                                        children=[
+                                            html.Button(
+                                                "Create New",
+                                                id="btn-create-footstep",
+                                                className="mode-btn",
+                                            ),
+                                            html.Button(
+                                                "Cancel Create",
+                                                id="btn-cancel-create-footstep",
+                                                className="mode-btn",
+                                                style={"display": "none"},
+                                            ),
+                                            html.Button(
+                                                "Delete Footstep",
+                                                id="btn-delete-footstep",
+                                                className="mode-btn",
+                                            ),
+                                            html.Button(
+                                                "Show Changelog",
+                                                id="btn-show-footstep-history",
+                                                className="mode-btn",
+                                            ),
+                                            html.Button(
+                                                "Close",
+                                                id="btn-close-footstep-review",
+                                                className="mode-btn",
+                                            ),
+                                            html.Button(
+                                                "Save",
+                                                id="btn-save-footstep-review",
+                                                className="ok-btn",
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                id="footstep-review-status",
+                                className="footstep-review-status",
+                                children="Click a footstep thumbnail to edit its bbox on the full event image.",
+                            ),
+                            dcc.Graph(
+                                id="footstep-review-graph",
+                                style={"height": "780px"},
+                                config={
+                                    "displaylogo": False,
+                                    "modeBarButtonsToAdd": [
+                                        "drawrect",
+                                        "eraseshape",
+                                    ],
+                                    "edits": {"shapePosition": True},
+                                },
+                            ),
+                            html.Div(
+                                className="footstep-review-fields",
+                                children=[
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("start_frame"),
+                                            dcc.Input(
+                                                id="footstep-create-start-frame",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("end_frame"),
+                                            dcc.Input(
+                                                id="footstep-create-end-frame",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("x_min"),
+                                            dcc.Input(
+                                                id="footstep-review-x-min",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("x_max"),
+                                            dcc.Input(
+                                                id="footstep-review-x-max",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("y_min"),
+                                            dcc.Input(
+                                                id="footstep-review-y-min",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("y_max"),
+                                            dcc.Input(
+                                                id="footstep-review-y-max",
+                                                type="number",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="metrics-field",
+                                        children=[
+                                            html.Label("Label"),
+                                            dcc.Input(
+                                                id="footstep-review-label",
+                                                type="text",
+                                                debounce=True,
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
                 ],
-            )
+            ),
+            # -------------------------------------------------
+            # Changelog modal
+            # -------------------------------------------------
+            html.Div(
+                id="footstep-history-modal",
+                className="footstep-history-modal",
+                style={"display": "none"},
+                children=[
+                    html.Div(
+                        className="footstep-history-modal-card",
+                        children=[
+                            html.Div(
+                                className="panel-header",
+                                children=[
+                                    html.H3(
+                                        "Local Change History", className="panel-title"
+                                    ),
+                                    html.Button(
+                                        "Close",
+                                        id="btn-close-footstep-history",
+                                        className="mode-btn",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                id="footstep-review-history",
+                                className="footstep-review-history",
+                                children="No local changes yet.",
+                            ),
+                        ],
+                    )
+                ],
+            ),
+            html.Div(
+                id="footstep-delete-modal",
+                className="footstep-history-modal",
+                style={"display": "none"},
+                children=[
+                    html.Div(
+                        className="footstep-history-modal-card",
+                        children=[
+                            html.H3("Delete local footstep?", className="panel-title"),
+                            html.Div(
+                                "This will remove the selected footstep from local.db. "
+                                "The original source files will not be changed.",
+                                style={"marginBottom": "12px"},
+                            ),
+                            html.Div(
+                                className="footstep-review-actions",
+                                children=[
+                                    html.Button(
+                                        "Cancel",
+                                        id="btn-cancel-delete-footstep",
+                                        className="mode-btn",
+                                    ),
+                                    html.Button(
+                                        "Delete",
+                                        id="btn-confirm-delete-footstep",
+                                        className="ok-btn",
+                                    ),
+                                ],
+                            ),
+                        ],
+                    )
+                ],
+            ),
         ],
     )

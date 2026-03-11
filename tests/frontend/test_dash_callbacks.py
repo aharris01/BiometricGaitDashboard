@@ -355,3 +355,46 @@ def test_search_footsteps_builds_all_filter_params(monkeypatch):
         "size_min": 100,
         "size_max": 500,
     }
+
+
+@pytest.mark.unit
+def test_create_footstep_api(monkeypatch):
+    monkeypatch.setattr(
+        api.requests,
+        "post",
+        lambda url, json=None, timeout=None: StubResponse(
+            {
+                "item": {"event_id": "evt-1", "footstep_id": 9},
+                "bbox": {"x_min": 1, "x_max": 2, "y_min": 3, "y_max": 4},
+            }
+        ),
+    )
+
+    out = api.create_footstep(
+        "evt-1",
+        start_frame=1,
+        end_frame=2,
+        x_min=10,
+        x_max=20,
+        y_min=30,
+        y_max=40,
+        label="new",
+    )
+
+    assert out["item"]["event_id"] == "evt-1"
+    assert out["item"]["footstep_id"] == 9
+
+
+@pytest.mark.unit
+def test_delete_footstep_api(monkeypatch):
+    monkeypatch.setattr(
+        api.requests,
+        "post",
+        lambda url, json=None, timeout=None: StubResponse(
+            {"ok": True, "event_id": "evt-1", "footstep_id": 7}
+        ),
+    )
+
+    out = api.delete_footstep("evt-1", 7)
+
+    assert out == {"ok": True, "event_id": "evt-1", "footstep_id": 7}

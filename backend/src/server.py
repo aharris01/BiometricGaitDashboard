@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Optional, Any
+import logging
 
 from flask import Flask
 from flask_cors import CORS
@@ -71,9 +72,15 @@ def create_app(sal: Any | None = None) -> Flask:
 server = create_app()
 
 
-def run_backend() -> None:
-    server.run(host=API_HOST, port=API_PORT, debug=True, use_reloader=False)
+def run_backend(debug_mode: bool = False) -> None:
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
+    server.run(
+        host=API_HOST,
+        port=API_PORT,
+        debug=debug_mode,
+        use_reloader=debug_mode,
+    )
 
 
 if __name__ == "__main__":
-    run_backend()
+    run_backend(True)

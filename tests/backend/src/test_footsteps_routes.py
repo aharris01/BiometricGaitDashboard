@@ -270,3 +270,307 @@ def test_search_footsteps_internal_error_returns_500(app_factory):
     assert data["code"] == "internal_error"
     assert data["message"] == "unexpected error"
     assert "boom" in data["details"]
+
+
+class ReviewCreateDeleteSAL:
+    def __init__(self):
+        self.calls = []
+
+    def get_footstep_review_context(self, event_id, footstep_id):
+        self.calls.append(("get_review", event_id, footstep_id))
+        return (
+            {
+                "item": {"event_id": event_id, "footstep_id": footstep_id},
+                "bbox": {"x_min": 1, "x_max": 2, "y_min": 3, "y_max": 4},
+                "event_p100": [[1.0]],
+                "image_width": 1,
+                "image_height": 1,
+                "changes": [],
+            },
+            None,
+        )
+
+    def save_footstep_review(self, event_id, footstep_id, **kwargs):
+        self.calls.append(("save_review", event_id, footstep_id, kwargs))
+        return (
+            {
+                "item": {"event_id": event_id, "footstep_id": footstep_id},
+                "bbox": {
+                    "x_min": kwargs["x_min"],
+                    "x_max": kwargs["x_max"],
+                    "y_min": kwargs["y_min"],
+                    "y_max": kwargs["y_max"],
+                },
+                "event_p100": [[1.0]],
+                "image_width": 1,
+                "image_height": 1,
+                "changes": [],
+            },
+            None,
+        )
+
+    def create_footstep(self, event_id, **kwargs):
+        self.calls.append(("create_footstep", event_id, kwargs))
+        return (
+            {
+                "item": {"event_id": event_id, "footstep_id": 99},
+                "bbox": {
+                    "x_min": kwargs["x_min"],
+                    "x_max": kwargs["x_max"],
+                    "y_min": kwargs["y_min"],
+                    "y_max": kwargs["y_max"],
+                },
+                "event_p100": [[1.0]],
+                "image_width": 1,
+                "image_height": 1,
+                "changes": [],
+            },
+            None,
+        )
+
+    def delete_footstep(self, event_id, footstep_id):
+        self.calls.append(("delete_footstep", event_id, footstep_id))
+        return (
+            {
+                "ok": True,
+                "event_id": event_id,
+                "footstep_id": footstep_id,
+            },
+            None,
+        )
+
+
+@pytest.fixture
+def review_client(app_factory):
+    fake_sal = ReviewCreateDeleteSAL()
+    app = app_factory(fake_sal)
+    with app.test_client() as c:
+        yield c, fake_sal
+
+
+@pytest.mark.unit
+def test_get_footstep_review_ok(review_client):
+    client, fake_sal = review_client
+
+    resp = client.get("/api/footsteps/evt-1/7/review")
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["item"]["event_id"] == "evt-1"
+    assert data["item"]["footstep_id"] == 7
+    assert fake_sal.calls == [("get_review", "evt-1", 7)]
+
+
+@pytest.mark.unit
+def test_save_footstep_review_ok(review_client):
+    client, fake_sal = review_client
+
+    resp = client.post(
+        "/api/footsteps/evt-1/7/review",
+        json={
+            "x_min": 10,
+            "x_max": 20,
+            "y_min": 30,
+            "y_max": 40,
+            "label": "left",
+        },
+    )
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["bbox"] == {
+        "x_min": 10,
+        "x_max": 20,
+        "y_min": 30,
+        "y_max": 40,
+    }
+    assert fake_sal.calls == [
+        (
+            "save_review",
+            "evt-1",
+            7,
+            {
+                "x_min": 10,
+                "x_max": 20,
+                "y_min": 30,
+                "y_max": 40,
+                "label": "left",
+            },
+        )
+    ]
+
+
+@pytest.mark.unit
+def test_save_footstep_review_bad_payload_returns_400(review_client):
+    client, fake_sal = review_client
+
+    resp = client.post(
+        "/api/footsteps/evt-1/7/review",
+        json={
+            "x_min": 10,
+            "x_max": 20,
+            "y_min": 30,
+        },
+    )
+
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert data["code"] == "bad_request"
+    assert "Missing required field" in data["message"]
+    assert fake_sal.calls == []
+
+
+@pytest.mark.unit
+def test_create_footstep_ok(review_client):
+    client, fake_sal = review_client
+
+    resp = client.post(
+        "/api/footsteps/evt-1/create",
+        json={
+            "start_frame": 1,
+            "end_frame": 2,
+            "x_min": 10,
+            "x_max": 20,
+            "y_min": 30,
+            "y_max": 40,
+            "label": "new step",
+        },
+    )
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["item"]["event_id"] == "evt-1"
+    assert data["item"]["footstep_id"] == 99
+    assert fake_sal.calls == [
+        (
+            "create_footstep",
+            "evt-1",
+            {
+                "start_frame": 1,
+                "end_frame": 2,
+                "x_min": 10,
+                "x_max": 20,
+                "y_min": 30,
+                "y_max": 40,
+                "label": "new step",
+            },
+        )
+    ]
+
+
+@pytest.mark.unit
+def test_create_footstep_bad_payload_returns_400(review_client):
+    client, fake_sal = review_client
+
+    resp = client.post(
+        "/api/footsteps/evt-1/create",
+        json={
+            "start_frame": 1,
+            "x_min": 10,
+            "x_max": 20,
+            "y_min": 30,
+            "y_max": 40,
+        },
+    )
+
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert data["code"] == "bad_request"
+    assert "Missing required field" in data["message"]
+    assert fake_sal.calls == []
+
+
+@pytest.mark.unit
+def test_delete_footstep_ok(review_client):
+    client, fake_sal = review_client
+
+    resp = client.post("/api/footsteps/evt-1/7/delete")
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {
+        "ok": True,
+        "event_id": "evt-1",
+        "footstep_id": 7,
+    }
+    assert fake_sal.calls == [("delete_footstep", "evt-1", 7)]
+
+
+class ReviewErrorSAL:
+    def get_footstep_review_context(self, event_id, footstep_id):
+        return None, "missing_event"
+
+    def save_footstep_review(self, event_id, footstep_id, **kwargs):
+        return None, "invalid_bbox"
+
+    def create_footstep(self, event_id, **kwargs):
+        return None, "invalid_frame"
+
+    def delete_footstep(self, event_id, footstep_id):
+        return None, "missing_file"
+
+
+@pytest.fixture
+def review_error_client(app_factory):
+    app = app_factory(ReviewErrorSAL())
+    with app.test_client() as c:
+        yield c
+
+
+@pytest.mark.unit
+def test_get_footstep_review_missing_event_returns_404(review_error_client):
+    resp = review_error_client.get("/api/footsteps/evt-1/7/review")
+
+    assert resp.status_code == 404
+    data = resp.get_json()
+    assert data["code"] == "not_found"
+    assert data["message"] == "event not found"
+
+
+@pytest.mark.unit
+def test_save_footstep_review_invalid_bbox_returns_400(review_error_client):
+    resp = review_error_client.post(
+        "/api/footsteps/evt-1/7/review",
+        json={
+            "x_min": 10,
+            "x_max": 20,
+            "y_min": 30,
+            "y_max": 40,
+            "label": "left",
+        },
+    )
+
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert data["code"] == "bad_request"
+    assert "bbox must stay inside the full event image" in data["message"]
+
+
+@pytest.mark.unit
+def test_create_footstep_invalid_frame_returns_400(review_error_client):
+    resp = review_error_client.post(
+        "/api/footsteps/evt-1/create",
+        json={
+            "start_frame": 1,
+            "end_frame": 2,
+            "x_min": 10,
+            "x_max": 20,
+            "y_min": 30,
+            "y_max": 40,
+            "label": "new step",
+        },
+    )
+
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert data["code"] == "bad_request"
+    assert "start_frame and end_frame must be inside the trial" in data["message"]
+
+
+@pytest.mark.unit
+def test_delete_footstep_missing_file_returns_404(review_error_client):
+    resp = review_error_client.post("/api/footsteps/evt-1/7/delete")
+
+    assert resp.status_code == 404
+    data = resp.get_json()
+    assert data["code"] == "not_found"
+    assert data["message"] == "footstep not found"

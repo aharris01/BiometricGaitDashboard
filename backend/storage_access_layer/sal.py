@@ -3,11 +3,10 @@
 # Standard library
 import atexit
 import os
-import csv
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import unquote, urlparse
-from typing import Dict, List, Literal, Optional, Tuple, cast
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict, cast
 
 # Third-party
 import numpy as np
@@ -55,6 +54,45 @@ def uri_to_path(uri: str) -> Path:
         path = path[1:]
 
     return Path(path)
+
+
+class ReviewItemPayload(TypedDict):
+    event_id: str
+    footstep_id: int
+    start_frame: int
+    end_frame: int
+    label: str | None
+
+
+class ReviewBBoxPayload(TypedDict):
+    x_min: int
+    x_max: int
+    y_min: int
+    y_max: int
+
+
+class ReviewChangePayload(TypedDict):
+    action: str
+    changed_at: str
+    old_x_min: int | None
+    old_x_max: int | None
+    old_y_min: int | None
+    old_y_max: int | None
+    old_label: str | None
+    new_x_min: int | None
+    new_x_max: int | None
+    new_y_min: int | None
+    new_y_max: int | None
+    new_label: str | None
+
+
+class FootstepReviewPayload(TypedDict):
+    item: ReviewItemPayload
+    bbox: ReviewBBoxPayload
+    event_p100: list[list[float]]
+    image_width: int
+    image_height: int
+    changes: list[ReviewChangePayload]
 
 
 class SAL:
@@ -185,6 +223,38 @@ class SAL:
         array = loaded_file["arr_0"]
         return array.tolist()
 
+    # Read the frame count from the full trial volume for one event.
+    #
+    # Create mode needs this so new start_frame and end_frame values can be
+    # checked against the real trial length before a local footstep is created.
+    # This does not load any per-step data or recreate extraction outputs.
+    def _get_trial_frame_count(self, event_id: str):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        try:
+            file_path = uri_to_path(event.trial_npz_uri)
+        except ValueError:
+            return None, "missing_file"
+
+        try:
+            loaded_file = np.load(file_path)
+        except FileNotFoundError:
+            return None, "missing_file"
+        except Exception:
+            return None, "missing_file"
+
+        try:
+            array = loaded_file["arr_0"]
+        except Exception:
+            return None, "missing_file"
+
+        if getattr(array, "ndim", 0) < 1:
+            return None, "missing_file"
+
+        return int(array.shape[0]), None
+
     def get_grf(self, event_id: str):
         event = self.db.get_swipe_event(event_id)
         if event is None:
@@ -237,38 +307,23 @@ class SAL:
         if event is None:
             return None, "missing_event"
 
-        try:
-            trial_path = uri_to_path(event.trial_npz_uri)
-        except ValueError:
-            return None, "missing_file"
-
-        meta_path = trial_path.with_name("metadata.csv")
-        if not meta_path.exists():
-            return None, "missing_file"
-
-        try:
-            with meta_path.open(newline="") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-        except Exception:
-            return None, "missing_file"
+        rows = self.db.get_event_footsteps(event_id)
 
         steps: list[dict] = []
-        try:
-            for row in rows:
-                steps.append(
-                    {
-                        "id": int(row["FootstepID"]),
-                        "start_frame": int(row["StartFrame"]),
-                        "end_frame": int(row["EndFrame"]),
-                        "x_min": int(row["XMin"]),
-                        "x_max": int(row["XMax"]),
-                        "y_min": int(row["YMin"]),
-                        "y_max": int(row["YMax"]),
-                    }
-                )
-        except (KeyError, ValueError):
-            return None, "missing_file"
+        for row in rows:
+            steps.append(
+                {
+                    "id": int(row.footstep_id),
+                    "start_frame": int(row.start_frame),
+                    "end_frame": int(row.end_frame),
+                    "x_min": int(row.x_min),
+                    "x_max": int(row.x_max),
+                    "y_min": int(row.y_min),
+                    "y_max": int(row.y_max),
+                }
+            )
+        if len(steps) == 0:
+            return None, "missing_footsteps"
 
         return steps, None
 
@@ -287,7 +342,7 @@ class SAL:
         row = self.db.get_single_footstep(event_id, footstep_id)
 
         if row is None:
-            return None, "missing_file"
+            return None, "no_footstep"
 
         return (
             {
@@ -301,6 +356,240 @@ class SAL:
             },
             None,
         )
+
+    # Build the review payload for one footstep.
+    #
+    # Important:
+    # - the selected footstep still comes from the Footsteps view thumbnail
+    # - review/editing happens on the full event p100 image
+    # - bbox, label, and frame values come from local.db
+    # - local edit history is included from the changelog table
+    #
+    # This payload is the single source used by the frontend review panel.
+
+    def get_footstep_review_context(self, event_id: str, footstep_id: int):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        row = self.db.get_single_footstep(event_id, footstep_id)
+        if row is None:
+            return None, "missing_file"
+
+        p100 = self.get_p100(event_id)
+        if p100 is None or not isinstance(p100, list) or not p100:
+            return None, "missing_file"
+
+        first_row = p100[0]
+        if not isinstance(first_row, list) or not first_row:
+            return None, "missing_file"
+
+        image_height = len(p100)
+        image_width = len(first_row)
+
+        if image_width <= 0 or image_height <= 0:
+            return None, "missing_file"
+
+        changes: list[ReviewChangePayload] = []
+        for change in self.db.get_local_footstep_changes(event_id, footstep_id):
+            changes.append(
+                {
+                    "action": change.action,
+                    "changed_at": change.changed_at.isoformat(
+                        sep=" ", timespec="seconds"
+                    ),
+                    "old_x_min": change.old_x_min,
+                    "old_x_max": change.old_x_max,
+                    "old_y_min": change.old_y_min,
+                    "old_y_max": change.old_y_max,
+                    "old_label": change.old_label,
+                    "new_x_min": change.new_x_min,
+                    "new_x_max": change.new_x_max,
+                    "new_y_min": change.new_y_min,
+                    "new_y_max": change.new_y_max,
+                    "new_label": change.new_label,
+                }
+            )
+
+        payload: FootstepReviewPayload = {
+            "item": {
+                "event_id": event_id,
+                "footstep_id": int(row.footstep_id),
+                "start_frame": int(row.start_frame),
+                "end_frame": int(row.end_frame),
+                "label": row.label,
+            },
+            "bbox": {
+                "x_min": int(row.x_min),
+                "x_max": int(row.x_max),
+                "y_min": int(row.y_min),
+                "y_max": int(row.y_max),
+            },
+            "event_p100": p100,
+            "image_width": image_width,
+            "image_height": image_height,
+            "changes": changes,
+        }
+
+        return payload, None
+
+    def save_footstep_review(
+        self,
+        event_id: str,
+        footstep_id: int,
+        *,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        label: str | None,
+    ):
+        # Validate and save one local footstep edit.
+        #
+        # Validation is done here because the SAL knows the real event image
+        # bounds and keeps write behavior behind the DB layer. This updates the
+        # current local footstep row and lets the DB layer write the matching
+        # changelog entry for the edit.
+
+        review, err = self.get_footstep_review_context(event_id, footstep_id)
+        if err:
+            return None, err
+
+        if review is None:
+            return None, "missing_file"
+
+        image_width = review["image_width"]
+        image_height = review["image_height"]
+
+        x_min = int(x_min)
+        x_max = int(x_max)
+        y_min = int(y_min)
+        y_max = int(y_max)
+
+        if x_min < 0 or y_min < 0:
+            return None, "invalid_bbox"
+
+        if x_min >= x_max or y_min >= y_max:
+            return None, "invalid_bbox"
+
+        if x_max > image_width or y_max > image_height:
+            return None, "invalid_bbox"
+
+        if label is not None:
+            label = str(label).strip() or None
+
+        updated = self.db.update_local_footstep(
+            event_id,
+            footstep_id,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+            label=label,
+        )
+        if updated is None:
+            return None, "missing_file"
+
+        return self.get_footstep_review_context(event_id, footstep_id)
+
+    def create_footstep(
+        self,
+        event_id: str,
+        *,
+        start_frame: int,
+        end_frame: int,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+        label: str | None,
+    ):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        p100 = self.get_p100(event_id)
+        if p100 is None or not isinstance(p100, list) or not p100:
+            return None, "missing_file"
+
+        first_row = p100[0]
+        if not isinstance(first_row, list) or not first_row:
+            return None, "missing_file"
+
+        image_height = len(p100)
+        image_width = len(first_row)
+
+        if image_width <= 0 or image_height <= 0:
+            return None, "missing_file"
+
+        frame_count, err = self._get_trial_frame_count(event_id)
+        if err:
+            return None, err
+
+        if frame_count is None:
+            return None, "missing_file"
+
+        start_frame = int(start_frame)
+        end_frame = int(end_frame)
+        x_min = int(x_min)
+        x_max = int(x_max)
+        y_min = int(y_min)
+        y_max = int(y_max)
+
+        if start_frame < 0 or end_frame < 0:
+            return None, "invalid_frame"
+
+        if start_frame >= end_frame:
+            return None, "invalid_frame"
+
+        if start_frame >= frame_count or end_frame >= frame_count:
+            return None, "invalid_frame"
+
+        if x_min < 0 or y_min < 0:
+            return None, "invalid_bbox"
+
+        if x_min >= x_max or y_min >= y_max:
+            return None, "invalid_bbox"
+
+        if x_max > image_width or y_max > image_height:
+            return None, "invalid_bbox"
+
+        if label is not None:
+            label = str(label).strip() or None
+
+        created = self.db.create_local_footstep(
+            event_id,
+            start_frame=start_frame,
+            end_frame=end_frame,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+            label=label,
+        )
+        if created is None:
+            return None, "missing_file"
+
+        return self.get_footstep_review_context(event_id, int(created.footstep_id))
+
+    def delete_footstep(self, event_id: str, footstep_id: int):
+        event = self.db.get_swipe_event(event_id)
+        if event is None:
+            return None, "missing_event"
+
+        row = self.db.get_single_footstep(event_id, footstep_id)
+        if row is None:
+            return None, "missing_file"
+
+        deleted = self.db.delete_local_footstep(event_id, footstep_id)
+        if deleted is None:
+            return None, "missing_file"
+
+        return {
+            "ok": True,
+            "event_id": event_id,
+            "footstep_id": footstep_id,
+        }, None
 
     def get_footstep_data(self, event_id: str, step_id: int):
         event = self.db.get_swipe_event(event_id)
@@ -755,6 +1044,7 @@ class SAL:
                     "bbox_width": row["bbox_width"],
                     "bbox_height": row["bbox_height"],
                     "bbox_area": row["bbox_area"],
+                    "has_thumbnail": bool(row["has_thumbnail"]),
                 }
             )
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import datetime as dt
 from io import BytesIO
 from pathlib import Path
@@ -256,44 +255,33 @@ def test_get_grf_missing_file(tmp_path, sal, fake_db):
 
 
 @pytest.mark.unit
-def test_get_footsteps_ok(tmp_path, sal, fake_db):
-    trial_path = tmp_path / "trial.npz"
-    np.savez(trial_path, arr_0=np.zeros((2, 2)))
-
-    meta_path = trial_path.with_name("metadata.csv")
-    with meta_path.open("w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "FootstepID",
-                "StartFrame",
-                "EndFrame",
-                "XMin",
-                "XMax",
-                "YMin",
-                "YMax",
-            ],
+def test_get_footsteps_ok(sal, fake_db):
+    step_rows = [
+        SimpleNamespace(
+            footstep_id=1,
+            start_frame=10,
+            end_frame=20,
+            x_min=1,
+            x_max=5,
+            y_min=2,
+            y_max=6,
         )
-        writer.writeheader()
-        writer.writerow(
-            {
-                "FootstepID": 0,
-                "StartFrame": 10,
-                "EndFrame": 20,
-                "XMin": 1,
-                "XMax": 5,
-                "YMin": 2,
-                "YMax": 6,
-            }
-        )
-
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_npz_uri=trial_path.as_uri()
-    )
-
+    ]
+    returned_rows = [
+        {
+            "id": 1,
+            "start_frame": 10,
+            "end_frame": 20,
+            "x_min": 1,
+            "x_max": 5,
+            "y_min": 2,
+            "y_max": 6,
+        }
+    ]
+    fake_db.get_event_footsteps.return_value = step_rows
     steps, err = sal.get_footsteps("evt-1")
     assert err is None
-    assert isinstance(steps, list)
+    assert steps == returned_rows
 
 
 # ---- get_footstep_data ----
@@ -640,6 +628,7 @@ def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
                 "bbox_width": 20,
                 "bbox_height": 30,
                 "bbox_area": 600,
+                "has_thumbnail": True,
             }
         ],
         1,
@@ -691,6 +680,7 @@ def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
                 "bbox_width": 20,
                 "bbox_height": 30,
                 "bbox_area": 600,
+                "has_thumbnail": True,
             }
         ],
         "total": 1,
