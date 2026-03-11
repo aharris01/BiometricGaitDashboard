@@ -6,9 +6,10 @@ import numpy as np
 
 from ..db.db import DB
 from ..db.models import SwipeEvent
+from ..db.schema import LocalFootstep
 from ..utils import uri_to_path
 
-ErrorCode: TypeAlias = Literal["missing_event", "missing_file"]
+ErrorCode: TypeAlias = Literal["missing_event", "missing_file", "invalid_footstep"]
 T = TypeVar("T")
 Result: TypeAlias = tuple[T | None, ErrorCode | None]
 
@@ -22,6 +23,15 @@ class CommonHelper:
         if event is None:
             return None, "missing_event"
         return event, None
+
+    def _require_footstep(
+        self, event_id: str, footstep_id: int
+    ) -> Result[LocalFootstep]:
+        footstep = self.db.get_single_footstep(event_id, footstep_id)
+        if footstep is None:
+            return None, "invalid_footstep"
+
+        return footstep, None
 
     def _load_npz_from_uri(self, uri: str, key: str = "arr_0") -> Result[np.ndarray]:
         try:
