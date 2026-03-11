@@ -1,5 +1,7 @@
 from datetime import date
 
+from backend.storage_access_layer.pipeline.footstep_edits import FootstepEditor
+
 from ..db.db import DB
 from ..utils.types import (
     FootstepReviewPayload,
@@ -16,6 +18,7 @@ class SalFootsteps:
     def __init__(self, db: DB, common: CommonHelper):
         self.db = db
         self.common = common
+        self.editor = FootstepEditor(db, common)
 
     def search_footsteps(
         self,
@@ -235,6 +238,19 @@ class SalFootsteps:
 
         if label is not None:
             label = str(label).strip() or None
+
+        self.editor.edit_footstep(
+            footstep_id,
+            event_id,
+            {
+                "XMin": x_min,
+                "XMax": x_max,
+                "YMin": y_min,
+                "YMax": y_max,
+                "StartFrame": None,
+                "EndFrame": None,
+            },
+        )
 
         updated = self.db.update_local_footstep(
             event_id,
