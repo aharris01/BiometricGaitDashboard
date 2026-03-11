@@ -3,14 +3,17 @@ from datetime import date
 from ..db.db import DB
 from ..utils.types import (
     FootstepReviewPayload,
+    ReviewBBoxPayload,
     ReviewChangePayload,
     FootstepSearchFilters,
     FootstepSearchItem,
+    ReviewItemPayload,
 )
+from .common import CommonHelper
 
 
 class SalFootsteps:
-    def __init__(self, db: DB, common):
+    def __init__(self, db: DB, common: CommonHelper):
         self.db = db
         self.common = common
 
@@ -133,16 +136,16 @@ class SalFootsteps:
         if err:
             return None, err
 
-        row = self.db.get_single_footstep(event_id, footstep_id)
-        if row is None:
-            return None, "missing_file"
+        footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
+        if footstep_err or footstep is None:
+            return None, footstep_err
 
         p100, p100_err = self.common._get_p100(event_id)
-        if p100_err:
+        if p100_err or p100 is None:
             return None, p100_err
 
         image_width, image_height, dim_err = self.common._get_image_dims(p100)
-        if dim_err:
+        if dim_err or image_width is None or image_height is None:
             return None, dim_err
 
         changes: list[ReviewChangePayload] = []
@@ -166,25 +169,25 @@ class SalFootsteps:
                 }
             )
 
-        payload: FootstepReviewPayload = {
-            "item": {
-                "event_id": event_id,
-                "footstep_id": int(row.footstep_id),
-                "start_frame": int(row.start_frame),
-                "end_frame": int(row.end_frame),
-                "label": row.label,
-            },
-            "bbox": {
-                "x_min": int(row.x_min),
-                "x_max": int(row.x_max),
-                "y_min": int(row.y_min),
-                "y_max": int(row.y_max),
-            },
-            "event_p100": p100,
-            "image_width": image_width,
-            "image_height": image_height,
-            "changes": changes,
-        }
+        payload = FootstepReviewPayload(
+            item=ReviewItemPayload(
+                event_id=event_id,
+                footstep_id=int(footstep.footstep_id),
+                start_frame=footstep.start_frame,
+                end_frame=footstep.end_frame,
+                label=footstep.label,
+            ),
+            bbox=ReviewBBoxPayload(
+                x_min=int(footstep.x_min),
+                x_max=int(footstep.x_max),
+                y_min=int(footstep.y_min),
+                y_max=int(footstep.y_max),
+            ),
+            event_p100=p100,
+            image_width=image_width,
+            image_height=image_height,
+            changes=changes,
+        )
 
         return payload, None
 
@@ -268,15 +271,12 @@ class SalFootsteps:
             return None, p100_err
 
         image_width, image_height, dim_err = self.common._get_image_dims(p100)
-        if dim_err:
+        if dim_err or image_width is None or image_height is None:
             return None, dim_err
 
         frame_count, err = self.common._get_trial_frame_count(event_id)
-        if err:
+        if err or frame_count is None:
             return None, err
-
-        if frame_count is None:
-            return None, "missing_file"
 
         start_frame = int(start_frame)
         end_frame = int(end_frame)
@@ -346,7 +346,7 @@ class SalFootsteps:
             return None, None, err
 
         steps_npz, steps_err = self.common._load_steps_npz(event)
-        if steps_err:
+        if steps_err or steps_npz is None:
             return None, None, steps_err
 
         key = str(step_id)
@@ -377,7 +377,7 @@ class SalFootsteps:
             return None, err
 
         steps_npz, steps_err = self.common._load_steps_npz(event)
-        if steps_err:
+        if steps_err or steps_npz is None:
             return None, steps_err
 
         items = []
@@ -404,7 +404,7 @@ class SalFootsteps:
             return None, err
 
         steps_npz, steps_err = self.common._load_steps_npz(event)
-        if steps_err:
+        if steps_err or steps_npz is None:
             return None, steps_err
 
         items = []
