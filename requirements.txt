@@ -6,3 +6,5 @@ Requests==2.32.5
 SQLAlchemy==2.0.44
 numpy
 Pillow
+scikit-learn
+opencv-python
