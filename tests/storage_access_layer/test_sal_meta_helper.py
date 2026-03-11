@@ -31,7 +31,4 @@ def test_get_participants(helper):
 
 @pytest.mark.unit
 def test_get_swipe_event_id(helper):
-    assert (
-        helper.get_swipe_event_id(100, dt.date(2025, 1, 1), 1, "in")
-        == "EVT-1"
-    )
+    assert helper.get_swipe_event_id(100, dt.date(2025, 1, 1), 1, "in") == "EVT-1"
