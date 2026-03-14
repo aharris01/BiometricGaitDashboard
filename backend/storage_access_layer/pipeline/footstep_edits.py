@@ -29,11 +29,11 @@ class FootstepEditor:
         # validate footstep_id and event_id
         event, event_err = self.common._require_event(event_id)
         if event_err or event is None:
-            return None, event_err
+            return False, event_err
 
         footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
         if footstep_err or footstep is None:
-            return None, footstep_err
+            return False, footstep_err
 
         # open metadata for the event
         trial_folder = uri_to_path(event.trial_npz_uri).parent
@@ -42,13 +42,13 @@ class FootstepEditor:
             metadata_df = load_metadata(metadata_file_path)
         except Exception as e:
             current_app.logger.error(f"Error loading metadata: {e}")
-            return None, f"Error loading metadata: {e}"
+            return False, f"Error loading metadata: {e}"
 
         # open p100 for the event
         p100, p100_err = self.common._load_npz_from_uri(event.trial_p100_npz_uri)
         if p100_err or p100 is None:
             current_app.logger.error(f"Error loading p100 data: {p100_err}")
-            return None, p100_err
+            return False, p100_err
 
         # make edits to footstep in df
         metadata_df.loc[
@@ -100,7 +100,7 @@ class FootstepEditor:
             current_app.logger.error(
                 f"Error loading trial recording: {trial_recording_err}"
             )
-            return None, trial_recording_err
+            return False, trial_recording_err
         print("Opened trial recording")
         print("Updating footstep data files...")
 
@@ -129,7 +129,7 @@ class FootstepEditor:
             print(f"Updated steps.npz: {trial_folder / 'steps.npz'}")
         except Exception as e:
             current_app.logger.error(f"Error saving steps.npz: {e}")
-            return None, f"Error saving steps.npz: {e}"
+            return False, f"Error saving steps.npz: {e}"
 
         print("Updating steps.raw.npz...")
         try:
@@ -137,10 +137,24 @@ class FootstepEditor:
             print(f"Updated steps.raw.npz: {trial_folder / 'steps.raw.npz'}")
         except Exception as e:
             current_app.logger.error(f"Error saving steps.raw.npz: {e}")
-            return None, f"Error saving steps.raw.npz: {e}"
+            return False, f"Error saving steps.raw.npz: {e}"
 
         # replace metadata.csv for the event to with updated df
+        _, update_csv_err = _update_csv(metadata_df, metadata_file_path)
+        if update_csv_err:
+            return False, update_csv_err
+
         # make entry in footsteps table
         # update metrics for event
         # return success or failure
-        return
+        return True, None
+
+
+def _update_csv(metadata_df, metadata_file_path):
+    try:
+        metadata_df.to_csv(metadata_file_path, index=False)
+        print(f"Updated metadata.csv: {metadata_file_path}")
+    except Exception as e:
+        current_app.logger.error(f"Error saving metadata.csv: {e}")
+        return False, f"Error saving metadata.csv: {e}"
+    return True, None
