@@ -73,8 +73,10 @@ class FootstepEditor:
         # find path order (anchor identification and path order identification)
         print("Finding path order...")
         metadata_df["path_order"] = -1  # Any footsteps not on path will be -1
+        print("Identifying anchor footstep...")
+        identify_anchor_footstep(metadata_df)
 
-        # trace path of travel and assign path order to footsteps on the path
+        # # trace path of travel and assign path order to footsteps on the path
         metadata_df["heading_angle"] = metadata_df.apply(
             get_heading, args=(p100,), axis=1
         )

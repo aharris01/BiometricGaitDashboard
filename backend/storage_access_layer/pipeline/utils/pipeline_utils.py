@@ -32,7 +32,7 @@ def parse_identifying_components_from_path(data_filename):
     return participant, date, direction, swipe_n
 
 
-def load_metadata(filepath):
+def load_metadata(filepath: pathlib.Path):
     return pd.read_csv(
         filepath,
         converters={
@@ -46,7 +46,7 @@ MAX_DISTANCE = np.sqrt(220**2 + 660**2)
 
 # The anchor footstep is used to trace the participant's path of travel.
 # It is the closest (spatio-temporal) footstep to the swipe event for this trial
-def identify_anchor_footstep(metadata):
+def identify_anchor_footstep(metadata: pd.DataFrame):
     if metadata.Direction[0] == "out":
         # the anchor footstep should occur at a short delay following the swipe
         delay = 25
@@ -101,7 +101,7 @@ def get_heading(row, trial_p100: np.ndarray):
     return heading_angle
 
 
-def _is_within_expected_bb_size(row):
+def _is_within_expected_bb_size(row: pd.Series):
     x_length = row.XMax - row.XMin
     y_length = row.YMax - row.YMin
 
@@ -113,12 +113,12 @@ def _is_within_expected_bb_size(row):
     )
 
 
-def _is_within_expect_duration(row):
+def _is_within_expect_duration(row: pd.Series):
     duration = row.EndFrame - row.StartFrame
     return T_MIN < duration < T_MAX
 
 
-def _get_angle_between(f1, f2):
+def _get_angle_between(f1: pd.Series, f2: pd.Series):
     dx = f2.x - f1.x
     dy = f2.y - f1.y
     a = np.arctan2(-dy, dx)
@@ -129,12 +129,23 @@ def _get_angle_between(f1, f2):
     return a
 
 
+def _get_footstep_row(metadata: pd.DataFrame, footstep_id: int) -> pd.Series | None:
+    rows = metadata.loc[metadata["FootstepID"] == footstep_id]
+    if rows.empty:
+        return None
+
+    return rows.iloc[0]
+
+
 ## assumes that path order is populated for all steps currently on the path
-def _find_next_footstep(metadata, current_footstep_id):
-    current_footstep = metadata.loc[current_footstep_id]
+def _find_next_footstep(metadata: pd.DataFrame, current_footstep_id: int):
+    current_footstep = _get_footstep_row(metadata, current_footstep_id)
+    if current_footstep is None:
+        return {}
+
     remaining_candidates = metadata.query("path_order < 0")
 
-    if current_footstep.Direction == "in":
+    if current_footstep["Direction"] == "in":
         # We are tracing backward through time. Next step must occur in some sane window of time before the current one
         remaining_candidates = remaining_candidates.query(
             "@current_footstep.t-150 < t < @current_footstep.t-10"
@@ -193,20 +204,24 @@ def _find_next_footstep(metadata, current_footstep_id):
 
     loss = (np.sqrt(d_loss) + np.sqrt(t_loss) + np.sqrt(a_loss)) / 3
 
-    loss_dict = {f: l for f, l in zip(remaining_candidates.FootstepID, loss)}
+    loss_dict = {int(f): l for f, l in zip(remaining_candidates.FootstepID, loss)}
     return loss_dict
 
 
-def trace_path(metadata):
-    # Start from the anchor footstep
-    current_footstep_id = metadata.query("path_order == 0").FootstepID.iloc[0]
+def trace_path(metadata: pd.DataFrame):
+    anchor_rows = metadata.loc[metadata["path_order"] == 0, "FootstepID"]
+    if anchor_rows.empty:
+        print("No anchor footstep found. Path tracing cannot proceed.")
+        return
+
+    current_footstep_id = int(anchor_rows.iloc[0])
 
     next_path_order = 1
     while next_path_order < len(metadata):
         loss_dict = _find_next_footstep(metadata, current_footstep_id)
 
         min_loss = 1
-        min_footstep_id = -1
+        min_footstep_id: int = -1
         for f, l in loss_dict.items():
             if l <= min_loss:
                 min_loss = l
@@ -226,7 +241,9 @@ def trace_path(metadata):
         # a) current footstep is near edge of grid
         # b) current headings points off of grid.
         # c) all next-step candidates are improbable
-        current_footstep = metadata.loc[current_footstep_id]
+        current_footstep = _get_footstep_row(metadata, current_footstep_id)
+        if current_footstep is None:
+            break
 
         x = current_footstep.x
         y = current_footstep.y
@@ -257,14 +274,16 @@ def trace_path(metadata):
         if (len(loss_dict) == 0) or stop_loss < 0.2:
             break
 
-        metadata.loc[next_footstep_id, "path_order"] = next_path_order
+        metadata.loc[
+            metadata["FootstepID"] == next_footstep_id, "path_order"
+        ] = next_path_order
 
         current_footstep_id = next_footstep_id
         next_path_order += 1
 
 
 # reset all path nodes EXCEPT for the
-def reset_path_order(row):
+def reset_path_order(row: pd.Series):
     if row.path_order == 0:
         return 0
     else:
