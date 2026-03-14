@@ -1,5 +1,7 @@
 from pathlib import Path
+import numpy as np
 
+from ..utils import uri_to_path
 from ..db.db import DB
 from ..helpers.common import CommonHelper
 from .utils.pipeline_utils import (
@@ -11,6 +13,7 @@ from .utils.pipeline_utils import (
     reset_path_order,
     trace_path,
 )
+from .utils.preprocess_footsteps import preprocess_footsteps
 from flask import current_app
 
 
@@ -33,8 +36,9 @@ class FootstepEditor:
             return None, footstep_err
 
         # open metadata for the event
+        trial_folder = uri_to_path(event.trial_npz_uri).parent
         try:
-            metadata_file_path = Path(event.trial_npz_uri).parent / "metadata.csv"
+            metadata_file_path = trial_folder / "metadata.csv"
             metadata_df = load_metadata(metadata_file_path)
         except Exception as e:
             current_app.logger.error(f"Error loading metadata: {e}")
@@ -76,7 +80,6 @@ class FootstepEditor:
         print("Identifying anchor footstep...")
         identify_anchor_footstep(metadata_df)
 
-        # # trace path of travel and assign path order to footsteps on the path
         metadata_df["heading_angle"] = metadata_df.apply(
             get_heading, args=(p100,), axis=1
         )
@@ -85,7 +88,42 @@ class FootstepEditor:
 
         trace_path(metadata_df)
 
+        metadata_df["is_anchor"] = metadata_df["path_order"] == 0
+        metadata_df["is_on_path"] = metadata_df["path_order"] >= 0
         # take new bounding box data from trial recording and update steps.raw.npz and steps.npz
+        print("Opening trial recording...")
+        trial_recording, trial_recording_err = self.common._load_npz_from_uri(
+            event.trial_npz_uri
+        )
+        if trial_recording_err or trial_recording is None:
+            current_app.logger.error(
+                f"Error loading trial recording: {trial_recording_err}"
+            )
+            return None, trial_recording_err
+        print("Opened trial recording")
+        print("Updating footstep data files...")
+
+        footsteps = {}
+        raw_footsteps = {}
+        for i, row in metadata_df.iterrows():
+            footstep_data = trial_recording[
+                row["StartFrame"] : row["EndFrame"],
+                row["YMin"] : row["YMax"],
+                row["XMin"] : row["XMax"],
+            ]
+            footsteps[i] = footstep_data
+            raw_footsteps[str(i)] = footstep_data
+
+        print("Normalizing and updating steps.npz...")
+
+        print("Updating steps.raw.npz...")
+        try:
+            np.savez(trial_folder / "steps.raw.npz", **raw_footsteps)
+            print(f"Updated steps.raw.npz: {trial_folder / 'steps.raw.npz'}")
+        except Exception as e:
+            current_app.logger.error(f"Error saving steps.raw.npz: {e}")
+            return None, f"Error saving steps.raw.npz: {e}"
+
         # replace metadata.csv for the event to with updated df
         # make entry in footsteps table
         # update metrics for event

@@ -221,7 +221,6 @@ def trace_path(metadata: pd.DataFrame):
     next_path_order = 1
     while next_path_order < len(metadata):
         loss_dict = _find_next_footstep(metadata, current_footstep_id)
-        print(loss_dict)
 
         min_loss = 1
         min_footstep_id: int = -1
