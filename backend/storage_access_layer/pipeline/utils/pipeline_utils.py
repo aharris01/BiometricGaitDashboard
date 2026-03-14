@@ -86,7 +86,7 @@ def get_heading(row, trial_p100: np.ndarray):
     X = np.array([c, r]).T
 
     pca = PCA(n_components=2)
-    reducer = pca.fit(X)
+    reducer = pca.fit(X)  # noqa: F841
     angle_needed_to_upright = np.arctan2(pca.components_[0, 1], pca.components_[0, 0])
 
     heading_angle = angle_needed_to_upright + 0.5 * np.pi
@@ -204,7 +204,9 @@ def _find_next_footstep(metadata: pd.DataFrame, current_footstep_id: int):
 
     loss = (np.sqrt(d_loss) + np.sqrt(t_loss) + np.sqrt(a_loss)) / 3
 
-    loss_dict = {int(f): l for f, l in zip(remaining_candidates.FootstepID, loss)}
+    loss_dict = {
+        int(f): loss for f, loss in zip(remaining_candidates["FootstepID"], loss)
+    }
     return loss_dict
 
 
@@ -219,12 +221,13 @@ def trace_path(metadata: pd.DataFrame):
     next_path_order = 1
     while next_path_order < len(metadata):
         loss_dict = _find_next_footstep(metadata, current_footstep_id)
+        print(loss_dict)
 
         min_loss = 1
         min_footstep_id: int = -1
-        for f, l in loss_dict.items():
-            if l <= min_loss:
-                min_loss = l
+        for f, loss in loss_dict.items():
+            if loss <= min_loss:
+                min_loss = loss
                 min_footstep_id = f
 
         next_footstep_id, next_loss = min_footstep_id, min_loss
@@ -274,9 +277,9 @@ def trace_path(metadata: pd.DataFrame):
         if (len(loss_dict) == 0) or stop_loss < 0.2:
             break
 
-        metadata.loc[
-            metadata["FootstepID"] == next_footstep_id, "path_order"
-        ] = next_path_order
+        metadata.loc[metadata["FootstepID"] == next_footstep_id, "path_order"] = (
+            next_path_order
+        )
 
         current_footstep_id = next_footstep_id
         next_path_order += 1
