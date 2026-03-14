@@ -349,6 +349,8 @@ def save_footstep_review(
     x_max: int,
     y_min: int,
     y_max: int,
+    start_frame: int,
+    end_frame: int,
     label: str | None,
     logger=None,
 ):
@@ -360,6 +362,8 @@ def save_footstep_review(
             "x_max": x_max,
             "y_min": y_min,
             "y_max": y_max,
+            "start_frame": start_frame,
+            "end_frame": end_frame,
             "label": label,
         },
         context="save_footstep_review",

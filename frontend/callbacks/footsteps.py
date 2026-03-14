@@ -828,6 +828,8 @@ def register(app, *, cmap):
         State("footstep-review-x-max", "value"),
         State("footstep-review-y-min", "value"),
         State("footstep-review-y-max", "value"),
+        State("footstep-create-start-frame", "value"),
+        State("footstep-create-end-frame", "value"),
         State("footstep-review-label", "value"),
         prevent_initial_call=True,
     )
@@ -838,6 +840,8 @@ def register(app, *, cmap):
         x_max,
         y_min,
         y_max,
+        start_frame,
+        end_frame,
         label,
     ):
         if (
@@ -867,6 +871,8 @@ def register(app, *, cmap):
             x_max=bbox["x_max"],
             y_min=bbox["y_min"],
             y_max=bbox["y_max"],
+            start_frame=start_frame,
+            end_frame=end_frame,
             label=label,
             logger=app.logger,
         )

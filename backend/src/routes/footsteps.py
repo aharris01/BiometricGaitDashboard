@@ -26,6 +26,8 @@ class ReviewRequestPayload(TypedDict):
     x_max: int
     y_min: int
     y_max: int
+    start_frame: int
+    end_frame: int
     label: str | None
 
 
@@ -142,6 +144,8 @@ def _parse_review_payload():
         x_max = _coerce_review_int(body.get("x_max"), "x_max")
         y_min = _coerce_review_int(body.get("y_min"), "y_min")
         y_max = _coerce_review_int(body.get("y_max"), "y_max")
+        start_frame = _coerce_review_int(body.get("start_frame"), "start_frame")
+        end_frame = _coerce_review_int(body.get("end_frame"), "end_frame")
     except _ReviewPayloadError as exc:
         return None, make_error(
             400,
@@ -161,6 +165,8 @@ def _parse_review_payload():
         "x_max": x_max,
         "y_min": y_min,
         "y_max": y_max,
+        "start_frame": start_frame,
+        "end_frame": end_frame,
         "label": label,
     }
 
@@ -354,6 +360,8 @@ def api_save_footstep_review(event_id: str, footstep_id: int):
             x_max=parsed["x_max"],
             y_min=parsed["y_min"],
             y_max=parsed["y_max"],
+            start_frame=parsed["start_frame"],
+            end_frame=parsed["end_frame"],
             label=parsed["label"],
         )
 

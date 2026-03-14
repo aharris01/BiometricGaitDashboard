@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 import numpy as np
 
 from ..utils import uri_to_path
@@ -60,8 +61,8 @@ class FootstepEditor:
             new_footstep_data["XMax"],
             new_footstep_data["YMin"],
             new_footstep_data["YMax"],
-            new_footstep_data["StartFrame"] or footstep_row["StartFrame"].iloc[0],
-            new_footstep_data["EndFrame"] or footstep_row["EndFrame"].iloc[0],
+            new_footstep_data["StartFrame"],
+            new_footstep_data["EndFrame"],
         ]
 
         # validate footstep bounding box data
@@ -103,8 +104,8 @@ class FootstepEditor:
         print("Opened trial recording")
         print("Updating footstep data files...")
 
-        footsteps = {}
-        raw_footsteps = {}
+        footsteps: dict[Any, np.ndarray] = {}
+        raw_footsteps: dict[str, np.ndarray] = {}
         for i, row in metadata_df.iterrows():
             footstep_data = trial_recording[
                 row["StartFrame"] : row["EndFrame"],
@@ -115,10 +116,25 @@ class FootstepEditor:
             raw_footsteps[str(i)] = footstep_data
 
         print("Normalizing and updating steps.npz...")
+        preprocessed_footsteps, preprocess_metadata = preprocess_footsteps(
+            footsteps, metadata_df, h=100, w=100
+        )
+        print("Preprocessed footsteps\n", preprocess_metadata)
+        preprocessed_footsteps_dict = {
+            str(i): f for i, f in enumerate(preprocessed_footsteps)
+        }
+        try:
+            np.savez_compressed(
+                trial_folder / "steps.npz", **preprocessed_footsteps_dict
+            )
+            print(f"Updated steps.npz: {trial_folder / 'steps.npz'}")
+        except Exception as e:
+            current_app.logger.error(f"Error saving steps.npz: {e}")
+            return None, f"Error saving steps.npz: {e}"
 
         print("Updating steps.raw.npz...")
         try:
-            np.savez(trial_folder / "steps.raw.npz", **raw_footsteps)
+            np.savez(trial_folder / "steps.raw.npz", allow_pickle=True, **raw_footsteps)
             print(f"Updated steps.raw.npz: {trial_folder / 'steps.raw.npz'}")
         except Exception as e:
             current_app.logger.error(f"Error saving steps.raw.npz: {e}")

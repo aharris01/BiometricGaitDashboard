@@ -203,6 +203,8 @@ class SalFootsteps:
         x_max: int,
         y_min: int,
         y_max: int,
+        start_frame: int | None,
+        end_frame: int | None,
         label: str | None,
     ):
         # Validate and save one local footstep edit.
@@ -247,8 +249,8 @@ class SalFootsteps:
                 "XMax": x_max,
                 "YMin": y_min,
                 "YMax": y_max,
-                "StartFrame": None,
-                "EndFrame": None,
+                "StartFrame": start_frame,
+                "EndFrame": end_frame,
             },
         )
 
