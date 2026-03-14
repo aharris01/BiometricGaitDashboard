@@ -419,6 +419,8 @@ class DB:
         x_max: int,
         y_min: int,
         y_max: int,
+        start_frame: int,
+        end_frame: int,
         label: str | None,
     ):
         # Update one local footstep row in local.db.
@@ -439,12 +441,16 @@ class DB:
             old_x_max = int(row.x_max)
             old_y_min = int(row.y_min)
             old_y_max = int(row.y_max)
+            old_start_frame = int(row.start_frame)
+            old_end_frame = int(row.end_frame)
             old_label = row.label
 
             new_x_min = int(x_min)
             new_x_max = int(x_max)
             new_y_min = int(y_min)
             new_y_max = int(y_max)
+            new_start_frame = int(start_frame)
+            new_end_frame = int(end_frame)
             new_label = label
 
             # Do not create a changelog row if nothing actually changed.
@@ -453,6 +459,8 @@ class DB:
                 and old_x_max == new_x_max
                 and old_y_min == new_y_min
                 and old_y_max == new_y_max
+                and old_start_frame == new_start_frame
+                and old_end_frame == new_end_frame
                 and old_label == new_label
             ):
                 return row
@@ -466,11 +474,15 @@ class DB:
                     old_x_max=old_x_max,
                     old_y_min=old_y_min,
                     old_y_max=old_y_max,
+                    old_start_frame=old_start_frame,
+                    old_end_frame=old_end_frame,
                     old_label=old_label,
                     new_x_min=new_x_min,
                     new_x_max=new_x_max,
                     new_y_min=new_y_min,
                     new_y_max=new_y_max,
+                    new_start_frame=new_start_frame,
+                    new_end_frame=new_end_frame,
                     new_label=new_label,
                 )
             )

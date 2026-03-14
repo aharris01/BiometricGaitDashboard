@@ -246,7 +246,7 @@ class SalFootsteps:
         if label is not None:
             label = str(label).strip() or None
 
-        self.editor.edit_footstep(
+        edit_ok, edit_err = self.editor.edit_footstep(
             footstep_id,
             event_id,
             {
@@ -259,6 +259,9 @@ class SalFootsteps:
             },
         )
 
+        if edit_err or not edit_ok:
+            return None, edit_err or "edit_failed"
+
         updated = self.db.update_local_footstep(
             event_id,
             footstep_id,
@@ -266,10 +269,12 @@ class SalFootsteps:
             x_max=x_max,
             y_min=y_min,
             y_max=y_max,
+            start_frame=start_frame,
+            end_frame=end_frame,
             label=label,
         )
         if updated is None:
-            return None, "missing_file"
+            return None, "no_footstep"
 
         return self.get_footstep_review_context(event_id, footstep_id)
 
