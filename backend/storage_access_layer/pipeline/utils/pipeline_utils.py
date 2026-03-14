@@ -131,7 +131,7 @@ def _get_angle_between(f1, f2):
 
 ## assumes that path order is populated for all steps currently on the path
 def _find_next_footstep(metadata, current_footstep_id):
-    current_footstep = metadata.iloc[current_footstep_id]
+    current_footstep = metadata.loc[current_footstep_id]
     remaining_candidates = metadata.query("path_order < 0")
 
     if current_footstep.Direction == "in":
@@ -226,7 +226,7 @@ def trace_path(metadata):
         # a) current footstep is near edge of grid
         # b) current headings points off of grid.
         # c) all next-step candidates are improbable
-        current_footstep = metadata.iloc[current_footstep_id]
+        current_footstep = metadata.loc[current_footstep_id]
 
         x = current_footstep.x
         y = current_footstep.y
