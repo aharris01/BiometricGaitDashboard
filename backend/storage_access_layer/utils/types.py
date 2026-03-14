@@ -25,11 +25,15 @@ class ReviewChangePayload(TypedDict):
     old_x_max: int | None
     old_y_min: int | None
     old_y_max: int | None
+    old_start_frame: int | None
+    old_end_frame: int | None
     old_label: str | None
     new_x_min: int | None
     new_x_max: int | None
     new_y_min: int | None
     new_y_max: int | None
+    new_start_frame: int | None
+    new_end_frame: int | None
     new_label: str | None
 
 

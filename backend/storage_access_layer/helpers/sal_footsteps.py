@@ -163,12 +163,16 @@ class SalFootsteps:
                     "old_x_max": change.old_x_max,
                     "old_y_min": change.old_y_min,
                     "old_y_max": change.old_y_max,
+                    "old_start_frame": change.old_start_frame,
+                    "old_end_frame": change.old_end_frame,
                     "old_label": change.old_label,
                     "new_x_min": change.new_x_min,
                     "new_x_max": change.new_x_max,
                     "new_y_min": change.new_y_min,
                     "new_y_max": change.new_y_max,
                     "new_label": change.new_label,
+                    "new_start_frame": change.new_start_frame,
+                    "new_end_frame": change.new_end_frame,
                 }
             )
 
