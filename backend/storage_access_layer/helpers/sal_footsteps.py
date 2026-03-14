@@ -203,8 +203,8 @@ class SalFootsteps:
         x_max: int,
         y_min: int,
         y_max: int,
-        start_frame: int | None,
-        end_frame: int | None,
+        start_frame: int,
+        end_frame: int,
         label: str | None,
     ):
         # Validate and save one local footstep edit.
@@ -224,11 +224,6 @@ class SalFootsteps:
         image_width = review["image_width"]
         image_height = review["image_height"]
 
-        x_min = int(x_min)
-        x_max = int(x_max)
-        y_min = int(y_min)
-        y_max = int(y_max)
-
         if x_min < 0 or y_min < 0:
             return None, "invalid_bbox"
 
@@ -236,6 +231,12 @@ class SalFootsteps:
             return None, "invalid_bbox"
 
         if x_max > image_width or y_max > image_height:
+            return None, "invalid_bbox"
+
+        if 0 > start_frame > 3000 or 0 > end_frame > 3000:
+            return None, "invalid_bbox"
+
+        if start_frame >= end_frame:
             return None, "invalid_bbox"
 
         if label is not None:

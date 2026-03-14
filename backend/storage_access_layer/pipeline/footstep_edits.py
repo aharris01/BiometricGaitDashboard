@@ -62,6 +62,7 @@ class FootstepEditor:
             new_footstep_data["StartFrame"],
             new_footstep_data["EndFrame"],
         ]
+
         # validate footstep bounding box data
         edited_row = metadata_df.loc[metadata_df["FootstepID"] == footstep_id].iloc[0]
         metadata_df["valid"] = metadata_df["valid"].apply(bool)
@@ -88,7 +89,9 @@ class FootstepEditor:
 
         metadata_df["is_anchor"] = metadata_df["path_order"] == 0
         metadata_df["is_on_path"] = metadata_df["path_order"] >= 0
+
         # take new bounding box data from trial recording and update steps.raw.npz and steps.npz
+
         print("Opening trial recording...")
         trial_recording, trial_recording_err = self.common._load_npz_from_uri(
             event.trial_npz_uri
