@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Any
 import numpy as np
 
@@ -52,7 +51,6 @@ class FootstepEditor:
             return None, p100_err
 
         # make edits to footstep in df
-        footstep_row = metadata_df[metadata_df["FootstepID"] == footstep_id]
         metadata_df.loc[
             metadata_df["FootstepID"] == footstep_id,
             ["XMin", "XMax", "YMin", "YMax", "StartFrame", "EndFrame"],
@@ -64,10 +62,9 @@ class FootstepEditor:
             new_footstep_data["StartFrame"],
             new_footstep_data["EndFrame"],
         ]
-
         # validate footstep bounding box data
+        edited_row = metadata_df.loc[metadata_df["FootstepID"] == footstep_id].iloc[0]
         metadata_df["valid"] = metadata_df["valid"].apply(bool)
-        edited_row = metadata_df[metadata_df["FootstepID"] == footstep_id].iloc[0]
         if not _is_within_expected_bb_size(
             edited_row
         ) or not _is_within_expect_duration(edited_row):
@@ -116,10 +113,9 @@ class FootstepEditor:
             raw_footsteps[str(i)] = footstep_data
 
         print("Normalizing and updating steps.npz...")
-        preprocessed_footsteps, preprocess_metadata = preprocess_footsteps(
+        preprocessed_footsteps, _ = preprocess_footsteps(
             footsteps, metadata_df, h=100, w=100
         )
-        print("Preprocessed footsteps\n", preprocess_metadata)
         preprocessed_footsteps_dict = {
             str(i): f for i, f in enumerate(preprocessed_footsteps)
         }
