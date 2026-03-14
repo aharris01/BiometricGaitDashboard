@@ -2,6 +2,7 @@
 # This file contains utility functions for preprocessing footsteps.
 
 import collections
+from typing import Any
 import numpy as np
 import cv2
 from sklearn.decomposition import PCA
@@ -64,7 +65,7 @@ def spatial_flip(footstep: np.ndarray):
 
 
 # rotate centered footstep using direction of PC1
-def spatial_rotation(footstep):
+def spatial_rotation(footstep: np.ndarray):
     # get peak pressure image
     img_peak = footstep.max(0)
 
@@ -104,7 +105,7 @@ def spatial_rotation(footstep):
 
 
 # center footstep based on center of mass, area, or extreme limits ('bbox') (alignment_method)
-def spatial_translation(footstep, alignment_method="mass", thresh=10):
+def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10):
     img_peak = footstep.max(0)
     w = img_peak.shape[1]
     l = img_peak.shape[0]
@@ -172,7 +173,7 @@ def spatial_translation(footstep, alignment_method="mass", thresh=10):
 
 
 # pad footstep with zeros to specified height (h) and width (w)
-def spatial_zeropad(footstep, w=100, h=100):
+def spatial_zeropad(footstep: np.ndarray, w=100, h=100):
     footstep_padded = np.zeros((footstep.shape[0], h, w))
     top = np.floor((h - footstep.shape[1]) / 2)
     bottom = np.ceil((h - footstep.shape[1]) / 2)
@@ -195,7 +196,7 @@ def spatial_zeropad(footstep, w=100, h=100):
 
 
 # classify left/right using P100 pixel counting
-def classify_side(footstep):
+def classify_side(footstep: np.ndarray):
     P100 = footstep.max(0)
     P100 = crop_image(P100)
     P100_bin = (P100 > 0).astype(int)
@@ -221,7 +222,7 @@ def classify_side(footstep):
 # interpolate to specified number of frames (t) using a specified method (interp_method).
 # Accepted values for interp_method: ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
 # ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’
-def temporal_interpolation(footstep, t=101, interp_method="nearest"):
+def temporal_interpolation(footstep: np.ndarray, t=101, interp_method="nearest"):
     # crop-out inactivity at beginning and end of recording
     footstep = _temporal_crop(footstep)
 
@@ -234,7 +235,7 @@ def temporal_interpolation(footstep, t=101, interp_method="nearest"):
     return footstep_interp
 
 
-def preprocess_footsteps(footsteps, metadata, h=75, w=40):
+def preprocess_footsteps(footsteps: dict[Any, np.ndarray], metadata, h=75, w=40):
     preprocessed_footsteps = []
     new_metadata_dict = collections.defaultdict(list)
 
