@@ -74,9 +74,9 @@ class FootstepEditor:
             metadata_df.loc[metadata_df["FootstepID"] == footstep_id, "valid"] = True
 
         # find path order (anchor identification and path order identification)
-        print("Finding path order...")
+        # print("Finding path order...")
         metadata_df["path_order"] = -1  # Any footsteps not on path will be -1
-        print("Identifying anchor footstep...")
+        # print("Identifying anchor footstep...")
         identify_anchor_footstep(metadata_df)
 
         metadata_df["heading_angle"] = metadata_df.apply(
@@ -92,7 +92,7 @@ class FootstepEditor:
 
         # take new bounding box data from trial recording and update steps.raw.npz and steps.npz
 
-        print("Opening trial recording...")
+        # print("Opening trial recording...")
         trial_recording, trial_recording_err = self.common._load_npz_from_uri(
             event.trial_npz_uri
         )
@@ -101,8 +101,8 @@ class FootstepEditor:
                 f"Error loading trial recording: {trial_recording_err}"
             )
             return False, trial_recording_err
-        print("Opened trial recording")
-        print("Updating footstep data files...")
+        # print("Opened trial recording")
+        # print("Updating footstep data files...")
 
         footsteps: dict[Any, np.ndarray] = {}
         raw_footsteps: dict[str, np.ndarray] = {}
@@ -115,7 +115,7 @@ class FootstepEditor:
             footsteps[i] = footstep_data
             raw_footsteps[str(i)] = footstep_data
 
-        print("Normalizing and updating steps.npz...")
+        # print("Normalizing and updating steps.npz...")
         preprocessed_footsteps, _ = preprocess_footsteps(
             footsteps, metadata_df, h=100, w=100
         )
@@ -126,15 +126,15 @@ class FootstepEditor:
             np.savez_compressed(
                 trial_folder / "steps.npz", **preprocessed_footsteps_dict
             )
-            print(f"Updated steps.npz: {trial_folder / 'steps.npz'}")
+            # print(f"Updated steps.npz: {trial_folder / 'steps.npz'}")
         except Exception as e:
             current_app.logger.error(f"Error saving steps.npz: {e}")
             return False, f"Error saving steps.npz: {e}"
 
-        print("Updating steps.raw.npz...")
+        # print("Updating steps.raw.npz...")
         try:
             np.savez(trial_folder / "steps.raw.npz", allow_pickle=True, **raw_footsteps)
-            print(f"Updated steps.raw.npz: {trial_folder / 'steps.raw.npz'}")
+            # print(f"Updated steps.raw.npz: {trial_folder / 'steps.raw.npz'}")
         except Exception as e:
             current_app.logger.error(f"Error saving steps.raw.npz: {e}")
             return False, f"Error saving steps.raw.npz: {e}"
@@ -153,7 +153,7 @@ class FootstepEditor:
 def _update_csv(metadata_df, metadata_file_path):
     try:
         metadata_df.to_csv(metadata_file_path, index=False)
-        print(f"Updated metadata.csv: {metadata_file_path}")
+        # print(f"Updated metadata.csv: {metadata_file_path}")
     except Exception as e:
         current_app.logger.error(f"Error saving metadata.csv: {e}")
         return False, f"Error saving metadata.csv: {e}"
