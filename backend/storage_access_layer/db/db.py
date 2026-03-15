@@ -491,6 +491,8 @@ class DB:
             row.x_max = new_x_max
             row.y_min = new_y_min
             row.y_max = new_y_max
+            row.start_frame = new_start_frame
+            row.end_frame = new_end_frame
             row.label = new_label
 
             session.flush()
