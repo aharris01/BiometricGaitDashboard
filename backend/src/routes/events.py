@@ -118,7 +118,7 @@ def get_footstep_image(event_id: str, step_id: int):
         img.data,
         status=200,
         mimetype=img.mimetype,
-        headers={"Cache-Control": "private, max-age=300"},
+        headers={"Cache-Control": "private, max-age=300, no-cache"},
     )
 
 

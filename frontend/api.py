@@ -61,7 +61,7 @@ def post_json(
     url: str,
     *,
     payload: dict,
-    timeout: int = 5,
+    timeout: None | int = 5,
     context: str = "api_post",
     logger=None,
 ):
@@ -70,7 +70,10 @@ def post_json(
     # If the request fails, log the error and raise PreventUpdate
     # so the Dash callback can fail quietly instead of crashing the UI.
     try:
-        resp = requests.post(url, json=payload, timeout=timeout)
+        if timeout is None:
+            resp = requests.post(url, json=payload)
+        else:
+            resp = requests.post(url, json=payload, timeout=timeout)
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as exc:
@@ -368,6 +371,7 @@ def save_footstep_review(
         },
         context="save_footstep_review",
         logger=logger,
+        timeout=None,
     )
 
 
