@@ -2,6 +2,17 @@ import datetime as dt
 
 import pytest
 
+from backend.src.routes.footsteps import (
+    _parse_event_ids,
+    _parse_iso_date,
+    _parse_participants,
+    _validate_dates,
+    _validate_sizes,
+)
+import backend.src.routes.footsteps as footsteps
+
+pytestmark = pytest.mark.unit
+
 
 class FakeSAL:
     def __init__(self):
@@ -79,6 +90,184 @@ def client(app_factory, fake_sal):
     app = app_factory(fake_sal)
     with app.test_client() as c:
         yield c
+
+
+class TestParseEventIDS:
+    def test_success(self):
+        event_ids = "evt1, evt2, evt3, evt4"
+        result = _parse_event_ids(event_ids)
+        assert result == ["evt1", "evt2", "evt3", "evt4"]
+
+    def test_duplicates_removed(self):
+        event_ids = "evt1, evt1, evt2, evt3"
+        result = _parse_event_ids(event_ids)
+        assert result == ["evt1", "evt2", "evt3"]
+
+    def test_return_empty_list_on_empty_ids(self):
+        event_ids = " , , "
+        result = _parse_event_ids(event_ids)
+        assert result == []
+
+    def test_return_empty_list_when_passed_none(self):
+        result = _parse_event_ids(None)
+        assert result == []
+
+
+class TestParseParticipants:
+    def test_success(self):
+        participants = "1, 2, 3, 4, 5"
+        result = _parse_participants(participants)
+        assert result == [1, 2, 3, 4, 5]
+
+    def test_duplicates_removed(self):
+        participants = "1, 2, 2, 3, 4, 5"
+        result = _parse_participants(participants)
+        assert result == [1, 2, 3, 4, 5]
+
+    def test_non_numeric_ignored(self):
+        participants = "1, 2, 3, a, 4"
+        result = _parse_participants(participants)
+        assert result == [1, 2, 3, 4]
+
+    def test_return_empty_list_on_empty_participants(self):
+        participants = " , , , , "
+        result = _parse_participants(participants)
+        assert result == []
+
+    def test_return_empty_list_when_passed_none(self):
+        result = _parse_participants(None)
+        assert result == []
+
+
+class TestParseISODate:
+    def test_success(self):
+        date = "2000-01-13"
+        result, err = _parse_iso_date(date)
+        assert err is None
+        assert result == dt.date(2000, 1, 13)
+
+    def test_return_none_none_when_passed_none(self):
+        result, err = _parse_iso_date(None)
+        assert err is None
+        assert result is None
+
+    def test_make_error_called_for_invalid_format(self, monkeypatch):
+        date = "01-13-200"
+        calls = []
+
+        def fake_make_error(*args, **kwargs):
+            calls.append((args, kwargs))
+            return {"fake": True}
+
+        monkeypatch.setattr(footsteps, "make_error", fake_make_error)
+
+        result, err = _parse_iso_date(date)
+        assert calls == [
+            (
+                (
+                    400,
+                    "bad_request",
+                    f"Invalid date format: {date}. Expected YYYY-MM-DD",
+                ),
+                {},
+            )
+        ]
+        assert err == {"fake": True}
+        assert result is None
+
+
+class TestValidateDates:
+    def test_success(self):
+        date_from = dt.date(2000, 1, 11)
+        date_to = dt.date(2002, 1, 11)
+        result = _validate_dates(date_from, date_to)
+        assert result is None
+
+    @pytest.mark.parametrize(
+        "date_from, date_to",
+        [(None, dt.date(2002, 1, 11)), (dt.date(2000, 1, 11), None)],
+    )
+    def test_return_none_when_either_date_is_none(self, date_from, date_to):
+        result = _validate_dates(date_from, date_to)
+        assert result is None
+
+    def test_return_make_error_on_invalid_dates(self, monkeypatch):
+        calls = []
+
+        def fake_make_error(*args, **kwargs):
+            calls.append((args, kwargs))
+            return {"fake": True}
+
+        monkeypatch.setattr(footsteps, "make_error", fake_make_error)
+
+        date_from = dt.date(2003, 1, 11)
+        date_to = dt.date(2002, 1, 11)
+
+        result = _validate_dates(date_from, date_to)
+        assert calls == [((400, "bad_request", "date_from must be <= date_to"), {})]
+        assert result == {"fake": True}
+
+
+class TestValidateSizes:
+    def test_success(self):
+        width_min = height_min = size_min = 1
+        width_max = height_max = size_max = 10
+        result = _validate_sizes(
+            width_min, width_max, height_min, height_max, size_min, size_max
+        )
+        assert result is None
+
+    @pytest.mark.parametrize(
+        "width_min, width_max, height_min, height_max, size_min, size_max",
+        [
+            (None, 10, 1, 10, 1, 10),
+            (1, None, 1, 10, 1, 10),
+            (1, 10, None, 10, 1, 10),
+            (1, 10, 1, None, 1, 10),
+            (1, 10, 1, 10, None, 10),
+            (1, 10, 1, 10, 1, None),
+        ],
+    )
+    def test_return_none_when_any_value_is_none(
+        self, width_min, width_max, height_min, height_max, size_min, size_max
+    ):
+        result = _validate_sizes(
+            width_min, width_max, height_min, height_max, size_min, size_max
+        )
+        assert result is None
+
+    @pytest.mark.parametrize("invalid_value", ["width", "height", "size"])
+    def test_return_make_error_on_invalid_values(self, invalid_value, monkeypatch):
+        calls = []
+
+        def fake_make_error(*args, **kwargs):
+            calls.append((args, kwargs))
+            return {"fake": True}
+
+        monkeypatch.setattr(footsteps, "make_error", fake_make_error)
+
+        values_by_case = {
+            "width": (10, 1, 1, 10, 1, 10, "width_min must be <= width_max"),
+            "height": (1, 10, 10, 1, 1, 10, "height_min must be <= height_max"),
+            "size": (1, 10, 1, 10, 10, 1, "size_min must be <= size_max"),
+        }
+
+        (
+            width_min,
+            width_max,
+            height_min,
+            height_max,
+            size_min,
+            size_max,
+            expected_message,
+        ) = values_by_case[invalid_value]
+
+        result = _validate_sizes(
+            width_min, width_max, height_min, height_max, size_min, size_max
+        )
+
+        assert calls == [((400, "bad_request", expected_message), {})]
+        assert result == {"fake": True}
 
 
 @pytest.mark.unit
