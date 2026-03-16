@@ -149,10 +149,6 @@ class SalFootsteps:
         if p100_err or p100 is None:
             return None, p100_err
 
-        image_width, image_height, dim_err = self.common._get_image_dims(p100)
-        if dim_err or image_width is None or image_height is None:
-            return None, dim_err
-
         changes: list[ReviewChangePayload] = []
         for change in self.db.get_local_footstep_changes(event_id, footstep_id):
             changes.append(
@@ -193,8 +189,6 @@ class SalFootsteps:
                 y_max=int(footstep.y_max),
             ),
             event_p100=p100,
-            image_width=image_width,
-            image_height=image_height,
             changes=changes,
         )
 
@@ -232,23 +226,19 @@ class SalFootsteps:
         if review is None:
             return None, "missing_file"
 
-        image_width = review["image_width"]
-        image_height = review["image_height"]
+        bbox_valid, valid_err = _validate_bounding_box(
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            start_frame,
+            end_frame,
+            review["event_p100"],
+            self.common,
+        )
 
-        if x_min < 0 or y_min < 0:
-            return None, "invalid_bbox"
-
-        if x_min >= x_max or y_min >= y_max:
-            return None, "invalid_bbox"
-
-        if x_max > image_width or y_max > image_height:
-            return None, "invalid_bbox"
-
-        if 0 > start_frame > 3000 or 0 > end_frame > 3000:
-            return None, "invalid_bbox"
-
-        if start_frame >= end_frame:
-            return None, "invalid_bbox"
+        if valid_err or not bbox_valid:
+            return None, valid_err
 
         if label is not None:
             label = str(label).strip() or None
@@ -535,3 +525,35 @@ def _map_search_row(row) -> FootstepSearchItem:
         "bbox_area": int(row["bbox_area"]),
         "has_thumbnail": bool(row["has_thumbnail"]),
     }
+
+
+def _validate_bounding_box(
+    x_min: int,
+    x_max: int,
+    y_min: int,
+    y_max: int,
+    start_frame: int,
+    end_frame: int,
+    p100,
+    common: CommonHelper,
+):
+    image_width, image_height, dim_err = common._get_image_dims(p100)
+    if dim_err or image_width is None or image_height is None:
+        return False, dim_err
+
+    if x_min < 0 or y_min < 0:
+        return False, "invalid_bbox"
+
+    if x_min >= x_max or y_min >= y_max:
+        return False, "invalid_bbox"
+
+    if x_max > image_width or y_max > image_height:
+        return False, "invalid_bbox"
+
+    if 0 > start_frame > 3000 or 0 > end_frame > 3000:
+        return False, "invalid_bbox"
+
+    if start_frame >= end_frame:
+        return False, "invalid_bbox"
+
+    return True, None

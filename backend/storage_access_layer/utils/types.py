@@ -41,8 +41,6 @@ class FootstepReviewPayload(TypedDict):
     item: ReviewItemPayload
     bbox: ReviewBBoxPayload
     event_p100: list[list[float]]
-    image_width: int
-    image_height: int
     changes: list[ReviewChangePayload]
 
 

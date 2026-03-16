@@ -3,7 +3,6 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from flask import current_app
 
 from sqlalchemy import Engine, create_engine, event, exists, and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
