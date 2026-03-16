@@ -23,34 +23,8 @@ class SalFootsteps:
         self.editor = FootstepEditor(db, common)
 
     def search_footsteps(
-        self,
-        event_ids: list[str] | None = None,
-        participants: list[int] | None = None,
-        date_from=None,
-        date_to=None,
-        width_min: int | None = None,
-        width_max: int | None = None,
-        height_min: int | None = None,
-        height_max: int | None = None,
-        size_min: int | None = None,
-        size_max: int | None = None,
-        offset: int = 0,
-        limit: int = 60,
+        self, filters: FootstepSearchFilters
     ) -> dict[str, list[FootstepSearchItem] | int]:
-        filters = _normalize_search_filters(
-            event_ids=event_ids,
-            participants=participants,
-            date_from=date_from,
-            date_to=date_to,
-            width_min=width_min,
-            width_max=width_max,
-            height_min=height_min,
-            height_max=height_max,
-            size_min=size_min,
-            size_max=size_max,
-            offset=offset,
-            limit=limit,
-        )
 
         rows, total = self.db.search_footsteps(
             event_ids=filters.event_ids,
@@ -194,19 +168,7 @@ class SalFootsteps:
 
         return payload, None
 
-    def save_footstep_review(
-        self,
-        event_id: str,
-        footstep_id: int,
-        *,
-        x_min: int,
-        x_max: int,
-        y_min: int,
-        y_max: int,
-        start_frame: int,
-        end_frame: int,
-        label: str | None,
-    ):
+    def save_footstep_review(self, event_id: str, footstep_id: int, edits: dict):
         # Validate and save one local footstep edit.
         #
         # Validation is done here because the SAL knows the real event image
@@ -227,12 +189,12 @@ class SalFootsteps:
             return None, "missing_file"
 
         bbox_valid, valid_err = _validate_bounding_box(
-            x_min,
-            x_max,
-            y_min,
-            y_max,
-            start_frame,
-            end_frame,
+            edits["x_min"],
+            edits["x_max"],
+            edits["y_min"],
+            edits["y_max"],
+            edits["start_frame"],
+            edits["end_frame"],
             review["event_p100"],
             self.common,
         )
@@ -240,36 +202,31 @@ class SalFootsteps:
         if valid_err or not bbox_valid:
             return None, valid_err
 
-        if label is not None:
-            label = str(label).strip() or None
+        if edits["label"] is not None:
+            label = str(edits["label"]).strip() or None
+            edits["label"] = label
 
         edit_ok, edit_err = self.editor.edit_footstep(
             footstep_id,
             event_id,
             {
-                "XMin": x_min,
-                "XMax": x_max,
-                "YMin": y_min,
-                "YMax": y_max,
-                "StartFrame": start_frame,
-                "EndFrame": end_frame,
+                "XMin": edits["x_min"],
+                "XMax": edits["x_max"],
+                "YMin": edits["y_min"],
+                "YMax": edits["y_max"],
+                "StartFrame": edits["start_frame"],
+                "EndFrame": edits["end_frame"],
             },
         )
 
         if edit_err or not edit_ok:
             return None, edit_err or "edit_failed"
 
-        updated = self.db.update_local_footstep(
-            event_id,
-            footstep_id,
-            x_min=x_min,
-            x_max=x_max,
-            y_min=y_min,
-            y_max=y_max,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            label=label,
-        )
+        try:
+            updated = self.db.update_local_footstep(event_id, footstep_id, edits)
+        except ValueError:
+            return None, "invalid_change"
+
         if updated is None:
             return None, "no_footstep"
 

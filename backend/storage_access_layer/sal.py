@@ -17,6 +17,7 @@ from .helpers.sal_meta import SalMeta
 from .helpers.sal_events import SalEvents
 from .helpers.sal_metrics import SalMetrics
 from .helpers.sal_footsteps import SalFootsteps
+from .utils.types import FootstepSearchFilters
 
 DATAROOT = Path(
     os.environ.get("DATAROOT", os.environ.get("dataroot", "."))
@@ -87,30 +88,8 @@ class SAL:
     def get_footstep_review_context(self, event_id: str, footstep_id: int):
         return self.footsteps.get_footstep_review_context(event_id, footstep_id)
 
-    def save_footstep_review(
-        self,
-        event_id: str,
-        footstep_id: int,
-        *,
-        x_min: int,
-        x_max: int,
-        y_min: int,
-        y_max: int,
-        start_frame: int,
-        end_frame: int,
-        label: str | None,
-    ):
-        return self.footsteps.save_footstep_review(
-            event_id,
-            footstep_id,
-            x_min=x_min,
-            x_max=x_max,
-            y_min=y_min,
-            y_max=y_max,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            label=label,
-        )
+    def save_footstep_review(self, event_id: str, footstep_id: int, edits):
+        return self.footsteps.save_footstep_review(event_id, footstep_id, edits)
 
     def create_footstep(
         self,
@@ -237,32 +216,5 @@ class SAL:
     # The DB layer owns the actual SQL filtering logic.
     # =========================================================
 
-    def search_footsteps(
-        self,
-        event_ids: list[str] | None = None,
-        participants: list[int] | None = None,
-        date_from=None,
-        date_to=None,
-        width_min: int | None = None,
-        width_max: int | None = None,
-        height_min: int | None = None,
-        height_max: int | None = None,
-        size_min: int | None = None,
-        size_max: int | None = None,
-        offset: int = 0,
-        limit: int = 60,
-    ):
-        return self.footsteps.search_footsteps(
-            event_ids=event_ids,
-            participants=participants,
-            date_from=date_from,
-            date_to=date_to,
-            width_min=width_min,
-            width_max=width_max,
-            height_min=height_min,
-            height_max=height_max,
-            size_min=size_min,
-            size_max=size_max,
-            offset=offset,
-            limit=limit,
-        )
+    def search_footsteps(self, filters: FootstepSearchFilters):
+        return self.footsteps.search_footsteps(filters)
