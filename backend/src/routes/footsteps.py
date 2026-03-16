@@ -179,6 +179,8 @@ def _validate_dates(
             "date_from must be <= date_to",
         )
 
+    return None
+
 
 def _validate_sizes(
     width_min: int | None,
@@ -208,6 +210,8 @@ def _validate_sizes(
             "bad_request",
             "size_min must be <= size_max",
         )
+
+    return None
 
 
 def _coerce_review_int(value: object, key: str) -> int:
