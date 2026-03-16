@@ -306,10 +306,6 @@ class SalFootsteps:
         if p100_err:
             return None, p100_err
 
-        image_width, image_height, dim_err = self.common._get_image_dims(p100)
-        if dim_err or image_width is None or image_height is None:
-            return None, dim_err
-
         frame_count, err = self.common._get_trial_frame_count(event_id)
         if err or frame_count is None:
             return None, err
@@ -321,23 +317,11 @@ class SalFootsteps:
         y_min = int(y_min)
         y_max = int(y_max)
 
-        if start_frame < 0 or end_frame < 0:
-            return None, "invalid_frame"
-
-        if start_frame >= end_frame:
-            return None, "invalid_frame"
-
-        if start_frame >= frame_count or end_frame >= frame_count:
-            return None, "invalid_frame"
-
-        if x_min < 0 or y_min < 0:
-            return None, "invalid_bbox"
-
-        if x_min >= x_max or y_min >= y_max:
-            return None, "invalid_bbox"
-
-        if x_max > image_width or y_max > image_height:
-            return None, "invalid_bbox"
+        bbox_valid, valid_err = _validate_bounding_box(
+            x_min, x_max, y_min, y_max, start_frame, end_frame, p100, self.common
+        )
+        if valid_err or not bbox_valid:
+            return None, valid_err
 
         if label is not None:
             label = str(label).strip() or None
