@@ -72,7 +72,7 @@ class SalFootsteps:
         return {"items": items, "total": total}
 
     def get_footsteps(self, event_id: str):
-        _event, err = self.common._require_event(event_id)
+        event, err = self.common._require_event(event_id)
         if err:
             return None, err
 
@@ -102,7 +102,7 @@ class SalFootsteps:
     # summary view footstep performance
     # -------------------------------------------------
     def get_single_footstep(self, event_id: str, footstep_id: int):
-        _event, err = self.common._require_event(event_id)
+        event, err = self.common._require_event(event_id)
         if err:
             return None, err
 
@@ -137,15 +137,15 @@ class SalFootsteps:
     # This payload is the single source used by the frontend review panel.
 
     def get_footstep_review_context(self, event_id: str, footstep_id: int):
-        _event, err = self.common._require_event(event_id)
-        if err:
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
             return None, err
 
         footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
         if footstep_err or footstep is None:
             return None, footstep_err
 
-        p100, p100_err = self.common._get_p100(event_id)
+        p100, p100_err = self.common._get_p100(event)
         if p100_err or p100 is None:
             return None, p100_err
 
@@ -298,15 +298,15 @@ class SalFootsteps:
         y_max: int,
         label: str | None,
     ):
-        _event, err = self.common._require_event(event_id)
-        if err:
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
             return None, err
 
-        p100, p100_err = self.common._get_p100(event_id)
+        p100, p100_err = self.common._get_p100(event)
         if p100_err:
             return None, p100_err
 
-        frame_count, err = self.common._get_trial_frame_count(event_id)
+        frame_count, err = self.common._get_trial_frame_count(event)
         if err or frame_count is None:
             return None, err
 
@@ -342,7 +342,7 @@ class SalFootsteps:
         return self.get_footstep_review_context(event_id, int(created.footstep_id))
 
     def delete_footstep(self, event_id: str, footstep_id: int):
-        _event, err = self.common._require_event(event_id)
+        event, err = self.common._require_event(event_id)
         if err:
             return None, err
 

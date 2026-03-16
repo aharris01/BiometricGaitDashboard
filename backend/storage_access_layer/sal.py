@@ -153,7 +153,10 @@ class SAL:
     # checked against the real trial length before a local footstep is created.
     # This does not load any per-step data or recreate extraction outputs.
     def _get_trial_frame_count(self, event_id: str):
-        return self.common._get_trial_frame_count(event_id)
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
+            return None, err
+        return self.common._get_trial_frame_count(event)
 
     def get_grf(self, event_id: str):
         return self.events.get_grf(event_id)

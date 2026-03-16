@@ -72,11 +72,7 @@ class CommonHelper:
         except Exception:
             return None, "missing_file"
 
-    def _get_trial_frame_count(self, event_id: str):
-        event, err = self._require_event(event_id)
-        if err or event is None:
-            return None, err
-
+    def _get_trial_frame_count(self, event: SwipeEvent):
         array, arr_err = self._load_npz_from_uri(event.trial_npz_uri, key="arr_0")
         if arr_err or array is None:
             return None, arr_err
@@ -86,11 +82,7 @@ class CommonHelper:
 
         return int(array.shape[0]), None
 
-    def _get_p100(self, event_id: str):
-        event, err = self._require_event(event_id)
-        if err or event is None:
-            return None, err
-
+    def _get_p100(self, event: SwipeEvent):
         array, arr_err = self._load_npz_from_uri(event.trial_p100_npz_uri, key="arr_0")
         if arr_err or array is None:
             return None, arr_err
