@@ -90,7 +90,7 @@ class CommonHelper:
         try:
             return array.tolist(), None
         except Exception:
-            return None, "missing_file"
+            return None, "unexpected_error"
 
     def _get_image_dims(self, p100):
         if p100 is None or not isinstance(p100, list) or not p100:
