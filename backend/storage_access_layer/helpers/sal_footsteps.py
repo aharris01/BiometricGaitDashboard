@@ -1,6 +1,8 @@
 from datetime import date
 
 from backend.storage_access_layer.pipeline.footstep_edits import FootstepEditor
+from backend.scripts.calc_metrics import calculate_all_metrics
+from backend.storage_access_layer.utils import uri_to_path
 
 from ..db.db import DB
 from ..utils.types import (
@@ -218,6 +220,11 @@ class SalFootsteps:
         # current local footstep row and lets the DB layer write the matching
         # changelog entry for the edit.
 
+        # Validate the event exists
+        event, event_err = self.common._require_event(event_id)
+        if event_err or event is None:
+            return None, event_err
+
         review, err = self.get_footstep_review_context(event_id, footstep_id)
         if err:
             return None, err
@@ -275,6 +282,17 @@ class SalFootsteps:
         )
         if updated is None:
             return None, "no_footstep"
+
+        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
+        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
+
+        if metrics_err or new_metrics is None:
+            return None, "calculation_error"
+
+        result = self.db.update_event_metrics(event_id, new_metrics)
+
+        if result is None:
+            return None, "unexpected_error"
 
         return self.get_footstep_review_context(event_id, footstep_id)
 

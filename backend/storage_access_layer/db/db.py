@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from flask import current_app
 
 from sqlalchemy import Engine, create_engine, event, exists, and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -494,6 +495,38 @@ class DB:
             row.start_frame = new_start_frame
             row.end_frame = new_end_frame
             row.label = new_label
+
+            session.flush()
+            session.refresh(row)
+            return row
+
+    def update_event_metrics(self, event_id: str, new_metrics: dict):
+        # Update one local_metrics row from a metrics dictionary.
+        valid_columns = set(LocalMetrics.__table__.columns.keys()) - {"event_id"}
+
+        normalized_metrics: dict = {}
+        for key, value in new_metrics.items():
+            if key == "event_id":
+                continue
+
+            if key not in valid_columns:
+                raise ValueError(f"Unknown LocalMetrics column: {key}")
+
+            normalized_metrics[key] = value
+
+        if not normalized_metrics:
+            return None
+
+        query = select(LocalMetrics).where(LocalMetrics.event_id == event_id)
+
+        with self._get_session() as session:
+            row = session.scalars(query).first()
+
+            if row is None:
+                return None
+
+            for column_name, value in normalized_metrics.items():
+                setattr(row, column_name, value)
 
             session.flush()
             session.refresh(row)
