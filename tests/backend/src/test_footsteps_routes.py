@@ -1,5 +1,3 @@
-import datetime as dt
-
 import pytest
 
 from backend.src.routes.footsteps import (
@@ -8,8 +6,13 @@ from backend.src.routes.footsteps import (
     _parse_participants,
     _validate_dates,
     _validate_sizes,
+    _parse_search_parameters,
 )
 import backend.src.routes.footsteps as footsteps
+from backend.storage_access_layer.utils.types import FootstepSearchFilters
+
+import datetime as dt
+from werkzeug.datastructures import MultiDict
 
 pytestmark = pytest.mark.unit
 
@@ -268,6 +271,106 @@ class TestValidateSizes:
 
         assert calls == [((400, "bad_request", expected_message), {})]
         assert result == {"fake": True}
+
+
+class TestParseSearchFootsteps:
+    def test_success(self):
+        args = MultiDict(
+            {
+                "event_ids": "evt1, evt2, evt1",
+                "participants": "1, 2, bad, 2",
+                "date_from": "2025-01-01",
+                "date_to": "2025-01-31",
+                "width_min": "10",
+                "width_max": "20",
+                "height_min": "15",
+                "height_max": "30",
+                "size_min": "100",
+                "size_max": "500",
+                "offset": "10",
+                "limit": "25",
+            }
+        )
+
+        result, err = _parse_search_parameters(args)
+
+        assert err is None
+        assert result == FootstepSearchFilters(
+            event_ids=["evt1", "evt2"],
+            participants=[1, 2],
+            date_from=dt.date(2025, 1, 1),
+            date_to=dt.date(2025, 1, 31),
+            width_min=10,
+            width_max=20,
+            height_min=15,
+            height_max=30,
+            size_min=100,
+            size_max=500,
+            offset=10,
+            limit=25,
+        )
+
+    def test_defaults(self):
+        result, err = _parse_search_parameters(MultiDict())
+
+        assert err is None
+        assert result == FootstepSearchFilters(
+            event_ids=[],
+            participants=[],
+            date_from=None,
+            date_to=None,
+            width_min=None,
+            width_max=None,
+            height_min=None,
+            height_max=None,
+            size_min=None,
+            size_max=None,
+            offset=0,
+            limit=60,
+        )
+
+    @pytest.mark.parametrize(
+        "offset, limit, expected_offset, expected_limit",
+        [
+            ("-5", "999", 0, 200),
+            ("bad", "bad", 0, 60),
+            ("0", "0", 0, 1),
+        ],
+    )
+    def test_normalizes_pagination(
+        self, offset, limit, expected_offset, expected_limit
+    ):
+        args = MultiDict({"offset": offset, "limit": limit})
+
+        result, err = _parse_search_parameters(args)
+
+        assert err is None
+        assert result is not None
+        assert result.offset == expected_offset
+        assert result.limit == expected_limit
+
+    def test_invalid_numeric_filters_become_none(self):
+        args = MultiDict(
+            {
+                "width_min": "bad",
+                "width_max": "bad",
+                "height_min": "bad",
+                "height_max": "bad",
+                "size_min": "bad",
+                "size_max": "bad",
+            }
+        )
+
+        result, err = _parse_search_parameters(args)
+
+        assert err is None
+        assert result is not None
+        assert result.width_min is None
+        assert result.width_max is None
+        assert result.height_min is None
+        assert result.height_max is None
+        assert result.size_min is None
+        assert result.size_max is None
 
 
 @pytest.mark.unit
