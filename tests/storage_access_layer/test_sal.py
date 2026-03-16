@@ -671,8 +671,11 @@ def test_search_footsteps_empty_result_returns_empty_items(sal, fake_db):
 # Additional SAL Tests (moved from test_sal_more.py)
 # ================================================================
 
+
 def test_get_p100_invalid_uri_returns_none(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_p100_npz_uri="http://example.com/p100.npz")
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_p100_npz_uri="http://example.com/p100.npz"
+    )
     out = sal.get_p100("evt-1")
     assert out is None
 
@@ -682,7 +685,9 @@ def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
     p = tmp_path / "grf.npz"
     np.savez(p, foo=np.array([1.0, 2.0, 3.0]))
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_grf_npz_uri=p.resolve().as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_grf_npz_uri=p.resolve().as_uri()
+    )
     data, err = sal.get_grf("evt-1")
     assert err is None
     assert data == [1.0, 2.0, 3.0]
@@ -713,7 +718,9 @@ def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
     steps_path = trial.with_name("steps.npz")
     _write_npz_with_numeric_keys(steps_path, {"1": np.ones((2, 2, 2))})
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial.resolve().as_uri()
+    )
     p100, grf, err = sal.get_footstep_data("evt-1", 0)
     assert p100 is None and grf is None
     assert err == "missing_file"
@@ -724,7 +731,9 @@ def test_get_all_footstep_details_missing_file(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((2, 2)))
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial.resolve().as_uri()
+    )
     items, err = sal.get_all_footstep_details("evt-1")
     assert items is None
     assert err == "missing_file"
@@ -869,7 +878,9 @@ def test_get_trial_frame_count_ok(tmp_path, sal, fake_db):
     trial = tmp_path / "trial.npz"
     np.savez(trial, arr_0=np.zeros((7, 3, 2)))
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial.resolve().as_uri()
+    )
 
     frame_count, err = sal._get_trial_frame_count("evt-1")
 
@@ -932,7 +943,9 @@ def test_get_footstep_review_context_ok(tmp_path, sal, fake_db):
     p100 = tmp_path / "trial.p100.npz"
     np.savez(p100, arr_0=np.array([[1.0, 2.0], [3.0, 4.0]]))
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_p100_npz_uri=p100.resolve().as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_p100_npz_uri=p100.resolve().as_uri()
+    )
     fake_db.get_single_footstep = MagicMock(
         return_value=SimpleNamespace(
             footstep_id=5,
@@ -1194,7 +1207,9 @@ def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
         },
     )
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.resolve().as_uri())
+    fake_db.get_swipe_event.return_value = SimpleNamespace(
+        trial_npz_uri=trial.resolve().as_uri()
+    )
 
     items, err = sal.get_all_footstep_details("evt-1")
 

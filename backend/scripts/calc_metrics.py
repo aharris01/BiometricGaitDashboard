@@ -1,12 +1,27 @@
 from pathlib import Path
+from typing import Any, cast
+
 import pandas as pd
+from pandas.api.types import is_scalar
 from flask import current_app
+
+
+def _column(event_metadata: pd.DataFrame, column_name: str) -> pd.Series:
+    return cast(pd.Series, event_metadata[column_name])
+
+
+def _is_missing_scalar(value: Any) -> bool:
+    if value is None:
+        return True
+    if not is_scalar(value):
+        return False
+    return bool(pd.isna(value))
 
 
 def _avg_bbox_size(event_metadata: pd.DataFrame):
     return (
-        (event_metadata["XMax"] - event_metadata["XMin"])
-        * (event_metadata["YMax"] - event_metadata["YMin"])
+        (_column(event_metadata, "XMax") - _column(event_metadata, "XMin"))
+        * (_column(event_metadata, "YMax") - _column(event_metadata, "YMin"))
     ).mean()
 
 
@@ -15,7 +30,7 @@ def _step_count_all(event_metadata: pd.DataFrame):
 
 
 def _total_trial_area(event_metadata: pd.DataFrame):
-    return int(event_metadata["Trial_Area"].max())
+    return int(cast(Any, _column(event_metadata, "Trial_Area").max()))
 
 
 def _steps_on_path(event_metadata: pd.DataFrame):
@@ -24,35 +39,35 @@ def _steps_on_path(event_metadata: pd.DataFrame):
 
 def _active_trial_duration(event_metadata: pd.DataFrame):
     # Trial duration for every step found
-    all_step_min = event_metadata["StartFrame"].min()
-    all_step_max = event_metadata["EndFrame"].max()
+    all_step_min = _column(event_metadata, "StartFrame").min()
+    all_step_max = _column(event_metadata, "EndFrame").max()
     all_step_duration = int(all_step_max - all_step_min)
 
     # Trial duration for steps on path
-    path_step_min = event_metadata.query("path_order >= 0")["StartFrame"].min()
-    path_step_max = event_metadata.query("path_order >= 0")["EndFrame"].max()
+    path_step_min = _column(event_metadata.query("path_order >= 0"), "StartFrame").min()
+    path_step_max = _column(event_metadata.query("path_order >= 0"), "EndFrame").max()
     path_step_duration = int(path_step_max - path_step_min)
 
     return all_step_duration, path_step_duration
 
 
 def _bbox_area_std(event_metadata: pd.DataFrame, event_id):
-    footstep_areas = abs(event_metadata["YMax"] - event_metadata["YMin"]) * abs(
-        event_metadata["XMax"] - event_metadata["XMin"]
-    )
+    footstep_areas = abs(
+        _column(event_metadata, "YMax") - _column(event_metadata, "YMin")
+    ) * abs(_column(event_metadata, "XMax") - _column(event_metadata, "XMin"))
     area_std = footstep_areas.std()
-    if not pd.notna(area_std):
+    if _is_missing_scalar(area_std):
         print(f"Sample too small to calculate bounding box area std for {event_id}")
         area_std = float(0)
     return area_std
 
 
 def _bbox_area_variance(event_metadata: pd.DataFrame, event_id):
-    footstep_areas = abs(event_metadata["YMax"] - event_metadata["YMin"]) * abs(
-        event_metadata["XMax"] - event_metadata["XMin"]
-    )
+    footstep_areas = abs(
+        _column(event_metadata, "YMax") - _column(event_metadata, "YMin")
+    ) * abs(_column(event_metadata, "XMax") - _column(event_metadata, "XMin"))
     area_variance = footstep_areas.var()
-    if not pd.notna(area_variance):
+    if _is_missing_scalar(area_variance):
         print(
             f"Sample size too small to calculate variance of bounding box area for {event_id}"
         )
@@ -61,52 +76,62 @@ def _bbox_area_variance(event_metadata: pd.DataFrame, event_id):
 
 
 def _mean_dimensions(event_metadata: pd.DataFrame):
-    mean_width = (abs(event_metadata["XMax"] - event_metadata["XMin"])).mean()
-    mean_height = (abs(event_metadata["YMax"] - event_metadata["YMin"])).mean()
+    mean_width = (
+        abs(_column(event_metadata, "XMax") - _column(event_metadata, "XMin"))
+    ).mean()
+    mean_height = (
+        abs(_column(event_metadata, "YMax") - _column(event_metadata, "YMin"))
+    ).mean()
     return mean_height, mean_width
 
 
 def _dimensions_variance(event_metadata: pd.DataFrame, event_id):
-    height_variance = (abs(event_metadata["YMax"] - event_metadata["XMin"])).var()
-    width_variance = (abs(event_metadata["XMax"] - event_metadata["XMin"])).var()
-    if not pd.notna(height_variance) or not pd.notna(width_variance):
+    height_variance = (
+        abs(_column(event_metadata, "YMax") - _column(event_metadata, "XMin"))
+    ).var()
+    width_variance = (
+        abs(_column(event_metadata, "XMax") - _column(event_metadata, "XMin"))
+    ).var()
+    if _is_missing_scalar(height_variance) or _is_missing_scalar(width_variance):
         print(f"Sample size too small to calculate dimension variance for {event_id}")
-        if not pd.notna(height_variance):
+        if _is_missing_scalar(height_variance):
             height_variance = float(0)
-        if not pd.notna(width_variance):
+        if _is_missing_scalar(width_variance):
             width_variance = float(0)
     return height_variance, width_variance
 
 
 def _longest_footstep_duration(event_metadata: pd.DataFrame):
-    return (event_metadata["EndFrame"] - event_metadata["StartFrame"]).max()
+    return (
+        _column(event_metadata, "EndFrame") - _column(event_metadata, "StartFrame")
+    ).max()
 
 
 def _mean_distance_between_consecutive_steps(event_metadata: pd.DataFrame):
-    event_metadata["Distance"] = (
-        event_metadata["x"] - event_metadata["x"].shift(-1)
-    ).pow(2) + (event_metadata["y"] - event_metadata["y"].shift(-1)).pow(2)
-    event_metadata["Distance"] = event_metadata["Distance"].pow(0.5)
-    return event_metadata["Distance"].mean()
+    distance = (
+        (_column(event_metadata, "x") - _column(event_metadata, "x").shift(-1)).pow(2)
+    ) + ((_column(event_metadata, "y") - _column(event_metadata, "y").shift(-1)).pow(2))
+    event_metadata["Distance"] = distance.pow(0.5)
+    return _column(event_metadata, "Distance").mean()
 
 
 def _variance_distance_between_consecutive_steps(
     event_metadata: pd.DataFrame, event_id
 ):
-    distance_variation = event_metadata["Distance"].var()
-    if not pd.notna(distance_variation):
+    distance_variation = _column(event_metadata, "Distance").var()
+    if _is_missing_scalar(distance_variation):
         print(f"Sample size too small to calculate distance variance for {event_id}")
         distance_variation = float(0)
     return distance_variation
 
 
 def _mean_footstep_angle(event_metadata: pd.DataFrame):
-    return event_metadata["heading_angle"].mean()
+    return _column(event_metadata, "heading_angle").mean()
 
 
 def _std_footstep_angle(event_metadata: pd.DataFrame, event_id):
-    std_angle = event_metadata["heading_angle"].std()
-    if not pd.notna(std_angle):
+    std_angle = _column(event_metadata, "heading_angle").std()
+    if _is_missing_scalar(std_angle):
         print(
             f"Sample size too small to calculate standard deviation of heading angle for {event_id}"
         )
@@ -115,8 +140,8 @@ def _std_footstep_angle(event_metadata: pd.DataFrame, event_id):
 
 
 def _variance_footstep_angle(event_metadata: pd.DataFrame, event_id):
-    angle_variance = event_metadata["heading_angle"].mean()
-    if not pd.notna(angle_variance):
+    angle_variance = _column(event_metadata, "heading_angle").mean()
+    if _is_missing_scalar(angle_variance):
         print(
             f"Sample size too small to calculate heading angle variance for {event_id}"
         )
@@ -129,10 +154,7 @@ def _metric_is_missing(value):
         return True
     if isinstance(value, tuple):
         return any(_metric_is_missing(item) for item in value)
-    try:
-        return bool(pd.isna(value))
-    except Exception:
-        return False
+    return _is_missing_scalar(value)
 
 
 def _safe_metric(event_id: str, metric_name: str, metric_fn, default_value, *args):

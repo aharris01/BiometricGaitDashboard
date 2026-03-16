@@ -70,4 +70,9 @@ def test_get_event_summary_maps_basic_fields(helper, fake_db):
     event, availability = helper.get_event_summary("evt-1")
     assert event["event_id"] == "evt-1"
     assert event["date"] == "2025-01-01"
-    assert availability == {"p100": False, "grf": False, "metadata": False, "steps": False}
+    assert availability == {
+        "p100": False,
+        "grf": False,
+        "metadata": False,
+        "steps": False,
+    }

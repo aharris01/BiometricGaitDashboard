@@ -71,9 +71,9 @@ def spatial_rotation(footstep: np.ndarray):
 
     # get angle of first principal component axis
     c, r = np.where(img_peak > 0)
-    X = np.array([c, r]).T
+    X = np.array([c, r]).T  # noqa: F841
     pca = PCA(n_components=2)
-    projected = pca.fit_transform(X)
+    # projected = pca.fit_transform(X)
     angle = np.arctan2(pca.components_[0, 1], pca.components_[0, 0])
     angle = np.degrees(angle)
 
@@ -108,7 +108,7 @@ def spatial_rotation(footstep: np.ndarray):
 def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10):
     img_peak = footstep.max(0)
     w = img_peak.shape[1]
-    l = img_peak.shape[0]
+    l = img_peak.shape[0]  # noqa: E741
 
     if alignment_method == "mass":
         # get center of mass
