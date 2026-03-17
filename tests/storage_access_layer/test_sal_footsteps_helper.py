@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from backend.storage_access_layer.helpers.sal_footsteps import SalFootsteps
+from backend.storage_access_layer.utils.types import FootstepSearchFilters
 
 
 def _write_npz_with_numeric_keys(path, arrays: dict[str, np.ndarray]) -> None:
@@ -72,7 +73,8 @@ def test_search_footsteps_maps_rows(helper, fake_db):
         ],
         1,
     )
-    out = helper.search_footsteps(event_ids=["evt-1", ""], participants=[11111])
+    search_params = FootstepSearchFilters(event_ids=["evt-1", ""], participants=[11111])
+    out = helper.search_footsteps(search_params)
     assert out["total"] == 1
     assert out["items"][0]["date"] == "2025-01-01"
 

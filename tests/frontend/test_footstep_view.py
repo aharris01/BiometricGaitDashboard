@@ -70,7 +70,7 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
     assert isinstance(first_button_children[0], html.Img)
     assert (
         props(first_button_children[0])["src"]
-        == f"{API_BASE_URL}/api/events/evt-1/footsteps/3/image"
+        == f"{API_BASE_URL}/api/events/evt-1/footsteps/3/image?rev=0"
     )
     assert props(first_button_children[0])["className"] == "footstep-card-image"
 
