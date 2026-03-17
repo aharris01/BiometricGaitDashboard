@@ -49,9 +49,13 @@ def crop_image(img):
 # spatially rotate 180 degrees to make footstep upright
 def spatial_flip(footstep: np.ndarray):
     # use COP in y direction to make steps upright
-    COP = (
-        (footstep.sum(2) * np.arange(0, footstep.shape[1]))
-        / footstep.sum((1, 2))[:, np.newaxis]
+    frame_sums = footstep.sum((1, 2))
+    cop_numerator = footstep.sum(2) * np.arange(0, footstep.shape[1])
+    COP = np.divide(
+        cop_numerator,
+        frame_sums[:, np.newaxis],
+        out=np.full(cop_numerator.shape, np.nan, dtype=float),
+        where=frame_sums[:, np.newaxis] != 0,
     ).sum(1)
 
     if np.nanmean(COP[0 : COP.shape[0] // 2]) < np.nanmean(COP[COP.shape[0] // 2 :]):
