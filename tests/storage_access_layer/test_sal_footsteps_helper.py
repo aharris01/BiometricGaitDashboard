@@ -50,54 +50,57 @@ def helper(fake_db, common):
     return SalFootsteps(fake_db, common)
 
 
-@pytest.mark.unit
-def test_search_footsteps_maps_rows(helper, fake_db):
-    fake_db.search_footsteps.return_value = (
-        [
-            {
-                "event_id": "evt-1",
-                "footstep_id": 2,
-                "participant": 11111,
-                "date": dt.date(2025, 1, 1),
-                "start_frame": 10,
-                "end_frame": 20,
-                "x_min": 5,
-                "x_max": 25,
-                "y_min": 7,
-                "y_max": 37,
-                "bbox_width": 20,
-                "bbox_height": 30,
-                "bbox_area": 600,
-                "has_thumbnail": True,
-            }
-        ],
-        1,
-    )
-    search_params = FootstepSearchFilters(event_ids=["evt-1", ""], participants=[11111])
-    out = helper.search_footsteps(search_params)
-    assert out["total"] == 1
-    assert out["items"][0]["date"] == "2025-01-01"
+class TestSearchFootstep:
+    @pytest.mark.unit
+    def test_search_footsteps_maps_rows(self, helper, fake_db):
+        fake_db.search_footsteps.return_value = (
+            [
+                {
+                    "event_id": "evt-1",
+                    "footstep_id": 2,
+                    "participant": 11111,
+                    "date": dt.date(2025, 1, 1),
+                    "start_frame": 10,
+                    "end_frame": 20,
+                    "x_min": 5,
+                    "x_max": 25,
+                    "y_min": 7,
+                    "y_max": 37,
+                    "bbox_width": 20,
+                    "bbox_height": 30,
+                    "bbox_area": 600,
+                    "has_thumbnail": True,
+                }
+            ],
+            1,
+        )
+        search_params = FootstepSearchFilters(
+            event_ids=["evt-1", ""], participants=[11111]
+        )
+        out = helper.search_footsteps(search_params)
+        assert out["total"] == 1
+        assert out["items"][0]["date"] == "2025-01-01"
 
 
-@pytest.mark.unit
-def test_get_footsteps_missing_event(helper, common):
-    common._require_event.return_value = (None, "missing_event")
-    steps, err = helper.get_footsteps("evt-1")
-    assert steps is None
-    assert err == "missing_event"
+class TestGetFootstep:
+    @pytest.mark.unit
+    def test_get_footsteps_missing_event(self, helper, common):
+        common._require_event.return_value = (None, "missing_event")
+        steps, err = helper.get_footsteps("evt-1")
+        assert steps is None
+        assert err == "missing_event"
 
+    @pytest.mark.unit
+    def test_get_footstep_data_missing_key(self, tmp_path, helper, common):
+        trial = tmp_path / "trial.npz"
+        np.savez(trial, arr_0=np.zeros((2, 2)))
+        steps_path = trial.with_name("steps.npz")
+        _write_npz_with_numeric_keys(steps_path, {"1": np.ones((2, 2, 2))})
 
-@pytest.mark.unit
-def test_get_footstep_data_missing_key(tmp_path, helper, common):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((2, 2)))
-    steps_path = trial.with_name("steps.npz")
-    _write_npz_with_numeric_keys(steps_path, {"1": np.ones((2, 2, 2))})
+        event = SimpleNamespace(trial_npz_uri=trial.as_uri())
+        common._require_event.return_value = (event, None)
+        common._load_steps_npz.return_value = (np.load(steps_path), None)
 
-    event = SimpleNamespace(trial_npz_uri=trial.as_uri())
-    common._require_event.return_value = (event, None)
-    common._load_steps_npz.return_value = (np.load(steps_path), None)
-
-    p100, grf, err = helper.get_footstep_data("evt-1", 0)
-    assert p100 is None and grf is None
-    assert err == "missing_file"
+        p100, grf, err = helper.get_footstep_data("evt-1", 0)
+        assert p100 is None and grf is None
+        assert err == "missing_file"
