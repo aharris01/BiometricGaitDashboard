@@ -18,6 +18,8 @@ from backend.storage_access_layer.pipeline.utils.preprocess_footsteps import (
     temporal_interpolation,
 )
 
+pytestmark = pytest.mark.unit
+
 
 def _make_block_footstep(
     *,
@@ -40,7 +42,6 @@ def _active_bbox_center(img, thresh=10):
 
 
 class TestCroppingHelpers:
-    @pytest.mark.unit
     def test_spatial_crop_reduces_to_active_bbox(self):
         footstep = _make_block_footstep(
             frames=3,
@@ -56,7 +57,6 @@ class TestCroppingHelpers:
         assert cropped.shape == (3, 3, 4)
         assert np.all(cropped == 20)
 
-    @pytest.mark.unit
     def test_temporal_crop_removes_inactive_frames_at_both_ends(self):
         footstep = _make_block_footstep(
             frames=6,
@@ -72,7 +72,6 @@ class TestCroppingHelpers:
         assert cropped.shape == (2, 5, 5)
         assert np.all(cropped.max(axis=(1, 2)) == 20)
 
-    @pytest.mark.unit
     def test_crop_image_reduces_2d_image_to_active_region(self):
         img = np.zeros((6, 7), dtype=float)
         img[1:4, 2:6] = 1
@@ -84,7 +83,6 @@ class TestCroppingHelpers:
 
 
 class TestSpatialFlip:
-    @pytest.mark.unit
     def test_spatial_flip_handles_zero_sum_frames_without_runtime_warning(self):
         footstep = np.zeros((4, 5, 4), dtype=float)
         footstep[1:3, 4, 1:3] = 20
@@ -98,7 +96,6 @@ class TestSpatialFlip:
         assert flipped.shape == footstep.shape
         assert isinstance(orientation, bool)
 
-    @pytest.mark.unit
     def test_spatial_flip_rotates_when_later_frames_have_lower_contact(self):
         footstep = np.zeros((4, 5, 4), dtype=float)
         footstep[0:2, 0, 1:3] = 20
@@ -109,7 +106,6 @@ class TestSpatialFlip:
         assert orientation is True
         assert np.array_equal(flipped, np.flip(footstep, axis=(1, 2)))
 
-    @pytest.mark.unit
     def test_spatial_flip_leaves_upright_footstep_unchanged(self):
         footstep = np.zeros((4, 5, 4), dtype=float)
         footstep[0:2, 4, 1:3] = 20
@@ -122,7 +118,6 @@ class TestSpatialFlip:
 
 
 class TestSpatialRotation:
-    @pytest.mark.unit
     def test_spatial_rotation_uses_pca_angle_and_preserves_nonzero_data(
         self, monkeypatch
     ):
@@ -150,7 +145,6 @@ class TestSpatialRotation:
 
 
 class TestSpatialTranslation:
-    @pytest.mark.unit
     @pytest.mark.parametrize("alignment_method", ["mass", "area", "bbox"])
     def test_spatial_translation_preserves_shape_and_repositions_active_region(
         self, alignment_method
@@ -179,7 +173,6 @@ class TestSpatialTranslation:
 
 
 class TestSpatialZeroPad:
-    @pytest.mark.unit
     def test_spatial_zeropad_returns_requested_shape_with_centered_content(self):
         footstep = np.ones((2, 2, 3), dtype=float)
 
@@ -193,7 +186,6 @@ class TestSpatialZeroPad:
 
 
 class TestClassifySide:
-    @pytest.mark.unit
     def test_classify_side_returns_true_for_left_pattern(self):
         footstep = np.zeros((3, 6, 6), dtype=float)
         footstep[:, 0:2, 3:6] = 20
@@ -201,7 +193,6 @@ class TestClassifySide:
 
         assert classify_side(footstep) is True
 
-    @pytest.mark.unit
     def test_classify_side_returns_false_for_right_pattern(self):
         footstep = np.zeros((3, 6, 6), dtype=float)
         footstep[:, 0:2, 0:3] = 20
@@ -211,7 +202,6 @@ class TestClassifySide:
 
 
 class TestTemporalInterpolation:
-    @pytest.mark.unit
     def test_temporal_interpolation_crops_inactive_frames_before_resampling(self):
         footstep = _make_block_footstep(
             frames=5,
@@ -232,7 +222,6 @@ class TestTemporalInterpolation:
 
 
 class TestPreprocessFootsteps:
-    @pytest.mark.unit
     def test_preprocess_footsteps_returns_normalized_stack_and_augmented_metadata(
         self, monkeypatch
     ):
@@ -262,12 +251,16 @@ class TestPreprocessFootsteps:
         assert list(new_metadata["RotationAngle"]) == [20.0, 30.0]
         assert len(new_metadata["Orientation"]) == 2
         assert len(new_metadata["Side"]) == 2
-        assert new_metadata["Orientation"].map(
-            lambda value: isinstance(value, (bool, np.bool_))
-        ).all()
-        assert new_metadata["Side"].map(
-            lambda value: isinstance(value, (bool, np.bool_))
-        ).all()
+        assert (
+            new_metadata["Orientation"]
+            .map(lambda value: isinstance(value, (bool, np.bool_)))
+            .all()
+        )
+        assert (
+            new_metadata["Side"]
+            .map(lambda value: isinstance(value, (bool, np.bool_)))
+            .all()
+        )
         assert "RotationAngle" not in metadata.columns
         assert np.count_nonzero(processed[0]) > 0
         assert np.count_nonzero(processed[1]) > 0

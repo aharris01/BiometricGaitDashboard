@@ -7,6 +7,8 @@ from dash.exceptions import PreventUpdate
 import frontend.api as api
 from frontend.utils import require_values
 
+pytestmark = pytest.mark.unit
+
 
 class StubResponse:
     def __init__(self, json_data, status_ok=True):
@@ -33,7 +35,6 @@ def make_fake_get(response_data, *, status_ok=True, captured=None):
     return fake_get
 
 
-@pytest.mark.unit
 def test_fetch_json_success(monkeypatch):
     expected_data = {"key": "value"}
     monkeypatch.setattr(
@@ -43,14 +44,12 @@ def test_fetch_json_success(monkeypatch):
     assert out == expected_data
 
 
-@pytest.mark.unit
 def test_fetch_json_http_error(monkeypatch):
     monkeypatch.setattr(api.requests, "get", make_fake_get({}, status_ok=False))
     with pytest.raises(PreventUpdate):
         api.fetch_json("http://example.com/api", context="test")
 
 
-@pytest.mark.unit
 def test_get_participants(monkeypatch):
     captured = {}
     monkeypatch.setattr(
@@ -61,7 +60,6 @@ def test_get_participants(monkeypatch):
     assert captured["url"].endswith("/api/participants")
 
 
-@pytest.mark.unit
 def test_get_event_full(monkeypatch):
     captured = {}
     payload = {
@@ -78,13 +76,11 @@ def test_get_event_full(monkeypatch):
     assert captured["url"].endswith("/api/events/evt-1/full")
 
 
-@pytest.mark.unit
 def test_require_values_missing_raises():
     with pytest.raises(PreventUpdate):
         require_values(context="Missing", participant=None, datestr="2024-01-01")
 
 
-@pytest.mark.unit
 def test_require_values_all_present_ok():
     require_values(
         context="All present",
@@ -109,7 +105,6 @@ class FakeLogger:
         self.logged = True
 
 
-@pytest.mark.unit
 def test_get_dates(monkeypatch):
     # Ensure get_dates correctly formats API response into dropdown options
     monkeypatch.setattr(
@@ -123,7 +118,6 @@ def test_get_dates(monkeypatch):
     assert out == [{"label": "2024-01-01", "value": "2024-01-01"}]
 
 
-@pytest.mark.unit
 def test_get_directions(monkeypatch):
     # Ensure get_directions correctly maps returned direction values
     monkeypatch.setattr(
@@ -140,7 +134,6 @@ def test_get_directions(monkeypatch):
     ]
 
 
-@pytest.mark.unit
 def test_get_events(monkeypatch):
     # Ensure get_events converts integer events into dropdown options
     monkeypatch.setattr(
@@ -157,7 +150,6 @@ def test_get_events(monkeypatch):
     ]
 
 
-@pytest.mark.unit
 def test_get_swipe_event_summary_metrics(monkeypatch):
     # Ensure summary metric request builds correct query parameters
     captured = {}
@@ -183,7 +175,6 @@ def test_get_swipe_event_summary_metrics(monkeypatch):
     assert out == {"EVT1": {"avg_bbox_size": 10}}
 
 
-@pytest.mark.unit
 def test_get_available_metrics(monkeypatch):
     # Ensure available metrics endpoint returns raw JSON payload
     monkeypatch.setattr(
@@ -197,7 +188,6 @@ def test_get_available_metrics(monkeypatch):
     assert out == {"items": ["avg_bbox_size", "step_count"]}
 
 
-@pytest.mark.unit
 def test_get_event_footstep_p100s(monkeypatch):
     # Ensure footstep thumbnail endpoint returns raw JSON payload
     monkeypatch.setattr(
@@ -211,7 +201,6 @@ def test_get_event_footstep_p100s(monkeypatch):
     assert out == {"items": []}
 
 
-@pytest.mark.unit
 def test_fetch_json_logs_on_error(monkeypatch):
     # Ensure fetch_json logs error details when a request fails
     logger = FakeLogger()
@@ -228,7 +217,6 @@ def test_fetch_json_logs_on_error(monkeypatch):
     assert logger.logged is True
 
 
-@pytest.mark.unit
 def test_fetch_json_non_json_error_body(monkeypatch):
     class BadJSONResponse:
         def raise_for_status(self):
@@ -246,13 +234,11 @@ def test_fetch_json_non_json_error_body(monkeypatch):
         api.fetch_json("http://example.com/api")
 
 
-@pytest.mark.unit
 def test_get_date_part_invalid_part():
     out = api.get_date_part("invalid_part")
     assert out == []
 
 
-@pytest.mark.unit
 def test_get_date_part_with_filters(monkeypatch):
     captured = {}
 
@@ -275,7 +261,6 @@ def test_get_date_part_with_filters(monkeypatch):
     assert out == {"items": [2024]}
 
 
-@pytest.mark.unit
 def test_fetch_json_error_with_json_body(monkeypatch):
     class ErrorResponse:
         def __init__(self):
@@ -298,7 +283,6 @@ def test_fetch_json_error_with_json_body(monkeypatch):
         api.fetch_json("http://example.com/api")
 
 
-@pytest.mark.unit
 def test_get_date_part_day(monkeypatch):
     captured = {}
 
@@ -314,7 +298,6 @@ def test_get_date_part_day(monkeypatch):
     assert out == {"items": [1]}
 
 
-@pytest.mark.unit
 def test_search_footsteps_builds_all_filter_params(monkeypatch):
     captured = {}
 
@@ -357,7 +340,6 @@ def test_search_footsteps_builds_all_filter_params(monkeypatch):
     }
 
 
-@pytest.mark.unit
 def test_create_footstep_api(monkeypatch):
     monkeypatch.setattr(
         api.requests,
@@ -385,7 +367,6 @@ def test_create_footstep_api(monkeypatch):
     assert out["item"]["footstep_id"] == 9
 
 
-@pytest.mark.unit
 def test_delete_footstep_api(monkeypatch):
     monkeypatch.setattr(
         api.requests,

@@ -1,5 +1,6 @@
 import pytest
 
+pytestmark = pytest.mark.unit
 
 # -------------------------------------------------------------------
 # Base Fake SALs
@@ -93,7 +94,6 @@ def client(app_factory):
 # -------------------------------------------------------------------
 
 
-@pytest.mark.unit
 def test_event_full_ok(client):
     resp = client.get("/api/events/evt-1/full")
     assert resp.status_code == 200
@@ -106,7 +106,6 @@ def test_event_full_ok(client):
     assert "footsteps" in data
 
 
-@pytest.mark.unit
 def test_event_footsteps_p100s_ok(client):
     resp = client.get("/api/events/evt-1/footsteps/p100s")
     assert resp.status_code == 200
@@ -116,7 +115,6 @@ def test_event_footsteps_p100s_ok(client):
     assert data["items"][0]["id"] == 0
 
 
-@pytest.mark.unit
 def test_event_full_missing_event_returns_404(app_factory):
     app = app_factory(FakeSALMissingEvent())
     with app.test_client() as client_:
@@ -129,7 +127,6 @@ class FakeSALFootstepMissingEvent(FakeSAL):
         return (None, "missing_event")
 
 
-@pytest.mark.unit
 def test_event_footsteps_p100s_missing_event_returns_404(app_factory):
     app = app_factory(FakeSALFootstepMissingEvent())
     with app.test_client() as client_:
@@ -142,7 +139,6 @@ class FakeSALFootstepMissingFile(FakeSAL):
         return (None, "missing_file")
 
 
-@pytest.mark.unit
 def test_event_footsteps_p100s_missing_file_returns_empty_list(app_factory):
     app = app_factory(FakeSALFootstepMissingFile())
     with app.test_client() as client_:
@@ -156,7 +152,6 @@ class FakeSALFootstepDetail(FakeSAL):
         return ([1, 2], [0.1, 0.2], None)
 
 
-@pytest.mark.unit
 def test_event_footstep_detail_ok(app_factory):
     app = app_factory(FakeSALFootstepDetail())
     with app.test_client() as client_:
@@ -172,7 +167,6 @@ class FakeSALFootstepDetailMissingEvent(FakeSAL):
         return (None, None, "missing_event")
 
 
-@pytest.mark.unit
 def test_event_footstep_detail_missing_event(app_factory):
     app = app_factory(FakeSALFootstepDetailMissingEvent())
     with app.test_client() as client_:
@@ -185,7 +179,6 @@ class FakeSALFootstepDetailMissingFile(FakeSAL):
         return (None, None, "missing_file")
 
 
-@pytest.mark.unit
 def test_event_footstep_detail_missing_file(app_factory):
     app = app_factory(FakeSALFootstepDetailMissingFile())
     with app.test_client() as client_:
@@ -206,7 +199,6 @@ class FakeSALSummaryPlot(FakeSAL):
         return {"evt-1": {x: 1.0, y: 2.0}}
 
 
-@pytest.mark.unit
 def test_summary_plot_ok(app_factory):
     app = app_factory(FakeSALSummaryPlot())
     with app.test_client() as client_:
@@ -216,7 +208,6 @@ def test_summary_plot_ok(app_factory):
         assert "evt-1" in data
 
 
-@pytest.mark.unit
 def test_summary_plot_missing_metrics(app_factory):
     app = app_factory(FakeSALSummaryPlot())
     with app.test_client() as client_:
@@ -224,7 +215,6 @@ def test_summary_plot_missing_metrics(app_factory):
         assert resp.status_code == 400
 
 
-@pytest.mark.unit
 def test_summaryplot_invalid_metric_returns_400(app_factory):
     app = app_factory(FakeSALSummaryPlot())
     with app.test_client() as client_:
@@ -232,7 +222,6 @@ def test_summaryplot_invalid_metric_returns_400(app_factory):
         assert resp.status_code == 400
 
 
-@pytest.mark.unit
 def test_summaryplot_bad_date_order_returns_400(app_factory):
     app = app_factory(FakeSALSummaryPlot())
     with app.test_client() as client_:
@@ -254,7 +243,6 @@ class FakeSALDates(FakeSAL):
         return []
 
 
-@pytest.mark.unit
 def test_years_endpoint_ok(app_factory):
     app = app_factory(FakeSALDates())
     with app.test_client() as client_:
@@ -268,7 +256,6 @@ class FakeSALGrfMissingEvent(FakeSAL):
         return (None, "missing_event")
 
 
-@pytest.mark.unit
 def test_event_full_grf_missing_event_returns_404(app_factory):
     app = app_factory(FakeSALGrfMissingEvent())
     with app.test_client() as client_:
@@ -281,7 +268,6 @@ class FakeSALFootstepsMissingEvent(FakeSAL):
         return (None, "missing_event")
 
 
-@pytest.mark.unit
 def test_event_full_footsteps_missing_event_returns_404(app_factory):
     app = app_factory(FakeSALFootstepsMissingEvent())
     with app.test_client() as client_:
@@ -294,7 +280,6 @@ class FakeSALFootstepsMissingFile(FakeSAL):
         return (None, "missing_file")
 
 
-@pytest.mark.unit
 def test_event_full_footsteps_missing_file_returns_empty_list(app_factory):
     app = app_factory(FakeSALFootstepsMissingFile())
     with app.test_client() as client_:
@@ -308,7 +293,6 @@ class FakeSALDetailsMissingEvent(FakeSAL):
         return (None, "missing_event")
 
 
-@pytest.mark.unit
 def test_event_full_details_missing_event_returns_404(app_factory):
     app = app_factory(FakeSALDetailsMissingEvent())
     with app.test_client() as client_:
@@ -321,7 +305,6 @@ class FakeSALDetailsMissingFile(FakeSAL):
         return (None, "missing_file")
 
 
-@pytest.mark.unit
 def test_event_full_details_missing_file_returns_empty_list(app_factory):
     app = app_factory(FakeSALDetailsMissingFile())
     with app.test_client() as client_:
@@ -335,7 +318,6 @@ def test_event_full_details_missing_file_returns_empty_list(app_factory):
 # -------------------------------------------------------------------
 
 
-@pytest.mark.unit
 def test_available_metrics_endpoint_ok(app_factory):
     app = app_factory(FakeSAL())
     with app.test_client() as client_:
@@ -353,7 +335,6 @@ class FakeSALDateBoundsOk(FakeSAL):
         return {"min_date": "2024-01-01", "max_date": "2024-12-31"}
 
 
-@pytest.mark.unit
 def test_date_bounds_ok_returns_iso_dates(app_factory):
     app = app_factory(FakeSALDateBoundsOk())
     with app.test_client() as client_:
@@ -369,7 +350,6 @@ class FakeSALDateBoundsEmpty(FakeSAL):
         return {"min_date": None, "max_date": None}
 
 
-@pytest.mark.unit
 def test_date_bounds_empty_returns_nulls(app_factory):
     app = app_factory(FakeSALDateBoundsEmpty())
     with app.test_client() as client_:
@@ -387,7 +367,6 @@ class FakeSALMonths(FakeSAL):
         return []
 
 
-@pytest.mark.unit
 def test_months_endpoint_ok_returns_sorted_unique(app_factory):
     app = app_factory(FakeSALMonths())
     with app.test_client() as client_:
@@ -403,7 +382,6 @@ class FakeSALDays(FakeSAL):
         return []
 
 
-@pytest.mark.unit
 def test_days_endpoint_ok_returns_sorted_unique(app_factory):
     app = app_factory(FakeSALDays())
     with app.test_client() as client_:

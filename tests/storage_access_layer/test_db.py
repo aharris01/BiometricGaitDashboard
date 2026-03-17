@@ -14,8 +14,9 @@ from backend.storage_access_layer.db.db import (
     copy_footsteps_from_manifest_to_local,
 )
 
+pytestmark = pytest.mark.unit
 
-@pytest.mark.unit
+
 def test_get_participants_dates_directions_events(seeded_db):
     assert seeded_db.get_participants() == [11111]
     assert seeded_db.get_dates(11111) == [datetime.date(2025, 1, 1)]
@@ -23,7 +24,6 @@ def test_get_participants_dates_directions_events(seeded_db):
     assert seeded_db.get_events(11111, datetime.date(2025, 1, 1), "in") == [1]
 
 
-@pytest.mark.unit
 def test_get_swipe_event_builds_paths(seeded_db, tmp_path):
     event = seeded_db.get_swipe_event("EV_PRESENT")
     assert event is not None
@@ -34,7 +34,6 @@ def test_get_swipe_event_builds_paths(seeded_db, tmp_path):
     assert event.trial_grf_npz_uri.endswith("trial.grf.npz")
 
 
-@pytest.mark.unit
 def test_get_swipe_event_id_missing(empty_db):
     out = empty_db.get_swipe_event_id(
         participant=99999,
@@ -45,7 +44,6 @@ def test_get_swipe_event_id_missing(empty_db):
     assert out is None
 
 
-@pytest.mark.unit
 def test_add_swipe_event_inserts_local_record(empty_db, tmp_path):
     root = tmp_path / "root"
     root.mkdir()
@@ -59,7 +57,6 @@ def test_add_swipe_event_inserts_local_record(empty_db, tmp_path):
     assert "NEW_EVENT" in empty_db.get_local_event_ids()
 
 
-@pytest.mark.unit
 def test_copy_metrics_upserts(seeded_db):
     # first call inserts
     inserted = copy_metrics_from_manifest_to_local(seeded_db)
@@ -73,7 +70,6 @@ def test_copy_metrics_upserts(seeded_db):
         assert row.step_count == 7
 
 
-@pytest.mark.unit
 def test_empty_queries_return_lists(empty_db):
     assert empty_db.get_participants() == []
     assert empty_db.get_dates(123) == []
@@ -155,7 +151,6 @@ def _seed_footstep_search_data(db):
     assert copied in (0, 1, 2)
 
 
-@pytest.mark.unit
 def test_copy_footsteps_upserts(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -169,7 +164,6 @@ def test_copy_footsteps_upserts(empty_db):
         assert row_2.y_max - row_2.y_min == 60
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_participant(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -181,7 +175,6 @@ def test_search_footsteps_filters_by_participant(empty_db):
     assert rows[0]["participant"] == 11111
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_date_range(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -196,7 +189,6 @@ def test_search_footsteps_filters_by_date_range(empty_db):
     assert rows[0]["date"] == datetime.date(2025, 1, 2)
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_width_and_height(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -214,7 +206,6 @@ def test_search_footsteps_filters_by_width_and_height(empty_db):
     assert rows[0]["bbox_height"] == 30
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_size(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -229,7 +220,6 @@ def test_search_footsteps_filters_by_size(empty_db):
     assert rows[0]["bbox_area"] == 3000
 
 
-@pytest.mark.unit
 def test_search_footsteps_respects_offset_and_limit(empty_db):
     _seed_footstep_search_data(empty_db)
 

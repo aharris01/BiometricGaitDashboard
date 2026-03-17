@@ -3,8 +3,9 @@ from dash import html
 from frontend.views.swipe_event_view.metrics_graph import MetricsGraph
 import plotly.graph_objects as go
 
+pytestmark = pytest.mark.unit
 
-@pytest.mark.unit
+
 def test_metrics_graph_renders_with_no_metrics():
     # Graph should render a container even if no metrics are provided
     g = MetricsGraph({})
@@ -12,7 +13,6 @@ def test_metrics_graph_renders_with_no_metrics():
     assert isinstance(out, html.Div)
 
 
-@pytest.mark.unit
 def test_metrics_graph_renders_with_metrics():
     # Graph should still render normally when metrics exist
     metrics = {
@@ -26,7 +26,6 @@ def test_metrics_graph_renders_with_metrics():
     assert isinstance(out, html.Div)
 
 
-@pytest.mark.unit
 def test_build_scatter_no_metrics_returns_placeholder():
     # When no metrics are available, a placeholder figure should be returned
     g = MetricsGraph({})
@@ -39,7 +38,6 @@ def test_build_scatter_no_metrics_returns_placeholder():
     assert any("no metrics data" in a.get("text", "").lower() for a in annotations)
 
 
-@pytest.mark.unit
 def test_build_scatter_missing_values_returns_placeholder():
     # When metric values are missing (None), no valid points should be plotted
     metrics = {
@@ -54,7 +52,6 @@ def test_build_scatter_missing_values_returns_placeholder():
     assert any("missing values" in a.get("text", "").lower() for a in annotations)
 
 
-@pytest.mark.unit
 def test_build_scatter_valid_points():
     # When valid numeric metrics are present, a scatter trace should be built
     metrics = {
