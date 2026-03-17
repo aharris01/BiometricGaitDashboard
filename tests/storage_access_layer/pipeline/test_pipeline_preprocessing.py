@@ -126,6 +126,9 @@ class TestSpatialRotation:
                 assert n_components == 2
                 self.components_ = np.array([[0.0, 1.0], [1.0, 0.0]])
 
+            def fit_transform(self, X):
+                return
+
         monkeypatch.setattr(preprocess_module, "PCA", DummyPCA)
 
         footstep = _make_block_footstep(
