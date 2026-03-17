@@ -62,6 +62,43 @@ def _make_metadata():
     )
 
 
+def _make_delete_metadata():
+    return pd.DataFrame(
+        [
+            {
+                "FootstepID": 6,
+                "XMin": 2,
+                "XMax": 22,
+                "YMin": 6,
+                "YMax": 36,
+                "StartFrame": 10,
+                "EndFrame": 90,
+                "valid": True,
+                "Direction": "out",
+                "Gate": 3,
+                "t": 10,
+                "x": 40,
+                "y": 10,
+            },
+            {
+                "FootstepID": 7,
+                "XMin": 5,
+                "XMax": 35,
+                "YMin": 10,
+                "YMax": 70,
+                "StartFrame": 20,
+                "EndFrame": 140,
+                "valid": True,
+                "Direction": "out",
+                "Gate": 3,
+                "t": 25,
+                "x": 60,
+                "y": 10,
+            },
+        ]
+    )
+
+
 def _make_new_footstep_data():
     return {
         "XMin": 12,
@@ -119,7 +156,9 @@ class TestFootstepEditorFailures:
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
         monkeypatch.setattr(
-            footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata())
+            footstep_edits,
+            "load_metadata",
+            MagicMock(return_value=_make_delete_metadata()),
         )
         common._load_npz_from_uri.return_value = (None, "p100_load_failed")
 
@@ -153,6 +192,22 @@ class TestFootstepEditorFailures:
 
         assert ok is False
         assert err == "trial_load_failed"
+
+    def test_delete_footstep_returns_p100_error_when_npz_load_fails(
+        self, flask_app, editor, common, event, monkeypatch
+    ):
+        common._require_event.return_value = (event, None)
+        common._require_footstep.return_value = (object(), None)
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata())
+        )
+        common._load_npz_from_uri.return_value = (None, "p100_load_failed")
+
+        with flask_app.app_context():
+            ok, err = editor.delete_footstep(7, "event-1")
+
+        assert ok is False
+        assert err == "p100_load_failed"
 
 
 class TestFootstepEditorSuccessPaths:
@@ -303,6 +358,119 @@ class TestFootstepEditorSuccessPaths:
 
         assert ok is False
         assert err == "Error saving steps.npz: disk full"
+
+    def test_delete_footstep_updates_metadata_and_saves_outputs(
+        self, flask_app, editor, common, event, monkeypatch
+    ):
+        metadata = _make_delete_metadata()
+        load_metadata_mock = MagicMock(return_value=metadata.copy())
+        savez_compressed_mock = MagicMock()
+        savez_mock = MagicMock()
+        update_csv_mock = MagicMock(return_value=(True, None))
+        preprocess_mock = MagicMock(
+            return_value=([np.full((100, 100), 5.0, dtype=float)], None)
+        )
+        trial_recording = np.arange(250 * 120 * 120).reshape(250, 120, 120)
+
+        common._require_event.return_value = (event, None)
+        common._require_footstep.return_value = (object(), None)
+        common._load_npz_from_uri.side_effect = [
+            (np.ones((120, 120), dtype=float), None),
+            (trial_recording, None),
+        ]
+
+        monkeypatch.setattr(footstep_edits, "load_metadata", load_metadata_mock)
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
+        monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 2.5)
+        monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: 0)
+        monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
+        monkeypatch.setattr(footstep_edits, "preprocess_footsteps", preprocess_mock)
+        monkeypatch.setattr(
+            footstep_edits.np, "savez_compressed", savez_compressed_mock
+        )
+        monkeypatch.setattr(footstep_edits.np, "savez", savez_mock)
+        monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
+
+        with flask_app.app_context():
+            ok, err = editor.delete_footstep(7, "event-1")
+
+        assert ok is True
+        assert err is None
+
+        updated_metadata = update_csv_mock.call_args.args[0]
+        assert list(updated_metadata["FootstepID"]) == [6]
+        assert bool(updated_metadata.iloc[0]["is_anchor"]) is True
+        assert bool(updated_metadata.iloc[0]["is_on_path"]) is True
+        assert updated_metadata.iloc[0]["heading_angle"] == 2.5
+
+        preprocess_footsteps_arg = preprocess_mock.call_args.args[0]
+        assert list(preprocess_footsteps_arg.keys()) == [0]
+        assert preprocess_footsteps_arg[0].shape == (80, 30, 20)
+        savez_compressed_mock.assert_called_once()
+        savez_mock.assert_called_once()
+
+    def test_delete_footstep_renumbers_remaining_ids_after_removed_step(
+        self, flask_app, editor, common, event, monkeypatch
+    ):
+        metadata = _make_delete_metadata()
+        metadata.loc[len(metadata)] = {
+            "FootstepID": 8,
+            "XMin": 8,
+            "XMax": 28,
+            "YMin": 12,
+            "YMax": 42,
+            "StartFrame": 30,
+            "EndFrame": 110,
+            "valid": True,
+            "Direction": "out",
+            "Gate": 3,
+            "t": 40,
+            "x": 80,
+            "y": 10,
+        }
+
+        common._require_event.return_value = (event, None)
+        common._require_footstep.return_value = (object(), None)
+        common._load_npz_from_uri.side_effect = [
+            (np.ones((120, 120), dtype=float), None),
+            (np.zeros((250, 120, 120), dtype=float), None),
+        ]
+
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=metadata)
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
+        monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
+        monkeypatch.setattr(
+            footstep_edits,
+            "reset_path_order",
+            lambda row: int(row["FootstepID"] == 6),
+        )
+        monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
+        monkeypatch.setattr(
+            footstep_edits,
+            "preprocess_footsteps",
+            MagicMock(
+                return_value=(np.zeros((2, 101, 100, 100), dtype=float), metadata)
+            ),
+        )
+        monkeypatch.setattr(footstep_edits.np, "savez_compressed", MagicMock())
+        monkeypatch.setattr(footstep_edits.np, "savez", MagicMock())
+        update_csv_mock = MagicMock(return_value=(True, None))
+        monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
+
+        with flask_app.app_context():
+            ok, err = editor.delete_footstep(7, "event-1")
+
+        assert ok is True
+        assert err is None
+
+        updated_metadata = update_csv_mock.call_args.args[0]
+        assert list(updated_metadata["FootstepID"]) == [6, 7]
 
 
 class TestUpdateCsv:
