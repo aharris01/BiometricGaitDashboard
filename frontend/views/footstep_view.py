@@ -506,8 +506,7 @@ def FootstepView():
                         children=[
                             html.H3("Delete local footstep?", className="panel-title"),
                             html.Div(
-                                "This will remove the selected footstep from local.db. "
-                                "The original source files will not be changed.",
+                                "This will delete the footstep from your dataset files and the local database",
                                 style={"marginBottom": "12px"},
                             ),
                             html.Div(
