@@ -14,6 +14,7 @@ import pytest
 
 from backend.storage_access_layer.sal import SAL
 from backend.storage_access_layer.utils import uri_to_path
+from backend.storage_access_layer.utils.types import FootstepSearchFilters
 
 
 # ================================================================
@@ -606,18 +607,20 @@ def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
     )
 
     out = sal.search_footsteps(
-        event_ids=["evt-1", ""],
-        participants=[11111],
-        date_from=dt.date(2025, 1, 1),
-        date_to=dt.date(2025, 1, 31),
-        width_min=10,
-        width_max=20,
-        height_min=15,
-        height_max=30,
-        size_min=100,
-        size_max=500,
-        offset=10,
-        limit=25,
+        FootstepSearchFilters(
+            event_ids=["evt-1"],
+            participants=[11111],
+            date_from=dt.date(2025, 1, 1),
+            date_to=dt.date(2025, 1, 31),
+            width_min=10,
+            width_max=20,
+            height_min=15,
+            height_max=30,
+            size_min=100,
+            size_max=500,
+            offset=10,
+            limit=25,
+        )
     )
 
     fake_db.search_footsteps.assert_called_once_with(
@@ -662,7 +665,7 @@ def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
 def test_search_footsteps_empty_result_returns_empty_items(sal, fake_db):
     fake_db.search_footsteps.return_value = ([], 0)
 
-    out = sal.search_footsteps()
+    out = sal.search_footsteps(FootstepSearchFilters())
 
     assert out == {"items": [], "total": 0}
 
@@ -744,128 +747,133 @@ def test_get_all_footstep_details_missing_file(tmp_path, sal, fake_db):
 # -------------------------------------------------------------------
 
 
-@pytest.mark.unit
-def test_summary_plot_invalid_metric_raises(sal):
-    sal.get_available_metrics = MagicMock(return_value=["valid_metric"])
+class TestSummaryPlot:
+    @pytest.mark.unit
+    def test_summary_plot_invalid_metric_raises(self, sal):
+        sal.get_available_metrics = MagicMock(return_value=["valid_metric"])
 
-    with pytest.raises(ValueError):
-        sal.get_swipe_event_summary_plot_data(
-            x="invalid_metric",
-            y="valid_metric",
+        with pytest.raises(ValueError):
+            sal.get_swipe_event_summary_plot_data(
+                x="invalid_metric",
+                y="valid_metric",
+            )
+
+    @pytest.mark.unit
+    def test_summary_plot_empty_db_result(self, sal, fake_db):
+        sal.get_available_metrics = MagicMock(
+            return_value=["avg_bbox_size", "step_count"]
         )
 
+        fake_session = MagicMock()
+        fake_session.execute.return_value.all.return_value = []
 
-@pytest.mark.unit
-def test_summary_plot_empty_db_result(sal, fake_db):
-    sal.get_available_metrics = MagicMock(return_value=["avg_bbox_size", "step_count"])
-
-    fake_session = MagicMock()
-    fake_session.execute.return_value.all.return_value = []
-
-    fake_db._get_session = MagicMock(
-        return_value=MagicMock(
-            __enter__=MagicMock(return_value=fake_session),
-            __exit__=MagicMock(return_value=None),
+        fake_db._get_session = MagicMock(
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=fake_session),
+                __exit__=MagicMock(return_value=None),
+            )
         )
-    )
 
-    out = sal.get_swipe_event_summary_plot_data(
-        x="avg_bbox_size",
-        y="step_count",
-    )
-
-    assert out == {}
-
-
-@pytest.mark.unit
-def test_summary_plot_multiple_rows_and_partial_metrics(sal, fake_db):
-    sal.get_available_metrics = MagicMock(return_value=["avg_bbox_size", "step_count"])
-
-    fake_session = MagicMock()
-    fake_session.execute.return_value.all.return_value = [
-        {"event_id": "E1", "avg_bbox_size": 10, "step_count": 5},
-        {"event_id": "E2", "avg_bbox_size": None, "step_count": 7},
-        {"event_id": "E3", "avg_bbox_size": 3, "step_count": None},
-        {"event_id": None, "avg_bbox_size": 9, "step_count": 9},
-    ]
-
-    fake_db._get_session = MagicMock(
-        return_value=MagicMock(
-            __enter__=MagicMock(return_value=fake_session),
-            __exit__=MagicMock(return_value=None),
+        out = sal.get_swipe_event_summary_plot_data(
+            x="avg_bbox_size",
+            y="step_count",
         )
-    )
 
-    out = sal.get_swipe_event_summary_plot_data(
-        "avg_bbox_size",
-        "step_count",
-    )
+        assert out == {}
 
-    assert "E1" in out
-    assert "E2" in out
-    assert "E3" in out
-    assert None in out
-
-
-@pytest.mark.unit
-def test_summary_plot_all_filters_applied(sal, fake_db):
-    sal.get_available_metrics = MagicMock(return_value=["avg_bbox_size", "step_count"])
-
-    fake_session = MagicMock()
-    fake_session.execute.return_value.all.return_value = [
-        {"event_id": "E100", "avg_bbox_size": 1, "step_count": 2}
-    ]
-
-    fake_db._get_session = MagicMock(
-        return_value=MagicMock(
-            __enter__=MagicMock(return_value=fake_session),
-            __exit__=MagicMock(return_value=None),
+    @pytest.mark.unit
+    def test_summary_plot_multiple_rows_and_partial_metrics(self, sal, fake_db):
+        sal.get_available_metrics = MagicMock(
+            return_value=["avg_bbox_size", "step_count"]
         )
-    )
 
-    out = sal.get_swipe_event_summary_plot_data(
-        "avg_bbox_size",
-        "step_count",
-        filters={
-            "participants": [1, 2],
-            "year": 2024,
-            "month": 5,
-            "day": 10,
-        },
-    )
+        fake_session = MagicMock()
+        fake_session.execute.return_value.all.return_value = [
+            {"event_id": "E1", "avg_bbox_size": 10, "step_count": 5},
+            {"event_id": "E2", "avg_bbox_size": None, "step_count": 7},
+            {"event_id": "E3", "avg_bbox_size": 3, "step_count": None},
+            {"event_id": None, "avg_bbox_size": 9, "step_count": 9},
+        ]
 
-    assert out == {
-        "E100": {
-            "avg_bbox_size": 1,
-            "step_count": 2,
+        fake_db._get_session = MagicMock(
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=fake_session),
+                __exit__=MagicMock(return_value=None),
+            )
+        )
+
+        out = sal.get_swipe_event_summary_plot_data(
+            "avg_bbox_size",
+            "step_count",
+        )
+
+        assert "E1" in out
+        assert "E2" in out
+        assert "E3" in out
+        assert None in out
+
+    @pytest.mark.unit
+    def test_summary_plot_all_filters_applied(self, sal, fake_db):
+        sal.get_available_metrics = MagicMock(
+            return_value=["avg_bbox_size", "step_count"]
+        )
+
+        fake_session = MagicMock()
+        fake_session.execute.return_value.all.return_value = [
+            {"event_id": "E100", "avg_bbox_size": 1, "step_count": 2}
+        ]
+
+        fake_db._get_session = MagicMock(
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=fake_session),
+                __exit__=MagicMock(return_value=None),
+            )
+        )
+
+        out = sal.get_swipe_event_summary_plot_data(
+            "avg_bbox_size",
+            "step_count",
+            filters={
+                "participants": [1, 2],
+                "year": 2024,
+                "month": 5,
+                "day": 10,
+            },
+        )
+
+        assert out == {
+            "E100": {
+                "avg_bbox_size": 1,
+                "step_count": 2,
+            }
         }
-    }
 
-
-@pytest.mark.unit
-def test_summary_plot_row_missing_both_metrics(sal, fake_db):
-    sal.get_available_metrics = MagicMock(return_value=["avg_bbox_size", "step_count"])
-
-    fake_session = MagicMock()
-    fake_session.execute.return_value.all.return_value = [
-        {"event_id": "E1", "avg_bbox_size": None, "step_count": None}
-    ]
-
-    fake_db._get_session = MagicMock(
-        return_value=MagicMock(
-            __enter__=MagicMock(return_value=fake_session),
-            __exit__=MagicMock(return_value=None),
+    @pytest.mark.unit
+    def test_summary_plot_row_missing_both_metrics(self, sal, fake_db):
+        sal.get_available_metrics = MagicMock(
+            return_value=["avg_bbox_size", "step_count"]
         )
-    )
 
-    out = sal.get_swipe_event_summary_plot_data(
-        "avg_bbox_size",
-        "step_count",
-    )
+        fake_session = MagicMock()
+        fake_session.execute.return_value.all.return_value = [
+            {"event_id": "E1", "avg_bbox_size": None, "step_count": None}
+        ]
 
-    assert "E1" in out
-    assert out["E1"]["avg_bbox_size"] is None
-    assert out["E1"]["step_count"] is None
+        fake_db._get_session = MagicMock(
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=fake_session),
+                __exit__=MagicMock(return_value=None),
+            )
+        )
+
+        out = sal.get_swipe_event_summary_plot_data(
+            "avg_bbox_size",
+            "step_count",
+        )
+
+        assert "E1" in out
+        assert out["E1"]["avg_bbox_size"] is None
+        assert out["E1"]["step_count"] is None
 
 
 # -------------------------------------------------------------------
@@ -873,314 +881,321 @@ def test_summary_plot_row_missing_both_metrics(sal, fake_db):
 # -------------------------------------------------------------------
 
 
-@pytest.mark.unit
-def test_get_trial_frame_count_ok(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((7, 3, 2)))
+class TestGetTrialFrameCount:
+    @pytest.mark.unit
+    def test_get_trial_frame_count_ok(self, tmp_path, sal, fake_db):
+        trial = tmp_path / "trial.npz"
+        np.savez(trial, arr_0=np.zeros((7, 3, 2)))
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_npz_uri=trial.resolve().as_uri()
-    )
-
-    frame_count, err = sal._get_trial_frame_count("evt-1")
-
-    assert err is None
-    assert frame_count == 7
-
-
-@pytest.mark.unit
-def test_get_trial_frame_count_missing_event(sal, fake_db):
-    fake_db.get_swipe_event.return_value = None
-
-    frame_count, err = sal._get_trial_frame_count("evt-1")
-
-    assert frame_count is None
-    assert err == "missing_event"
-
-
-@pytest.mark.unit
-def test_get_single_footstep_ok(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    fake_db.get_single_footstep = MagicMock(
-        return_value=SimpleNamespace(
-            footstep_id=4,
-            start_frame=10,
-            end_frame=20,
-            x_min=1,
-            x_max=11,
-            y_min=2,
-            y_max=12,
+        fake_db.get_swipe_event.return_value = SimpleNamespace(
+            trial_npz_uri=trial.resolve().as_uri()
         )
-    )
 
-    out, err = sal.get_single_footstep("evt-1", 4)
+        frame_count, err = sal._get_trial_frame_count("evt-1")
 
-    assert err is None
-    assert out == {
-        "id": 4,
-        "start_frame": 10,
-        "end_frame": 20,
-        "x_min": 1,
-        "x_max": 11,
-        "y_min": 2,
-        "y_max": 12,
-    }
+        assert err is None
+        assert frame_count == 7
 
+    @pytest.mark.unit
+    def test_get_trial_frame_count_missing_event(self, sal, fake_db):
+        fake_db.get_swipe_event.return_value = None
 
-@pytest.mark.unit
-def test_get_single_footstep_no_footstep(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    fake_db.get_single_footstep = MagicMock(return_value=None)
+        frame_count, err = sal._get_trial_frame_count("evt-1")
 
-    out, err = sal.get_single_footstep("evt-1", 4)
-
-    assert out is None
-    assert err == "no_footstep"
+        assert frame_count is None
+        assert err == "missing_event"
 
 
-@pytest.mark.unit
-def test_get_footstep_review_context_ok(tmp_path, sal, fake_db):
-    p100 = tmp_path / "trial.p100.npz"
-    np.savez(p100, arr_0=np.array([[1.0, 2.0], [3.0, 4.0]]))
-
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_p100_npz_uri=p100.resolve().as_uri()
-    )
-    fake_db.get_single_footstep = MagicMock(
-        return_value=SimpleNamespace(
-            footstep_id=5,
-            start_frame=11,
-            end_frame=22,
-            x_min=1,
-            x_max=9,
-            y_min=2,
-            y_max=10,
-            label="left",
-        )
-    )
-    fake_db.get_local_footstep_changes = MagicMock(
-        return_value=[
-            SimpleNamespace(
-                action="edit",
-                changed_at=dt.datetime(2026, 3, 10, 10, 30, 0),
-                old_x_min=1,
-                old_x_max=8,
-                old_y_min=2,
-                old_y_max=9,
-                old_label="old",
-                new_x_min=1,
-                new_x_max=9,
-                new_y_min=2,
-                new_y_max=10,
-                new_label="left",
+class TestGetSingleFootstep:
+    @pytest.mark.unit
+    def test_get_single_footstep_ok(self, sal, fake_db):
+        fake_db.get_swipe_event.return_value = SimpleNamespace()
+        fake_db.get_single_footstep = MagicMock(
+            return_value=SimpleNamespace(
+                footstep_id=4,
+                start_frame=10,
+                end_frame=20,
+                x_min=1,
+                x_max=11,
+                y_min=2,
+                y_max=12,
             )
-        ]
-    )
-
-    payload, err = sal.get_footstep_review_context("evt-1", 5)
-
-    assert err is None
-    assert payload["item"] == {
-        "event_id": "evt-1",
-        "footstep_id": 5,
-        "start_frame": 11,
-        "end_frame": 22,
-        "label": "left",
-    }
-    assert payload["bbox"] == {
-        "x_min": 1,
-        "x_max": 9,
-        "y_min": 2,
-        "y_max": 10,
-    }
-    assert payload["image_width"] == 2
-    assert payload["image_height"] == 2
-    assert payload["event_p100"] == [[1.0, 2.0], [3.0, 4.0]]
-    assert len(payload["changes"]) == 1
-    assert payload["changes"][0]["action"] == "edit"
-    assert payload["changes"][0]["old_label"] == "old"
-    assert payload["changes"][0]["new_label"] == "left"
-
-
-@pytest.mark.unit
-def test_save_footstep_review_ok_with_label_normalization(sal, fake_db):
-    fake_db.update_local_footstep = MagicMock(return_value=object())
-
-    sal.footsteps.get_footstep_review_context = MagicMock(
-        side_effect=[
-            (
-                {
-                    "image_width": 100,
-                    "image_height": 80,
-                },
-                None,
-            ),
-            (
-                {
-                    "saved": True,
-                },
-                None,
-            ),
-        ]
-    )
-
-    out, err = sal.save_footstep_review(
-        "evt-1",
-        6,
-        x_min=10,
-        x_max=20,
-        y_min=30,
-        y_max=40,
-        label="   ",
-    )
-
-    assert err is None
-    assert out == {"saved": True}
-    fake_db.update_local_footstep.assert_called_once_with(
-        "evt-1",
-        6,
-        x_min=10,
-        x_max=20,
-        y_min=30,
-        y_max=40,
-        label=None,
-    )
-
-
-@pytest.mark.unit
-def test_save_footstep_review_invalid_bbox_returns_error(sal):
-    sal.footsteps.get_footstep_review_context = MagicMock(
-        return_value=(
-            {
-                "image_width": 100,
-                "image_height": 80,
-            },
-            None,
         )
-    )
 
-    out, err = sal.save_footstep_review(
-        "evt-1",
-        6,
-        x_min=-1,
-        x_max=20,
-        y_min=30,
-        y_max=40,
-        label="x",
-    )
+        out, err = sal.get_single_footstep("evt-1", 4)
 
-    assert out is None
-    assert err == "invalid_bbox"
+        assert err is None
+        assert out == {
+            "id": 4,
+            "start_frame": 10,
+            "end_frame": 20,
+            "x_min": 1,
+            "x_max": 11,
+            "y_min": 2,
+            "y_max": 12,
+        }
 
+    @pytest.mark.unit
+    def test_get_single_footstep_no_footstep(self, sal, fake_db):
+        fake_db.get_swipe_event.return_value = SimpleNamespace()
+        fake_db.get_single_footstep = MagicMock(return_value=None)
 
-@pytest.mark.unit
-def test_create_footstep_ok(tmp_path, sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    fake_db.create_local_footstep = MagicMock(
-        return_value=SimpleNamespace(footstep_id=12)
-    )
+        out, err = sal.get_single_footstep("evt-1", 4)
 
-    sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
-    sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
-    sal.common._get_trial_frame_count = MagicMock(return_value=(50, None))
-    sal.footsteps.get_footstep_review_context = MagicMock(
-        return_value=({"item": {"footstep_id": 12}}, None)
-    )
-
-    out, err = sal.create_footstep(
-        "evt-1",
-        start_frame=5,
-        end_frame=10,
-        x_min=1,
-        x_max=2,
-        y_min=0,
-        y_max=2,
-        label=" new ",
-    )
-
-    assert err is None
-    assert out == {"item": {"footstep_id": 12}}
-    fake_db.create_local_footstep.assert_called_once_with(
-        "evt-1",
-        start_frame=5,
-        end_frame=10,
-        x_min=1,
-        x_max=2,
-        y_min=0,
-        y_max=2,
-        label="new",
-    )
+        assert out is None
+        assert err == "no_footstep"
 
 
-@pytest.mark.unit
-def test_create_footstep_invalid_frame_returns_error(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
-    sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
-    sal.common._get_trial_frame_count = MagicMock(return_value=(10, None))
+class TestGetFootstepReview:
+    @pytest.mark.unit
+    def test_get_footstep_review_context_ok(self, tmp_path, sal, fake_db):
+        p100 = tmp_path / "trial.p100.npz"
+        np.savez(p100, arr_0=np.array([[1.0, 2.0], [3.0, 4.0]]))
 
-    out, err = sal.create_footstep(
-        "evt-1",
-        start_frame=8,
-        end_frame=8,
-        x_min=1,
-        x_max=2,
-        y_min=0,
-        y_max=2,
-        label=None,
-    )
+        fake_db.get_swipe_event.return_value = SimpleNamespace(
+            trial_p100_npz_uri=p100.resolve().as_uri()
+        )
+        fake_db.get_single_footstep = MagicMock(
+            return_value=SimpleNamespace(
+                footstep_id=5,
+                start_frame=11,
+                end_frame=22,
+                x_min=1,
+                x_max=9,
+                y_min=2,
+                y_max=10,
+                label="left",
+            )
+        )
+        fake_db.get_local_footstep_changes = MagicMock(
+            return_value=[
+                SimpleNamespace(
+                    action="edit",
+                    changed_at=dt.datetime(2026, 3, 10, 10, 30, 0),
+                    old_x_min=1,
+                    old_x_max=8,
+                    old_y_min=2,
+                    old_y_max=9,
+                    old_start_frame=50,
+                    old_end_frame=60,
+                    old_label="old",
+                    new_x_min=1,
+                    new_x_max=9,
+                    new_y_min=2,
+                    new_y_max=10,
+                    new_start_frame=50,
+                    new_end_frame=60,
+                    new_label="left",
+                )
+            ]
+        )
 
-    assert out is None
-    assert err == "invalid_frame"
+        payload, err = sal.get_footstep_review_context("evt-1", 5)
+
+        assert err is None
+        assert payload["item"] == {
+            "event_id": "evt-1",
+            "footstep_id": 5,
+            "start_frame": 11,
+            "end_frame": 22,
+            "label": "left",
+        }
+        assert payload["bbox"] == {
+            "x_min": 1,
+            "x_max": 9,
+            "y_min": 2,
+            "y_max": 10,
+        }
+        assert payload["event_p100"] == [[1.0, 2.0], [3.0, 4.0]]
+        assert len(payload["changes"]) == 1
+        assert payload["changes"][0]["action"] == "edit"
+        assert payload["changes"][0]["old_label"] == "old"
+        assert payload["changes"][0]["new_label"] == "left"
 
 
-@pytest.mark.unit
-def test_create_footstep_invalid_bbox_returns_error(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
-    sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
-    sal.common._get_trial_frame_count = MagicMock(return_value=(10, None))
+class TestSaveFootstepReview:
+    @pytest.mark.unit
+    def test_save_footstep_review_ok_with_label_normalization(self, sal, fake_db):
+        fake_db.update_local_footstep = MagicMock(return_value=object())
 
-    out, err = sal.create_footstep(
-        "evt-1",
-        start_frame=1,
-        end_frame=2,
-        x_min=2,
-        x_max=1,
-        y_min=0,
-        y_max=2,
-        label=None,
-    )
+        sal.footsteps.get_footstep_review_context = MagicMock(
+            side_effect=[
+                (
+                    {"image_width": 100, "image_height": 80, "event_p100": []},
+                    None,
+                ),
+                (
+                    {
+                        "saved": True,
+                    },
+                    None,
+                ),
+            ]
+        )
+        sal.footsteps.editor.edit_footstep = MagicMock(return_value=(True, None))
 
-    assert out is None
-    assert err == "invalid_bbox"
+        out, err = sal.save_footstep_review(
+            "evt-1",
+            6,
+            dict(
+                x_min=10,
+                x_max=20,
+                y_min=30,
+                y_max=40,
+                start_frame=100,
+                end_frame=120,
+                label="   ",
+            ),
+        )
+
+        assert err is None
+        assert out == {"saved": True}
+        fake_db.update_local_footstep.assert_called_once_with(
+            "evt-1",
+            6,
+            x_min=10,
+            x_max=20,
+            y_min=30,
+            y_max=40,
+            label=None,
+        )
+
+    @pytest.mark.unit
+    def test_save_footstep_review_invalid_bbox_returns_error(self, sal):
+        sal.footsteps.get_footstep_review_context = MagicMock(
+            return_value=(
+                {"image_width": 100, "image_height": 80, "event_p100": []},
+                None,
+            )
+        )
+
+        out, err = sal.save_footstep_review(
+            "evt-1",
+            6,
+            dict(
+                x_min=-1,
+                x_max=20,
+                y_min=30,
+                y_max=40,
+                start_frame=10,
+                end_frame=20,
+                label="x",
+            ),
+        )
+
+        assert out is None
+        assert err == "invalid_bbox"
 
 
-@pytest.mark.unit
-def test_delete_footstep_ok(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    fake_db.get_single_footstep = MagicMock(return_value=SimpleNamespace(footstep_id=7))
-    fake_db.delete_local_footstep = MagicMock(return_value=True)
+class TestCreateFootstep:
+    @pytest.mark.unit
+    def test_create_footstep_ok(self, tmp_path, sal, fake_db):
+        fake_db.get_swipe_event.return_value = SimpleNamespace()
+        fake_db.create_local_footstep = MagicMock(
+            return_value=SimpleNamespace(footstep_id=12)
+        )
 
-    out, err = sal.delete_footstep("evt-1", 7)
+        sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
+        sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
+        sal.common._get_trial_frame_count = MagicMock(return_value=(50, None))
+        sal.footsteps.get_footstep_review_context = MagicMock(
+            return_value=({"item": {"footstep_id": 12}}, None)
+        )
 
-    assert err is None
-    assert out == {
-        "ok": True,
-        "event_id": "evt-1",
-        "footstep_id": 7,
-    }
+        out, err = sal.create_footstep(
+            "evt-1",
+            start_frame=5,
+            end_frame=10,
+            x_min=1,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label=" new ",
+        )
+
+        assert err is None
+        assert out == {"item": {"footstep_id": 12}}
+        fake_db.create_local_footstep.assert_called_once_with(
+            "evt-1",
+            start_frame=5,
+            end_frame=10,
+            x_min=1,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label="new",
+        )
+
+    @pytest.mark.unit
+    def test_create_footstep_invalid_frame_returns_error(self, sal, fake_db):
+        fake_db.get_swipe_event.return_value = SimpleNamespace()
+        sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
+        sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
+        sal.common._get_trial_frame_count = MagicMock(return_value=(10, None))
+
+        out, err = sal.create_footstep(
+            "evt-1",
+            start_frame=8,
+            end_frame=8,
+            x_min=1,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label=None,
+        )
+
+        assert out is None
+        assert err == "invalid_bbox"
+
+    @pytest.mark.unit
+    def test_create_footstep_invalid_bbox_returns_error(self, sal, fake_db):
+        fake_db.get_swipe_event.return_value = SimpleNamespace()
+        sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
+        sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
+        sal.common._get_trial_frame_count = MagicMock(return_value=(10, None))
+
+        out, err = sal.create_footstep(
+            "evt-1",
+            start_frame=1,
+            end_frame=2,
+            x_min=2,
+            x_max=1,
+            y_min=0,
+            y_max=2,
+            label=None,
+        )
+
+        assert out is None
+        assert err == "invalid_bbox"
 
 
-@pytest.mark.unit
-def test_delete_footstep_missing_file(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    fake_db.get_single_footstep = MagicMock(return_value=None)
+class TestDeleteFootstep:
+    @pytest.mark.unit
+    def test_delete_footstep_ok(self, sal, fake_db):
+        fake_db.get_swipe_event.return_value = SimpleNamespace()
+        fake_db.get_single_footstep = MagicMock(
+            return_value=SimpleNamespace(footstep_id=7)
+        )
+        fake_db.delete_local_footstep = MagicMock(return_value=True)
 
-    out, err = sal.delete_footstep("evt-1", 7)
+        out, err = sal.delete_footstep("evt-1", 7)
 
-    assert out is None
-    assert err == "missing_file"
+        assert err is None
+        assert out == {
+            "ok": True,
+            "event_id": "evt-1",
+            "footstep_id": 7,
+        }
+
+    @pytest.mark.unit
+    def test_delete_footstep_missing_file(self, sal, fake_db):
+        fake_db.get_swipe_event.return_value = SimpleNamespace()
+        fake_db.get_single_footstep = MagicMock(return_value=None)
+
+        out, err = sal.delete_footstep("evt-1", 7)
+
+        assert out is None
+        assert err == "missing_file"
 
 
 @pytest.mark.unit
@@ -1221,67 +1236,65 @@ def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
     assert items[1]["grf"] == [3.0, 7.0]
 
 
-@pytest.mark.unit
-def test_get_date_bounds_ok_with_filters(sal, fake_db):
-    fake_session = MagicMock()
-    fake_session.execute.return_value.first.return_value = (
-        dt.date(2025, 1, 1),
-        dt.date(2025, 1, 31),
-    )
-
-    fake_db._get_session = MagicMock(
-        return_value=MagicMock(
-            __enter__=MagicMock(return_value=fake_session),
-            __exit__=MagicMock(return_value=None),
+class TestGetDateFunctions:
+    @pytest.mark.unit
+    def test_get_date_bounds_ok_with_filters(self, sal, fake_db):
+        fake_session = MagicMock()
+        fake_session.execute.return_value.first.return_value = (
+            dt.date(2025, 1, 1),
+            dt.date(2025, 1, 31),
         )
-    )
 
-    out = sal.get_date_bounds(filters={"participants": [1], "month": 1})
-
-    assert out == {"min_date": "2025-01-01", "max_date": "2025-01-31"}
-
-
-@pytest.mark.unit
-def test_get_date_bounds_empty_returns_none_bounds(sal, fake_db):
-    fake_session = MagicMock()
-    fake_session.execute.return_value.first.return_value = (None, None)
-
-    fake_db._get_session = MagicMock(
-        return_value=MagicMock(
-            __enter__=MagicMock(return_value=fake_session),
-            __exit__=MagicMock(return_value=None),
+        fake_db._get_session = MagicMock(
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=fake_session),
+                __exit__=MagicMock(return_value=None),
+            )
         )
-    )
 
-    out = sal.get_date_bounds()
+        out = sal.get_date_bounds(filters={"participants": [1], "month": 1})
 
-    assert out == {"min_date": None, "max_date": None}
+        assert out == {"min_date": "2025-01-01", "max_date": "2025-01-31"}
 
+    @pytest.mark.unit
+    def test_get_date_bounds_empty_returns_none_bounds(self, sal, fake_db):
+        fake_session = MagicMock()
+        fake_session.execute.return_value.first.return_value = (None, None)
 
-@pytest.mark.unit
-def test_get_distinct_date_values_ok(sal, fake_db):
-    fake_session = MagicMock()
-    fake_session.execute.return_value.all.return_value = [
-        (3.0,),
-        (1.0,),
-        (None,),
-        (2.0,),
-        (1.0,),
-    ]
-
-    fake_db._get_session = MagicMock(
-        return_value=MagicMock(
-            __enter__=MagicMock(return_value=fake_session),
-            __exit__=MagicMock(return_value=None),
+        fake_db._get_session = MagicMock(
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=fake_session),
+                __exit__=MagicMock(return_value=None),
+            )
         )
-    )
 
-    out = sal.get_distinct_date_values("month", filters={"year": 2025})
+        out = sal.get_date_bounds()
 
-    assert out == [1, 2, 3]
+        assert out == {"min_date": None, "max_date": None}
 
+    @pytest.mark.unit
+    def test_get_distinct_date_values_ok(self, sal, fake_db):
+        fake_session = MagicMock()
+        fake_session.execute.return_value.all.return_value = [
+            (3.0,),
+            (1.0,),
+            (None,),
+            (2.0,),
+            (1.0,),
+        ]
 
-@pytest.mark.unit
-def test_get_distinct_date_values_invalid_part_raises(sal):
-    with pytest.raises(ValueError):
-        sal.get_distinct_date_values("hour")
+        fake_db._get_session = MagicMock(
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=fake_session),
+                __exit__=MagicMock(return_value=None),
+            )
+        )
+
+        out = sal.get_distinct_date_values("month", filters={"year": 2025})
+
+        assert out == [1, 2, 3]
+
+    @pytest.mark.unit
+    def test_get_distinct_date_values_invalid_part_raises(self, sal):
+        with pytest.raises(ValueError):
+            sal.get_distinct_date_values("hour")
