@@ -251,16 +251,15 @@ class TestPreprocessFootsteps:
         assert list(new_metadata["RotationAngle"]) == [20.0, 30.0]
         assert len(new_metadata["Orientation"]) == 2
         assert len(new_metadata["Side"]) == 2
-        assert (
-            new_metadata["Orientation"]
-            .map(lambda value: isinstance(value, (bool, np.bool_)))
-            .all()
+        assert all(
+            isinstance(value, (bool, np.bool_))
+            for value in new_metadata["Orientation"].tolist()
         )
-        assert (
-            new_metadata["Side"]
-            .map(lambda value: isinstance(value, (bool, np.bool_)))
-            .all()
+        assert all(
+            isinstance(value, (bool, np.bool_))
+            for value in new_metadata["Side"].tolist()
         )
+
         assert "RotationAngle" not in metadata.columns
         assert np.count_nonzero(processed[0]) > 0
         assert np.count_nonzero(processed[1]) > 0
