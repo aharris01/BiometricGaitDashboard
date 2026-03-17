@@ -110,6 +110,58 @@ def _make_new_footstep_data():
     }
 
 
+def _make_create_metadata():
+    return pd.DataFrame(
+        [
+            {
+                "FootstepID": 0,
+                "XMin": 2,
+                "XMax": 22,
+                "YMin": 6,
+                "YMax": 36,
+                "StartFrame": 10,
+                "EndFrame": 90,
+                "valid": True,
+                "Direction": "out",
+                "Gate": 3,
+                "t": 10,
+                "x": 12,
+                "y": 21,
+            },
+            {
+                "FootstepID": 1,
+                "XMin": 5,
+                "XMax": 35,
+                "YMin": 10,
+                "YMax": 70,
+                "StartFrame": 20,
+                "EndFrame": 140,
+                "valid": True,
+                "Direction": "out",
+                "Gate": 3,
+                "t": 25,
+                "x": 20,
+                "y": 40,
+            },
+            {
+                "FootstepID": 2,
+                "XMin": 8,
+                "XMax": 28,
+                "YMin": 12,
+                "YMax": 42,
+                "StartFrame": 30,
+                "EndFrame": 160,
+                "valid": True,
+                "Direction": "out",
+                "Gate": 3,
+                "t": 35,
+                "x": 18,
+                "y": 27,
+            },
+        ]
+    )
+
+
 class TestFootstepEditorFailures:
     def test_edit_footstep_returns_event_error_when_event_lookup_fails(
         self, editor, common
@@ -471,6 +523,137 @@ class TestFootstepEditorSuccessPaths:
 
         updated_metadata = update_csv_mock.call_args.args[0]
         assert list(updated_metadata["FootstepID"]) == [6, 7]
+
+    def test_create_footstep_inserts_by_start_frame_and_renumbers_following_ids(
+        self, flask_app, editor, common, event, monkeypatch
+    ):
+        metadata = _make_create_metadata()
+        update_csv_mock = MagicMock(return_value=(True, None))
+        preprocess_mock = MagicMock(
+            return_value=(np.zeros((4, 101, 100, 100), dtype=float), metadata)
+        )
+
+        common._require_event.return_value = (event, None)
+        common._load_npz_from_uri.side_effect = [
+            (np.ones((120, 120), dtype=float), None),
+            (np.zeros((250, 120, 120), dtype=float), None),
+        ]
+
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=metadata.copy())
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expected_bb_size", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expect_duration", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
+        monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
+        monkeypatch.setattr(
+            footstep_edits, "reset_path_order", lambda row: int(row["FootstepID"] == 0)
+        )
+        monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
+        monkeypatch.setattr(footstep_edits, "preprocess_footsteps", preprocess_mock)
+        monkeypatch.setattr(footstep_edits.np, "savez_compressed", MagicMock())
+        monkeypatch.setattr(footstep_edits.np, "savez", MagicMock())
+        monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
+
+        with flask_app.app_context():
+            new_id, err = editor.create_footstep(
+                "event-1",
+                {
+                    "start_frame": 15,
+                    "end_frame": 95,
+                    "x_min": 12,
+                    "x_max": 32,
+                    "y_min": 14,
+                    "y_max": 44,
+                },
+            )
+
+        assert new_id == 1
+        assert err is None
+
+        updated_metadata = update_csv_mock.call_args.args[0]
+        assert list(updated_metadata["FootstepID"]) == [0, 1, 2, 3]
+
+        inserted_row = updated_metadata.loc[updated_metadata["FootstepID"] == 1].iloc[0]
+        assert inserted_row["StartFrame"] == 15
+        assert inserted_row["EndFrame"] == 95
+        assert inserted_row["XMin"] == 12
+        assert inserted_row["XMax"] == 32
+        assert inserted_row["YMin"] == 14
+        assert inserted_row["YMax"] == 44
+        assert inserted_row["t"] == 55
+        assert inserted_row["x"] == 22
+        assert inserted_row["y"] == 29
+        assert bool(inserted_row["valid"]) is True
+
+    def test_create_footstep_uses_end_frame_to_break_same_start_frame_ties(
+        self, flask_app, editor, common, event, monkeypatch
+    ):
+        metadata = _make_create_metadata()
+        update_csv_mock = MagicMock(return_value=(True, None))
+
+        common._require_event.return_value = (event, None)
+        common._load_npz_from_uri.side_effect = [
+            (np.ones((120, 120), dtype=float), None),
+            (np.zeros((250, 120, 120), dtype=float), None),
+        ]
+
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=metadata.copy())
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expected_bb_size", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expect_duration", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
+        monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
+        monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
+        monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
+        monkeypatch.setattr(
+            footstep_edits,
+            "preprocess_footsteps",
+            MagicMock(return_value=(np.zeros((4, 101, 100, 100), dtype=float), None)),
+        )
+        monkeypatch.setattr(footstep_edits.np, "savez_compressed", MagicMock())
+        monkeypatch.setattr(footstep_edits.np, "savez", MagicMock())
+        monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
+
+        with flask_app.app_context():
+            new_id, err = editor.create_footstep(
+                "event-1",
+                {
+                    "start_frame": 20,
+                    "end_frame": 150,
+                    "x_min": 30,
+                    "x_max": 50,
+                    "y_min": 40,
+                    "y_max": 70,
+                },
+            )
+
+        assert new_id == 2
+        assert err is None
+
+        updated_metadata = update_csv_mock.call_args.args[0]
+        assert list(updated_metadata["FootstepID"]) == [0, 1, 2, 3]
+
+        inserted_row = updated_metadata.loc[updated_metadata["FootstepID"] == 2].iloc[0]
+        assert inserted_row["StartFrame"] == 20
+        assert inserted_row["EndFrame"] == 150
+
+        shifted_row = updated_metadata.loc[updated_metadata["FootstepID"] == 3].iloc[0]
+        assert shifted_row["StartFrame"] == 30
+        assert shifted_row["EndFrame"] == 160
 
 
 class TestUpdateCsv:
