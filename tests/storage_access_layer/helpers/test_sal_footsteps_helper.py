@@ -153,9 +153,7 @@ class TestSaveFootstepReview:
         assert err == "missing_file"
 
     @pytest.mark.unit
-    def test_save_footstep_review_invalid_bbox_returns_error(
-        self, helper, fake_db
-    ):
+    def test_save_footstep_review_invalid_bbox_returns_error(self, helper, fake_db):
         helper.get_footstep_review_context = MagicMock(
             return_value=(self._valid_review(), None)
         )
@@ -284,9 +282,7 @@ class TestSaveFootstepReview:
         fake_db.update_local_footstep.return_value = object()
         fake_db.update_event_metrics.return_value = None
         calc_metrics = MagicMock(return_value=({"step_count": 4}, None))
-        monkeypatch.setattr(
-            sal_footsteps_module, "calculate_all_metrics", calc_metrics
-        )
+        monkeypatch.setattr(sal_footsteps_module, "calculate_all_metrics", calc_metrics)
 
         out, err = helper.save_footstep_review("evt-1", 6, self._valid_edits())
 
@@ -307,9 +303,7 @@ class TestSaveFootstepReview:
         fake_db.update_local_footstep.return_value = object()
         fake_db.update_event_metrics.return_value = object()
         calc_metrics = MagicMock(return_value=({"step_count": 4}, None))
-        monkeypatch.setattr(
-            sal_footsteps_module, "calculate_all_metrics", calc_metrics
-        )
+        monkeypatch.setattr(sal_footsteps_module, "calculate_all_metrics", calc_metrics)
         edits = self._valid_edits()
 
         out, err = helper.save_footstep_review("evt-1", 6, edits)
@@ -331,9 +325,7 @@ class TestSaveFootstepReview:
         )
         fake_db.update_local_footstep.assert_called_once_with("evt-1", 6, edits)
         calc_metrics.assert_called_once_with("evt-1", tmp_path / "metadata.csv")
-        fake_db.update_event_metrics.assert_called_once_with(
-            "evt-1", {"step_count": 4}
-        )
+        fake_db.update_event_metrics.assert_called_once_with("evt-1", {"step_count": 4})
 
     @pytest.mark.unit
     def test_save_footstep_review_blank_label_becomes_none(

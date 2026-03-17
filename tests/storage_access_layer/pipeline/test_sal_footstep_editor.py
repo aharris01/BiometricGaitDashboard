@@ -118,7 +118,9 @@ class TestFootstepEditorFailures:
     ):
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        monkeypatch.setattr(footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata()))
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata())
+        )
         common._load_npz_from_uri.return_value = (None, "p100_load_failed")
 
         with flask_app.app_context():
@@ -132,8 +134,12 @@ class TestFootstepEditorFailures:
     ):
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        monkeypatch.setattr(footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata()))
-        monkeypatch.setattr(footstep_edits, "identify_anchor_footstep", lambda metadata: None)
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata())
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
         monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
@@ -172,14 +178,22 @@ class TestFootstepEditorSuccessPaths:
         ]
 
         monkeypatch.setattr(footstep_edits, "load_metadata", load_metadata_mock)
-        monkeypatch.setattr(footstep_edits, "_is_within_expected_bb_size", lambda row: True)
-        monkeypatch.setattr(footstep_edits, "_is_within_expect_duration", lambda row: True)
-        monkeypatch.setattr(footstep_edits, "identify_anchor_footstep", lambda metadata: None)
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expected_bb_size", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expect_duration", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
         monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 1.25)
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: 0)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
         monkeypatch.setattr(footstep_edits, "preprocess_footsteps", preprocess_mock)
-        monkeypatch.setattr(footstep_edits.np, "savez_compressed", savez_compressed_mock)
+        monkeypatch.setattr(
+            footstep_edits.np, "savez_compressed", savez_compressed_mock
+        )
         monkeypatch.setattr(footstep_edits.np, "savez", savez_mock)
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
@@ -215,10 +229,18 @@ class TestFootstepEditorSuccessPaths:
             (np.zeros((250, 120, 120), dtype=float), None),
         ]
 
-        monkeypatch.setattr(footstep_edits, "load_metadata", MagicMock(return_value=metadata))
-        monkeypatch.setattr(footstep_edits, "_is_within_expected_bb_size", lambda row: False)
-        monkeypatch.setattr(footstep_edits, "_is_within_expect_duration", lambda row: True)
-        monkeypatch.setattr(footstep_edits, "identify_anchor_footstep", lambda metadata: None)
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=metadata)
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expected_bb_size", lambda row: False
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expect_duration", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
         monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
@@ -250,10 +272,18 @@ class TestFootstepEditorSuccessPaths:
             (np.zeros((250, 120, 120), dtype=float), None),
         ]
 
-        monkeypatch.setattr(footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata()))
-        monkeypatch.setattr(footstep_edits, "_is_within_expected_bb_size", lambda row: True)
-        monkeypatch.setattr(footstep_edits, "_is_within_expect_duration", lambda row: True)
-        monkeypatch.setattr(footstep_edits, "identify_anchor_footstep", lambda metadata: None)
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata())
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expected_bb_size", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expect_duration", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
         monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)

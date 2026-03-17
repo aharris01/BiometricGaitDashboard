@@ -248,9 +248,7 @@ class TestFootstepFacade:
 
     @pytest.mark.unit
     def test_get_single_footstep_delegates_to_helper(self, sal):
-        sal.footsteps.get_single_footstep = MagicMock(
-            return_value=({"id": 4}, None)
-        )
+        sal.footsteps.get_single_footstep = MagicMock(return_value=({"id": 4}, None))
 
         out = sal.get_single_footstep("evt-1", 4)
 
@@ -319,9 +317,7 @@ class TestFootstepFacade:
 
     @pytest.mark.unit
     def test_delete_footstep_delegates_to_helper(self, sal):
-        sal.footsteps.delete_footstep = MagicMock(
-            return_value=({"ok": True}, None)
-        )
+        sal.footsteps.delete_footstep = MagicMock(return_value=({"ok": True}, None))
 
         out = sal.delete_footstep("evt-1", 7)
 
@@ -582,9 +578,7 @@ def test_search_footsteps_delegates_to_helper(sal):
 
 @pytest.mark.unit
 def test_search_footsteps_returns_helper_result(sal):
-    sal.footsteps.search_footsteps = MagicMock(
-        return_value={"items": [], "total": 0}
-    )
+    sal.footsteps.search_footsteps = MagicMock(return_value={"items": [], "total": 0})
 
     out = sal.search_footsteps(FootstepSearchFilters())
 
@@ -615,8 +609,6 @@ def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
     data, err = sal.get_grf("evt-1")
     assert err is None
     assert data == [1.0, 2.0, 3.0]
-
-
 
 
 # -------------------------------------------------------------------
