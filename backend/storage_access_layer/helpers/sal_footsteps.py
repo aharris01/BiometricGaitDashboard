@@ -300,16 +300,31 @@ class SalFootsteps:
 
     def delete_footstep(self, event_id: str, footstep_id: int):
         event, err = self.common._require_event(event_id)
-        if err:
+        if err or event is None:
             return None, err
 
         row = self.db.get_single_footstep(event_id, footstep_id)
         if row is None:
             return None, "missing_file"
 
+        delete_ok, delete_err = self.editor.delete_footstep(footstep_id, event_id)
+        if delete_err or not delete_ok:
+            return None, delete_err or "delete_failed"
+
         deleted = self.db.delete_local_footstep(event_id, footstep_id)
         if deleted is None:
             return None, "missing_file"
+
+        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
+        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
+
+        if metrics_err or new_metrics is None:
+            return None, "calculation_error"
+
+        result = self.db.update_event_metrics(event_id, new_metrics)
+
+        if result is None:
+            return None, "unexpected_error"
 
         return {
             "ok": True,

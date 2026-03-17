@@ -398,16 +398,63 @@ class DB:
                     old_x_max=int(row.x_max),
                     old_y_min=int(row.y_min),
                     old_y_max=int(row.y_max),
+                    old_start_frame=int(row.start_frame),
+                    old_end_frame=int(row.end_frame),
                     old_label=row.label,
                     new_x_min=None,
                     new_x_max=None,
                     new_y_min=None,
                     new_y_max=None,
+                    new_start_frame=None,
+                    new_end_frame=None,
                     new_label=None,
                 )
             )
 
             session.delete(row)
+            session.flush()
+
+            max_remaining_footstep_id = session.execute(
+                select(func.max(LocalFootstep.footstep_id)).where(
+                    LocalFootstep.event_id == event_id
+                )
+            ).scalar_one_or_none()
+
+            if max_remaining_footstep_id is not None:
+                temp_offset = int(max_remaining_footstep_id) + 1
+
+                session.execute(
+                    text(
+                        """
+                        UPDATE local_footsteps
+                        SET footstep_id = footstep_id + :temp_offset
+                        WHERE event_id = :event_id AND footstep_id > :footstep_id
+                        """
+                    ),
+                    {
+                        "temp_offset": temp_offset,
+                        "event_id": event_id,
+                        "footstep_id": footstep_id,
+                    },
+                )
+
+                session.execute(
+                    text(
+                        """
+                        UPDATE local_footsteps
+                        SET footstep_id = footstep_id - :shift_amount
+                        WHERE event_id = :event_id
+                          AND footstep_id > :footstep_id + :temp_offset
+                        """
+                    ),
+                    {
+                        "shift_amount": temp_offset + 1,
+                        "event_id": event_id,
+                        "footstep_id": footstep_id,
+                        "temp_offset": temp_offset,
+                    },
+                )
+
             return True
 
     def update_local_footstep(self, event_id: str, footstep_id: int, edits: dict):
