@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from io import BytesIO
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import numpy as np
 import pytest
@@ -15,21 +12,6 @@ import pytest
 from backend.storage_access_layer.sal import SAL
 from backend.storage_access_layer.utils import uri_to_path
 from backend.storage_access_layer.utils.types import FootstepSearchFilters
-
-
-# ================================================================
-# Helpers
-# ================================================================
-
-
-def _write_npz_with_numeric_keys(path: Path, arrays: dict[str, np.ndarray]) -> None:
-    # Create an .npz file with numeric string keys ("0", "1")
-    # for compatibility with SAL steps.npz loading
-    with ZipFile(path, mode="w", compression=ZIP_DEFLATED) as zf:
-        for key, arr in arrays.items():
-            buf = BytesIO()
-            np.save(buf, arr)
-            zf.writestr(f"{key}.npy", buf.getvalue())
 
 
 # ================================================================
@@ -250,143 +232,134 @@ def test_get_grf_missing_file(tmp_path, sal, fake_db):
 
 
 # ================================================================
-# Footsteps (Metadata + Steps + Derived Data)
+# Footstep Facade Delegation
 # ================================================================
 
-# ---- get_footsteps ----
 
+class TestFootstepFacade:
+    @pytest.mark.unit
+    def test_get_footsteps_delegates_to_helper(self, sal):
+        sal.footsteps.get_footsteps = MagicMock(return_value=([{"id": 1}], None))
 
-@pytest.mark.unit
-def test_get_footsteps_ok(sal, fake_db):
-    step_rows = [
-        SimpleNamespace(
-            footstep_id=1,
-            start_frame=10,
-            end_frame=20,
-            x_min=1,
-            x_max=5,
-            y_min=2,
-            y_max=6,
+        out = sal.get_footsteps("evt-1")
+
+        assert out == ([{"id": 1}], None)
+        sal.footsteps.get_footsteps.assert_called_once_with("evt-1")
+
+    @pytest.mark.unit
+    def test_get_single_footstep_delegates_to_helper(self, sal):
+        sal.footsteps.get_single_footstep = MagicMock(
+            return_value=({"id": 4}, None)
         )
-    ]
-    returned_rows = [
-        {
-            "id": 1,
-            "start_frame": 10,
-            "end_frame": 20,
+
+        out = sal.get_single_footstep("evt-1", 4)
+
+        assert out == ({"id": 4}, None)
+        sal.footsteps.get_single_footstep.assert_called_once_with("evt-1", 4)
+
+    @pytest.mark.unit
+    def test_get_footstep_review_context_delegates_to_helper(self, sal):
+        sal.footsteps.get_footstep_review_context = MagicMock(
+            return_value=({"item": {"footstep_id": 5}}, None)
+        )
+
+        out = sal.get_footstep_review_context("evt-1", 5)
+
+        assert out == ({"item": {"footstep_id": 5}}, None)
+        sal.footsteps.get_footstep_review_context.assert_called_once_with("evt-1", 5)
+
+    @pytest.mark.unit
+    def test_save_footstep_review_delegates_to_helper(self, sal):
+        edits = {
             "x_min": 1,
-            "x_max": 5,
-            "y_min": 2,
-            "y_max": 6,
+            "x_max": 2,
+            "y_min": 3,
+            "y_max": 4,
+            "start_frame": 5,
+            "end_frame": 6,
+            "label": "left",
         }
-    ]
-    fake_db.get_event_footsteps.return_value = step_rows
-    steps, err = sal.get_footsteps("evt-1")
-    assert err is None
-    assert steps == returned_rows
+        sal.footsteps.save_footstep_review = MagicMock(
+            return_value=({"saved": True}, None)
+        )
 
+        out = sal.save_footstep_review("evt-1", 6, edits)
 
-# ---- get_footstep_data ----
+        assert out == ({"saved": True}, None)
+        sal.footsteps.save_footstep_review.assert_called_once_with("evt-1", 6, edits)
 
+    @pytest.mark.unit
+    def test_create_footstep_delegates_to_helper(self, sal):
+        sal.footsteps.create_footstep = MagicMock(
+            return_value=({"item": {"footstep_id": 12}}, None)
+        )
 
-@pytest.mark.unit
-def test_get_footstep_data_ok(tmp_path, sal, fake_db):
-    trial_path = tmp_path / "trial.npz"
-    np.savez(trial_path, arr_0=np.zeros((2, 2)))
+        out = sal.create_footstep(
+            "evt-1",
+            start_frame=5,
+            end_frame=10,
+            x_min=1,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label="new",
+        )
 
-    vol = np.ones((5, 2, 2))
-    steps_path = trial_path.with_name("steps.npz")
-    _write_npz_with_numeric_keys(steps_path, {"0": vol})
+        assert out == ({"item": {"footstep_id": 12}}, None)
+        sal.footsteps.create_footstep.assert_called_once_with(
+            "evt-1",
+            start_frame=5,
+            end_frame=10,
+            x_min=1,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label="new",
+        )
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_npz_uri=trial_path.as_uri()
-    )
+    @pytest.mark.unit
+    def test_delete_footstep_delegates_to_helper(self, sal):
+        sal.footsteps.delete_footstep = MagicMock(
+            return_value=({"ok": True}, None)
+        )
 
-    p100, grf, err = sal.get_footstep_data("evt-1", 0)
-    assert err is None
-    # p100 returns a numpy array; use array comparison instead of identity
-    assert np.array_equal(p100, np.max(vol, axis=0))
-    # grf is returned as a list so regular equality works
-    assert grf == vol.reshape(vol.shape[0], -1).sum(axis=1).tolist()
+        out = sal.delete_footstep("evt-1", 7)
 
+        assert out == ({"ok": True}, None)
+        sal.footsteps.delete_footstep.assert_called_once_with("evt-1", 7)
 
-@pytest.mark.unit
-def test_get_footstep_data_missing_event(sal, fake_db):
-    fake_db.get_swipe_event.return_value = None
-    p100, grf, err = sal.get_footstep_data("missing", 0)
-    assert p100 is None and grf is None
-    assert err == "missing_event"
+    @pytest.mark.unit
+    def test_get_footstep_data_delegates_to_helper(self, sal):
+        sal.footsteps.get_footstep_data = MagicMock(
+            return_value=([[1, 2]], [3, 4], None)
+        )
 
+        out = sal.get_footstep_data("evt-1", 0)
 
-@pytest.mark.unit
-def test_get_footstep_data_missing_file(tmp_path, sal, fake_db):
-    trial_path = tmp_path / "trial.npz"
-    np.savez(trial_path, arr_0=np.zeros((2, 2)))
+        assert out == ([[1, 2]], [3, 4], None)
+        sal.footsteps.get_footstep_data.assert_called_once_with("evt-1", 0)
 
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_npz_uri=trial_path.as_uri()
-    )
+    @pytest.mark.unit
+    def test_get_all_footstep_p100_delegates_to_helper(self, sal):
+        sal.footsteps.get_all_footstep_p100 = MagicMock(
+            return_value=([{"id": 0, "p100": [[1]]}], None)
+        )
 
-    p100, grf, err = sal.get_footstep_data("evt-1", 0)
-    assert p100 is None and grf is None
-    assert err == "missing_file"
+        out = sal.get_all_footstep_p100("evt-1")
 
+        assert out == ([{"id": 0, "p100": [[1]]}], None)
+        sal.footsteps.get_all_footstep_p100.assert_called_once_with("evt-1")
 
-# ---- get_all_footstep_p100 ----
+    @pytest.mark.unit
+    def test_get_all_footstep_details_delegates_to_helper(self, sal):
+        sal.footsteps.get_all_footstep_details = MagicMock(
+            return_value=([{"id": 1, "grf": [1.0]}], None)
+        )
 
+        out = sal.get_all_footstep_details("evt-1")
 
-@pytest.mark.unit
-def test_get_all_footstep_p100_missing_event(sal, fake_db):
-    fake_db.get_swipe_event.return_value = None
-    items, err = sal.get_all_footstep_p100("missing")
-    assert items is None and err == "missing_event"
-
-
-@pytest.mark.unit
-def test_get_all_footstep_p100_missing_file(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((1, 1)))
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
-
-    items, err = sal.get_all_footstep_p100("evt-1")
-    assert items is None and err == "missing_file"
-
-
-@pytest.mark.unit
-def test_get_all_footstep_p100_ok(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((1, 1)))
-
-    steps_path = trial.with_name("steps.npz")
-    _write_npz_with_numeric_keys(
-        steps_path,
-        {
-            "2": np.array([[[1, 2]], [[3, 4]]]),
-            "0": np.array([[[5, 6]]]),
-        },
-    )
-
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
-
-    items, err = sal.get_all_footstep_p100("evt-1")
-    assert err is None
-    assert items == [
-        {"id": 0, "p100": [[5, 6]]},
-        {"id": 2, "p100": [[3, 4]]},
-    ]
-
-
-@pytest.mark.unit
-def test_get_all_footstep_p100_invalid_key(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((1, 1)))
-    steps_path = trial.with_name("steps.npz")
-    np.savez(steps_path, abc=np.zeros((1, 1, 1)))
-
-    fake_db.get_swipe_event.return_value = SimpleNamespace(trial_npz_uri=trial.as_uri())
-
-    items, err = sal.get_all_footstep_p100("evt-1")
-    assert items is None and err == "missing_file"
+        assert out == ([{"id": 1, "grf": [1.0]}], None)
+        sal.footsteps.get_all_footstep_details.assert_called_once_with("evt-1")
 
 
 # ================================================================
@@ -583,47 +556,8 @@ def test_summary_plot_data_with_filters(sal, fake_db):
 
 
 @pytest.mark.unit
-def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
-    fake_db.search_footsteps.return_value = (
-        [
-            {
-                "event_id": "evt-1",
-                "footstep_id": 2,
-                "participant": 11111,
-                "date": dt.date(2025, 1, 1),
-                "start_frame": 10,
-                "end_frame": 20,
-                "x_min": 5,
-                "x_max": 25,
-                "y_min": 7,
-                "y_max": 37,
-                "bbox_width": 20,
-                "bbox_height": 30,
-                "bbox_area": 600,
-                "has_thumbnail": True,
-            }
-        ],
-        1,
-    )
-
-    out = sal.search_footsteps(
-        FootstepSearchFilters(
-            event_ids=["evt-1"],
-            participants=[11111],
-            date_from=dt.date(2025, 1, 1),
-            date_to=dt.date(2025, 1, 31),
-            width_min=10,
-            width_max=20,
-            height_min=15,
-            height_max=30,
-            size_min=100,
-            size_max=500,
-            offset=10,
-            limit=25,
-        )
-    )
-
-    fake_db.search_footsteps.assert_called_once_with(
+def test_search_footsteps_delegates_to_helper(sal):
+    filters = FootstepSearchFilters(
         event_ids=["evt-1"],
         participants=[11111],
         date_from=dt.date(2025, 1, 1),
@@ -637,33 +571,20 @@ def test_search_footsteps_passes_filters_to_db_and_shapes_rows(sal, fake_db):
         offset=10,
         limit=25,
     )
+    expected = {"items": [{"event_id": "evt-1"}], "total": 1}
+    sal.footsteps.search_footsteps = MagicMock(return_value=expected)
 
-    assert out == {
-        "items": [
-            {
-                "event_id": "evt-1",
-                "footstep_id": 2,
-                "participant": 11111,
-                "date": "2025-01-01",
-                "start_frame": 10,
-                "end_frame": 20,
-                "x_min": 5,
-                "x_max": 25,
-                "y_min": 7,
-                "y_max": 37,
-                "bbox_width": 20,
-                "bbox_height": 30,
-                "bbox_area": 600,
-                "has_thumbnail": True,
-            }
-        ],
-        "total": 1,
-    }
+    out = sal.search_footsteps(filters)
+
+    assert out == expected
+    sal.footsteps.search_footsteps.assert_called_once_with(filters)
 
 
 @pytest.mark.unit
-def test_search_footsteps_empty_result_returns_empty_items(sal, fake_db):
-    fake_db.search_footsteps.return_value = ([], 0)
+def test_search_footsteps_returns_helper_result(sal):
+    sal.footsteps.search_footsteps = MagicMock(
+        return_value={"items": [], "total": 0}
+    )
 
     out = sal.search_footsteps(FootstepSearchFilters())
 
@@ -696,50 +617,6 @@ def test_get_grf_reads_non_arr0_first_key(tmp_path, sal, fake_db):
     assert data == [1.0, 2.0, 3.0]
 
 
-@pytest.mark.unit
-def test_get_footsteps_no_event(sal, fake_db):
-    fake_db.get_swipe_event.return_value = None
-    footsteps, err = sal.get_footsteps("evt-1")
-    assert footsteps is None
-    assert err == "missing_event"
-
-
-@pytest.mark.unit
-def test_get_footsteps_no_footsteps(sal, fake_db):
-    fake_db.get_swipe_event.return_value = SimpleNamespace()
-    fake_db.get_event_footsteps = MagicMock(return_value=[])
-    footsteps, err = sal.get_footsteps("evt-1")
-    assert footsteps is None
-    assert err == "missing_footsteps"
-
-
-@pytest.mark.unit
-def test_get_footstep_data_missing_step_key(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((2, 2)))
-
-    steps_path = trial.with_name("steps.npz")
-    _write_npz_with_numeric_keys(steps_path, {"1": np.ones((2, 2, 2))})
-
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_npz_uri=trial.resolve().as_uri()
-    )
-    p100, grf, err = sal.get_footstep_data("evt-1", 0)
-    assert p100 is None and grf is None
-    assert err == "missing_file"
-
-
-@pytest.mark.unit
-def test_get_all_footstep_details_missing_file(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((2, 2)))
-
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_npz_uri=trial.resolve().as_uri()
-    )
-    items, err = sal.get_all_footstep_details("evt-1")
-    assert items is None
-    assert err == "missing_file"
 
 
 # -------------------------------------------------------------------
@@ -904,336 +781,6 @@ class TestGetTrialFrameCount:
 
         assert frame_count is None
         assert err == "missing_event"
-
-
-class TestGetSingleFootstep:
-    @pytest.mark.unit
-    def test_get_single_footstep_ok(self, sal, fake_db):
-        fake_db.get_swipe_event.return_value = SimpleNamespace()
-        fake_db.get_single_footstep = MagicMock(
-            return_value=SimpleNamespace(
-                footstep_id=4,
-                start_frame=10,
-                end_frame=20,
-                x_min=1,
-                x_max=11,
-                y_min=2,
-                y_max=12,
-            )
-        )
-
-        out, err = sal.get_single_footstep("evt-1", 4)
-
-        assert err is None
-        assert out == {
-            "id": 4,
-            "start_frame": 10,
-            "end_frame": 20,
-            "x_min": 1,
-            "x_max": 11,
-            "y_min": 2,
-            "y_max": 12,
-        }
-
-    @pytest.mark.unit
-    def test_get_single_footstep_no_footstep(self, sal, fake_db):
-        fake_db.get_swipe_event.return_value = SimpleNamespace()
-        fake_db.get_single_footstep = MagicMock(return_value=None)
-
-        out, err = sal.get_single_footstep("evt-1", 4)
-
-        assert out is None
-        assert err == "no_footstep"
-
-
-class TestGetFootstepReview:
-    @pytest.mark.unit
-    def test_get_footstep_review_context_ok(self, tmp_path, sal, fake_db):
-        p100 = tmp_path / "trial.p100.npz"
-        np.savez(p100, arr_0=np.array([[1.0, 2.0], [3.0, 4.0]]))
-
-        fake_db.get_swipe_event.return_value = SimpleNamespace(
-            trial_p100_npz_uri=p100.resolve().as_uri()
-        )
-        fake_db.get_single_footstep = MagicMock(
-            return_value=SimpleNamespace(
-                footstep_id=5,
-                start_frame=11,
-                end_frame=22,
-                x_min=1,
-                x_max=9,
-                y_min=2,
-                y_max=10,
-                label="left",
-            )
-        )
-        fake_db.get_local_footstep_changes = MagicMock(
-            return_value=[
-                SimpleNamespace(
-                    action="edit",
-                    changed_at=dt.datetime(2026, 3, 10, 10, 30, 0),
-                    old_x_min=1,
-                    old_x_max=8,
-                    old_y_min=2,
-                    old_y_max=9,
-                    old_start_frame=50,
-                    old_end_frame=60,
-                    old_label="old",
-                    new_x_min=1,
-                    new_x_max=9,
-                    new_y_min=2,
-                    new_y_max=10,
-                    new_start_frame=50,
-                    new_end_frame=60,
-                    new_label="left",
-                )
-            ]
-        )
-
-        payload, err = sal.get_footstep_review_context("evt-1", 5)
-
-        assert err is None
-        assert payload["item"] == {
-            "event_id": "evt-1",
-            "footstep_id": 5,
-            "start_frame": 11,
-            "end_frame": 22,
-            "label": "left",
-        }
-        assert payload["bbox"] == {
-            "x_min": 1,
-            "x_max": 9,
-            "y_min": 2,
-            "y_max": 10,
-        }
-        assert payload["event_p100"] == [[1.0, 2.0], [3.0, 4.0]]
-        assert len(payload["changes"]) == 1
-        assert payload["changes"][0]["action"] == "edit"
-        assert payload["changes"][0]["old_label"] == "old"
-        assert payload["changes"][0]["new_label"] == "left"
-
-
-class TestSaveFootstepReview:
-    @pytest.mark.unit
-    def test_save_footstep_review_ok_with_label_normalization(self, sal, fake_db):
-        fake_db.update_local_footstep = MagicMock(return_value=object())
-
-        sal.footsteps.get_footstep_review_context = MagicMock(
-            side_effect=[
-                (
-                    {"image_width": 100, "image_height": 80, "event_p100": []},
-                    None,
-                ),
-                (
-                    {
-                        "saved": True,
-                    },
-                    None,
-                ),
-            ]
-        )
-        sal.footsteps.editor.edit_footstep = MagicMock(return_value=(True, None))
-
-        out, err = sal.save_footstep_review(
-            "evt-1",
-            6,
-            dict(
-                x_min=10,
-                x_max=20,
-                y_min=30,
-                y_max=40,
-                start_frame=100,
-                end_frame=120,
-                label="   ",
-            ),
-        )
-
-        assert err is None
-        assert out == {"saved": True}
-        fake_db.update_local_footstep.assert_called_once_with(
-            "evt-1",
-            6,
-            x_min=10,
-            x_max=20,
-            y_min=30,
-            y_max=40,
-            label=None,
-        )
-
-    @pytest.mark.unit
-    def test_save_footstep_review_invalid_bbox_returns_error(self, sal):
-        sal.footsteps.get_footstep_review_context = MagicMock(
-            return_value=(
-                {"image_width": 100, "image_height": 80, "event_p100": []},
-                None,
-            )
-        )
-
-        out, err = sal.save_footstep_review(
-            "evt-1",
-            6,
-            dict(
-                x_min=-1,
-                x_max=20,
-                y_min=30,
-                y_max=40,
-                start_frame=10,
-                end_frame=20,
-                label="x",
-            ),
-        )
-
-        assert out is None
-        assert err == "invalid_bbox"
-
-
-class TestCreateFootstep:
-    @pytest.mark.unit
-    def test_create_footstep_ok(self, tmp_path, sal, fake_db):
-        fake_db.get_swipe_event.return_value = SimpleNamespace()
-        fake_db.create_local_footstep = MagicMock(
-            return_value=SimpleNamespace(footstep_id=12)
-        )
-
-        sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
-        sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
-        sal.common._get_trial_frame_count = MagicMock(return_value=(50, None))
-        sal.footsteps.get_footstep_review_context = MagicMock(
-            return_value=({"item": {"footstep_id": 12}}, None)
-        )
-
-        out, err = sal.create_footstep(
-            "evt-1",
-            start_frame=5,
-            end_frame=10,
-            x_min=1,
-            x_max=2,
-            y_min=0,
-            y_max=2,
-            label=" new ",
-        )
-
-        assert err is None
-        assert out == {"item": {"footstep_id": 12}}
-        fake_db.create_local_footstep.assert_called_once_with(
-            "evt-1",
-            start_frame=5,
-            end_frame=10,
-            x_min=1,
-            x_max=2,
-            y_min=0,
-            y_max=2,
-            label="new",
-        )
-
-    @pytest.mark.unit
-    def test_create_footstep_invalid_frame_returns_error(self, sal, fake_db):
-        fake_db.get_swipe_event.return_value = SimpleNamespace()
-        sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
-        sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
-        sal.common._get_trial_frame_count = MagicMock(return_value=(10, None))
-
-        out, err = sal.create_footstep(
-            "evt-1",
-            start_frame=8,
-            end_frame=8,
-            x_min=1,
-            x_max=2,
-            y_min=0,
-            y_max=2,
-            label=None,
-        )
-
-        assert out is None
-        assert err == "invalid_bbox"
-
-    @pytest.mark.unit
-    def test_create_footstep_invalid_bbox_returns_error(self, sal, fake_db):
-        fake_db.get_swipe_event.return_value = SimpleNamespace()
-        sal.common._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
-        sal.common._get_image_dims = MagicMock(return_value=(2, 2, None))
-        sal.common._get_trial_frame_count = MagicMock(return_value=(10, None))
-
-        out, err = sal.create_footstep(
-            "evt-1",
-            start_frame=1,
-            end_frame=2,
-            x_min=2,
-            x_max=1,
-            y_min=0,
-            y_max=2,
-            label=None,
-        )
-
-        assert out is None
-        assert err == "invalid_bbox"
-
-
-class TestDeleteFootstep:
-    @pytest.mark.unit
-    def test_delete_footstep_ok(self, sal, fake_db):
-        fake_db.get_swipe_event.return_value = SimpleNamespace()
-        fake_db.get_single_footstep = MagicMock(
-            return_value=SimpleNamespace(footstep_id=7)
-        )
-        fake_db.delete_local_footstep = MagicMock(return_value=True)
-
-        out, err = sal.delete_footstep("evt-1", 7)
-
-        assert err is None
-        assert out == {
-            "ok": True,
-            "event_id": "evt-1",
-            "footstep_id": 7,
-        }
-
-    @pytest.mark.unit
-    def test_delete_footstep_missing_file(self, sal, fake_db):
-        fake_db.get_swipe_event.return_value = SimpleNamespace()
-        fake_db.get_single_footstep = MagicMock(return_value=None)
-
-        out, err = sal.delete_footstep("evt-1", 7)
-
-        assert out is None
-        assert err == "missing_file"
-
-
-@pytest.mark.unit
-def test_get_all_footstep_details_ok(tmp_path, sal, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((2, 2)))
-
-    steps_path = trial.with_name("steps.npz")
-    _write_npz_with_numeric_keys(
-        steps_path,
-        {
-            "2": np.array(
-                [
-                    [[1.0, 0.0], [0.0, 2.0]],
-                    [[0.0, 3.0], [4.0, 0.0]],
-                ]
-            ),
-            "1": np.array(
-                [
-                    [[1.0, 1.0], [1.0, 1.0]],
-                    [[2.0, 2.0], [2.0, 2.0]],
-                ]
-            ),
-        },
-    )
-
-    fake_db.get_swipe_event.return_value = SimpleNamespace(
-        trial_npz_uri=trial.resolve().as_uri()
-    )
-
-    items, err = sal.get_all_footstep_details("evt-1")
-
-    assert err is None
-    assert [item["id"] for item in items] == [1, 2]
-    assert items[0]["p100"] == [[2.0, 2.0], [2.0, 2.0]]
-    assert items[0]["grf"] == [4.0, 8.0]
-    assert items[1]["p100"] == [[1.0, 3.0], [4.0, 2.0]]
-    assert items[1]["grf"] == [3.0, 7.0]
 
 
 class TestGetDateFunctions:
