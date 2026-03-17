@@ -25,7 +25,6 @@ class SalFootsteps:
     def search_footsteps(
         self, filters: FootstepSearchFilters
     ) -> dict[str, list[FootstepSearchItem] | int]:
-
         rows, total = self.db.search_footsteps(
             event_ids=filters.event_ids,
             participants=filters.participants,

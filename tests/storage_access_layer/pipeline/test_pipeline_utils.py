@@ -1,3 +1,4 @@
+import datetime as dt
 import pathlib
 
 import numpy as np
@@ -46,9 +47,10 @@ class TestPathMetadataHelpers:
         )
 
         metadata = load_metadata(metadata_path)
-        timestamp = pd.Timestamp(str(metadata.loc[0, "Timestamp"]))
+        timestamp = metadata.loc[0, "Timestamp"]
 
         assert metadata.loc[0, "FootstepID"] == 7
+        assert isinstance(timestamp, dt.datetime)
         assert timestamp.isoformat() == "2025-03-10T12:34:56+00:00"
 
 
