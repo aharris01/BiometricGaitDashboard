@@ -9,3 +9,4 @@ Pillow
 scikit-learn
 opencv-python
 pandas
+python-dateutil
