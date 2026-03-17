@@ -1,5 +1,6 @@
 from datetime import date
 
+from backend.src.routes.footsteps import CreateFootstepRequestPayload
 from backend.storage_access_layer.pipeline.footstep_edits import FootstepEditor
 from backend.scripts.calc_metrics import calculate_all_metrics
 from backend.storage_access_layer.utils import uri_to_path
@@ -243,16 +244,7 @@ class SalFootsteps:
         return self.get_footstep_review_context(event_id, footstep_id)
 
     def create_footstep(
-        self,
-        event_id: str,
-        *,
-        start_frame: int,
-        end_frame: int,
-        x_min: int,
-        x_max: int,
-        y_min: int,
-        y_max: int,
-        label: str | None,
+        self, event_id: str, new_footstep: CreateFootstepRequestPayload
     ):
         event, err = self.common._require_event(event_id)
         if err or event is None:
@@ -266,12 +258,12 @@ class SalFootsteps:
         if err or frame_count is None:
             return None, err
 
-        start_frame = int(start_frame)
-        end_frame = int(end_frame)
-        x_min = int(x_min)
-        x_max = int(x_max)
-        y_min = int(y_min)
-        y_max = int(y_max)
+        start_frame = int(new_footstep["start_frame"])
+        end_frame = int(new_footstep["end_frame"])
+        x_min = int(new_footstep["x_min"])
+        x_max = int(new_footstep["x_max"])
+        y_min = int(new_footstep["y_min"])
+        y_max = int(new_footstep["y_max"])
 
         bbox_valid, valid_err = _validate_bounding_box(
             x_min, x_max, y_min, y_max, start_frame, end_frame, p100, self.common
@@ -279,8 +271,8 @@ class SalFootsteps:
         if valid_err or not bbox_valid:
             return None, valid_err
 
-        if label is not None:
-            label = str(label).strip() or None
+        if new_footstep["label"] is not None:
+            label = str(new_footstep["label"]).strip() or None
 
         created = self.db.create_local_footstep(
             event_id,

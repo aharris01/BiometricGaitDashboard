@@ -242,6 +242,9 @@ class FootstepEditor:
 
         return True, None
 
+    def create_footstep(self):
+        pass
+
 
 def _update_csv(metadata_df, metadata_file_path):
     try:

@@ -7,6 +7,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
+from backend.src.routes.footsteps import CreateFootstepRequestPayload
 from backend.storage_access_layer.helpers.common import CommonHelper
 
 # Local
@@ -94,25 +95,9 @@ class SAL:
     def create_footstep(
         self,
         event_id: str,
-        *,
-        start_frame: int,
-        end_frame: int,
-        x_min: int,
-        x_max: int,
-        y_min: int,
-        y_max: int,
-        label: str | None,
+        new_footstep: CreateFootstepRequestPayload,
     ):
-        return self.footsteps.create_footstep(
-            event_id,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            x_min=x_min,
-            x_max=x_max,
-            y_min=y_min,
-            y_max=y_max,
-            label=label,
-        )
+        return self.footsteps.create_footstep(event_id, new_footstep=new_footstep)
 
     def delete_footstep(self, event_id: str, footstep_id: int):
         return self.footsteps.delete_footstep(event_id, footstep_id)

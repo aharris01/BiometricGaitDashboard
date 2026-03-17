@@ -442,16 +442,7 @@ def api_create_footstep(event_id: str):
                 "create payload parser returned no data",
             )
 
-        result, err = get_sal().create_footstep(
-            event_id,
-            start_frame=parsed["start_frame"],
-            end_frame=parsed["end_frame"],
-            x_min=parsed["x_min"],
-            x_max=parsed["x_max"],
-            y_min=parsed["y_min"],
-            y_max=parsed["y_max"],
-            label=parsed["label"],
-        )
+        result, err = get_sal().create_footstep(event_id, parsed)
 
         if err == "missing_event":
             return make_error(404, "not_found", "event not found")
