@@ -111,8 +111,8 @@ class SalFootsteps:
     # This payload is the single source used by the frontend review panel.
 
     def get_footstep_review_context(self, event_id: str, footstep_id: int):
-        _event, err = self.common._require_event(event_id)
-        if err:
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
             return None, err
 
         footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
