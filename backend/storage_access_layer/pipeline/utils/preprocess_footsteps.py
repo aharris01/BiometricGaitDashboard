@@ -77,7 +77,7 @@ def spatial_rotation(footstep: np.ndarray):
     c, r = np.where(img_peak > 0)
     X = np.array([c, r]).T  # noqa: F841
     pca = PCA(n_components=2)
-    projected = pca.fit_transform(X)
+    projected = pca.fit_transform(X)  # noqa: F841
     angle = np.arctan2(pca.components_[0, 1], pca.components_[0, 0])
     angle = np.degrees(angle)
 
