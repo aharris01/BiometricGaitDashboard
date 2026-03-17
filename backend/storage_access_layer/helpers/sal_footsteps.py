@@ -46,7 +46,7 @@ class SalFootsteps:
         return {"items": items, "total": total}
 
     def get_footsteps(self, event_id: str):
-        event, err = self.common._require_event(event_id)
+        _event, err = self.common._require_event(event_id)
         if err:
             return None, err
 
@@ -76,7 +76,7 @@ class SalFootsteps:
     # summary view footstep performance
     # -------------------------------------------------
     def get_single_footstep(self, event_id: str, footstep_id: int):
-        event, err = self.common._require_event(event_id)
+        _event, err = self.common._require_event(event_id)
         if err:
             return None, err
 
@@ -111,8 +111,8 @@ class SalFootsteps:
     # This payload is the single source used by the frontend review panel.
 
     def get_footstep_review_context(self, event_id: str, footstep_id: int):
-        event, err = self.common._require_event(event_id)
-        if err or event is None:
+        _event, err = self.common._require_event(event_id)
+        if err:
             return None, err
 
         footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
