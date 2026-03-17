@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
+from backend.src.routes.footsteps import CreateFootstepRequestPayload
 from backend.storage_access_layer.sal import SAL
 from backend.storage_access_layer.utils import uri_to_path
 from backend.storage_access_layer.utils.types import FootstepSearchFilters
@@ -294,25 +295,29 @@ class TestFootstepFacade:
 
         out = sal.create_footstep(
             "evt-1",
-            start_frame=5,
-            end_frame=10,
-            x_min=1,
-            x_max=2,
-            y_min=0,
-            y_max=2,
-            label="new",
+            CreateFootstepRequestPayload(
+                start_frame=5,
+                end_frame=10,
+                x_min=1,
+                x_max=2,
+                y_min=0,
+                y_max=2,
+                label="new",
+            ),
         )
 
         assert out == ({"item": {"footstep_id": 12}}, None)
         sal.footsteps.create_footstep.assert_called_once_with(
             "evt-1",
-            start_frame=5,
-            end_frame=10,
-            x_min=1,
-            x_max=2,
-            y_min=0,
-            y_max=2,
-            label="new",
+            CreateFootstepRequestPayload(
+                start_frame=5,
+                end_frame=10,
+                x_min=1,
+                x_max=2,
+                y_min=0,
+                y_max=2,
+                label="new",
+            ),
         )
 
     @pytest.mark.unit

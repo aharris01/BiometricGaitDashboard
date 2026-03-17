@@ -97,7 +97,7 @@ class SAL:
         event_id: str,
         new_footstep: CreateFootstepRequestPayload,
     ):
-        return self.footsteps.create_footstep(event_id, new_footstep=new_footstep)
+        return self.footsteps.create_footstep(event_id, new_footstep)
 
     def delete_footstep(self, event_id: str, footstep_id: int):
         return self.footsteps.delete_footstep(event_id, footstep_id)

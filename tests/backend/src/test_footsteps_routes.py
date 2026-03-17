@@ -573,16 +573,18 @@ class ReviewCreateDeleteSAL:
             None,
         )
 
-    def create_footstep(self, event_id, **kwargs):
-        self.calls.append(("create_footstep", event_id, kwargs))
+    def create_footstep(self, event_id, new_footstep):
+        self.calls.append(("create_footstep", event_id, new_footstep))
         return (
             {
                 "item": {"event_id": event_id, "footstep_id": 99},
                 "bbox": {
-                    "x_min": kwargs["x_min"],
-                    "x_max": kwargs["x_max"],
-                    "y_min": kwargs["y_min"],
-                    "y_max": kwargs["y_max"],
+                    "x_min": new_footstep["x_min"],
+                    "x_max": new_footstep["x_max"],
+                    "y_min": new_footstep["y_min"],
+                    "y_max": new_footstep["y_max"],
+                    "start_frame": new_footstep["start_frame"],
+                    "end_frame": new_footstep["end_frame"],
                 },
                 "event_p100": [[1.0]],
                 "image_width": 1,
@@ -770,7 +772,7 @@ class ReviewErrorSAL:
     def save_footstep_review(self, event_id, footstep_id, edits):
         return None, "invalid_bbox"
 
-    def create_footstep(self, event_id, **kwargs):
+    def create_footstep(self, event_id, new_footstep):
         return None, "invalid_frame"
 
     def delete_footstep(self, event_id, footstep_id):
