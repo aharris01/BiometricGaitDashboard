@@ -8,3 +8,4 @@ numpy
 Pillow
 scikit-learn
 opencv-python
+pandas
