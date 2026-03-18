@@ -33,6 +33,7 @@ def helper(fake_db, common):
 
 @pytest.mark.unit
 def test_get_p100_returns_none_on_common_error(helper, common):
+    common._require_event.return_value = (SimpleNamespace(), None)
     common._get_p100.return_value = (None, "missing_file")
     assert helper.get_p100("evt-1") is None
 

@@ -9,6 +9,8 @@ import plotly.graph_objects as go
 
 from frontend.views.swipe_event_view.summary_view import SummaryView
 
+pytestmark = pytest.mark.unit
+
 
 def children_list(component: Any) -> list[Any]:
     children = getattr(component, "children", None)
@@ -60,7 +62,6 @@ def get_slider_from_controls_row(controls_row: Any) -> dcc.Slider:
     return slider
 
 
-@pytest.mark.unit
 def test_placeholder_figure_basic():
     view = SummaryView(
         event_id="evt-1", cmap=["#000000"], p100_data=None, grf_data=None
@@ -72,7 +73,6 @@ def test_placeholder_figure_basic():
     assert fig.layout.annotations[0].text == "Hello placeholder"
 
 
-@pytest.mark.unit
 def test_render_with_p100_and_grf_and_thumbnails():
     cmap = px.colors.sequential.Jet
     p100 = [[1, 2], [3, 4]]
@@ -130,7 +130,6 @@ def test_render_with_p100_and_grf_and_thumbnails():
     assert grf_children[1].id == {"type": "grf-graph", "event_id": "evt-123"}
 
 
-@pytest.mark.unit
 def test_render_without_p100_uses_placeholder():
     cmap = px.colors.sequential.Jet
     view = SummaryView(
@@ -149,7 +148,6 @@ def test_render_without_p100_uses_placeholder():
     assert fig.layout.annotations[0].text == "P100 not available for this event."
 
 
-@pytest.mark.unit
 def test_render_without_step_p100s_shows_empty_message():
     cmap = px.colors.sequential.Jet
 
@@ -185,13 +183,11 @@ def test_render_without_step_p100s_shows_empty_message():
     assert "No extracted footsteps available for this event." in msg
 
 
-@pytest.mark.unit
 def test_get_p100_range_defaults_when_empty():
     view = SummaryView(event_id="evt", cmap=["#000"], p100_data=None, grf_data=None)
     assert view._get_p100_range() == (0, 1)
 
 
-@pytest.mark.unit
 def test_get_p100_range_finds_max():
     view = SummaryView(
         event_id="evt", cmap=["#000"], p100_data=[[0, 2], [3, None]], grf_data=None
@@ -199,7 +195,6 @@ def test_get_p100_range_finds_max():
     assert view._get_p100_range() == (0, 3)
 
 
-@pytest.mark.unit
 def test_resize_nearest_resizes_shape_and_values():
     view = SummaryView(event_id="evt", cmap=["#000"], p100_data=[[1]], grf_data=None)
 
@@ -218,7 +213,6 @@ def test_resize_nearest_resizes_shape_and_values():
     assert out[-1][-1] == 4
 
 
-@pytest.mark.unit
 def test_global_canvas_for_step_pastes_resized_step_into_bbox():
     cmap = px.colors.sequential.Jet
 
@@ -255,7 +249,6 @@ def test_global_canvas_for_step_pastes_resized_step_into_bbox():
     assert canvas[3][3] == 0
 
 
-@pytest.mark.unit
 def test_bbox_shapes_and_annotations_filter_by_step_id():
     cmap = px.colors.sequential.Jet
     footsteps = [
@@ -284,7 +277,6 @@ def test_bbox_shapes_and_annotations_filter_by_step_id():
     assert ann_one[0]["text"].startswith("#2")
 
 
-@pytest.mark.unit
 def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
     cmap = px.colors.sequential.Jet
     p100 = [
@@ -326,7 +318,6 @@ def test_render_single_step_mode_hides_colorbar_and_uses_bbox_overlays():
     assert len(fig.layout.shapes) == 1
 
 
-@pytest.mark.unit
 def test_render_without_grf_uses_grf_placeholder():
     cmap = px.colors.sequential.Jet
     view = SummaryView(
@@ -355,7 +346,6 @@ def test_render_without_grf_uses_grf_placeholder():
     assert fig.layout.annotations[0].text == "GRF not available for this event."
 
 
-@pytest.mark.unit
 def test_render_mode_all_shows_colorbar_and_slider_disabled():
     cmap = px.colors.sequential.Jet
     p100 = [[1, 2], [3, 4]]
@@ -387,7 +377,6 @@ def test_render_mode_all_shows_colorbar_and_slider_disabled():
     assert slider.disabled is True
 
 
-@pytest.mark.unit
 def test_render_mode_cumulative_pastes_multiple_steps_and_hides_colorbar():
     cmap = px.colors.sequential.Jet
 

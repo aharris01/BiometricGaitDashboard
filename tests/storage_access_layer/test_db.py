@@ -1,6 +1,7 @@
 import datetime
 
 import pytest
+from sqlalchemy import select
 
 from backend.storage_access_layer.db.schema import (
     LocalSwipeEvent,
@@ -8,14 +9,16 @@ from backend.storage_access_layer.db.schema import (
     ManifestSwipeEvent,
     ManifestFootstep,
     LocalFootstep,
+    LocalFootstepChange,
 )
 from backend.storage_access_layer.db.db import (
     copy_metrics_from_manifest_to_local,
     copy_footsteps_from_manifest_to_local,
 )
 
+pytestmark = pytest.mark.unit
 
-@pytest.mark.unit
+
 def test_get_participants_dates_directions_events(seeded_db):
     assert seeded_db.get_participants() == [11111]
     assert seeded_db.get_dates(11111) == [datetime.date(2025, 1, 1)]
@@ -23,7 +26,6 @@ def test_get_participants_dates_directions_events(seeded_db):
     assert seeded_db.get_events(11111, datetime.date(2025, 1, 1), "in") == [1]
 
 
-@pytest.mark.unit
 def test_get_swipe_event_builds_paths(seeded_db, tmp_path):
     event = seeded_db.get_swipe_event("EV_PRESENT")
     assert event is not None
@@ -34,7 +36,6 @@ def test_get_swipe_event_builds_paths(seeded_db, tmp_path):
     assert event.trial_grf_npz_uri.endswith("trial.grf.npz")
 
 
-@pytest.mark.unit
 def test_get_swipe_event_id_missing(empty_db):
     out = empty_db.get_swipe_event_id(
         participant=99999,
@@ -45,7 +46,6 @@ def test_get_swipe_event_id_missing(empty_db):
     assert out is None
 
 
-@pytest.mark.unit
 def test_add_swipe_event_inserts_local_record(empty_db, tmp_path):
     root = tmp_path / "root"
     root.mkdir()
@@ -59,7 +59,6 @@ def test_add_swipe_event_inserts_local_record(empty_db, tmp_path):
     assert "NEW_EVENT" in empty_db.get_local_event_ids()
 
 
-@pytest.mark.unit
 def test_copy_metrics_upserts(seeded_db):
     # first call inserts
     inserted = copy_metrics_from_manifest_to_local(seeded_db)
@@ -73,7 +72,6 @@ def test_copy_metrics_upserts(seeded_db):
         assert row.step_count == 7
 
 
-@pytest.mark.unit
 def test_empty_queries_return_lists(empty_db):
     assert empty_db.get_participants() == []
     assert empty_db.get_dates(123) == []
@@ -155,7 +153,6 @@ def _seed_footstep_search_data(db):
     assert copied in (0, 1, 2)
 
 
-@pytest.mark.unit
 def test_copy_footsteps_upserts(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -169,7 +166,6 @@ def test_copy_footsteps_upserts(empty_db):
         assert row_2.y_max - row_2.y_min == 60
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_participant(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -181,7 +177,6 @@ def test_search_footsteps_filters_by_participant(empty_db):
     assert rows[0]["participant"] == 11111
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_date_range(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -196,7 +191,6 @@ def test_search_footsteps_filters_by_date_range(empty_db):
     assert rows[0]["date"] == datetime.date(2025, 1, 2)
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_width_and_height(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -214,7 +208,6 @@ def test_search_footsteps_filters_by_width_and_height(empty_db):
     assert rows[0]["bbox_height"] == 30
 
 
-@pytest.mark.unit
 def test_search_footsteps_filters_by_size(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -229,7 +222,6 @@ def test_search_footsteps_filters_by_size(empty_db):
     assert rows[0]["bbox_area"] == 3000
 
 
-@pytest.mark.unit
 def test_search_footsteps_respects_offset_and_limit(empty_db):
     _seed_footstep_search_data(empty_db)
 
@@ -238,3 +230,84 @@ def test_search_footsteps_respects_offset_and_limit(empty_db):
     assert total == 2
     assert len(rows) == 1
     assert rows[0]["event_id"] == "EV_2"
+
+
+def test_delete_local_footstep_removes_row_and_renumbers_remaining_ids(empty_db):
+    with empty_db._get_session() as s:
+        s.add_all(
+            [
+                LocalFootstep(
+                    event_id="EV_DEL",
+                    footstep_id=0,
+                    start_frame=1,
+                    end_frame=2,
+                    x_min=0,
+                    x_max=10,
+                    y_min=0,
+                    y_max=10,
+                    label="a",
+                ),
+                LocalFootstep(
+                    event_id="EV_DEL",
+                    footstep_id=1,
+                    start_frame=3,
+                    end_frame=4,
+                    x_min=1,
+                    x_max=11,
+                    y_min=1,
+                    y_max=11,
+                    label="b",
+                ),
+                LocalFootstep(
+                    event_id="EV_DEL",
+                    footstep_id=2,
+                    start_frame=5,
+                    end_frame=6,
+                    x_min=2,
+                    x_max=12,
+                    y_min=2,
+                    y_max=12,
+                    label="c",
+                ),
+            ]
+        )
+
+    deleted = empty_db.delete_local_footstep("EV_DEL", 1)
+
+    assert deleted is True
+
+    with empty_db._get_session() as s:
+        rows = (
+            s.execute(
+                select(LocalFootstep)
+                .where(LocalFootstep.event_id == "EV_DEL")
+                .order_by(LocalFootstep.footstep_id)
+            )
+            .scalars()
+            .all()
+        )
+        delete_changes = (
+            s.execute(
+                select(LocalFootstepChange)
+                .where(
+                    LocalFootstepChange.event_id == "EV_DEL",
+                    LocalFootstepChange.action == "delete",
+                )
+                .order_by(LocalFootstepChange.id)
+            )
+            .scalars()
+            .all()
+        )
+
+    assert [row.footstep_id for row in rows] == [0, 1]
+    assert [row.label for row in rows] == ["a", "c"]
+    assert len(delete_changes) == 1
+    assert delete_changes[0].footstep_id == 1
+    assert delete_changes[0].old_start_frame == 3
+    assert delete_changes[0].old_end_frame == 4
+
+
+def test_delete_local_footstep_returns_none_when_row_missing(empty_db):
+    deleted = empty_db.delete_local_footstep("EV_MISSING", 4)
+
+    assert deleted is None

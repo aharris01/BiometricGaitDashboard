@@ -57,7 +57,11 @@ class SalEvents:
         return event_dict, availability
 
     def get_p100(self, event_id: str):
-        p100, err = self.common._get_p100(event_id)
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
+            return None
+
+        p100, err = self.common._get_p100(event)
         if err:
             return None
         return p100

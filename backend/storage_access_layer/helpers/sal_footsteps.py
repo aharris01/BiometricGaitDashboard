@@ -1,5 +1,10 @@
 from datetime import date
 
+from backend.src.routes.footsteps import CreateFootstepRequestPayload
+from backend.storage_access_layer.pipeline.footstep_edits import FootstepEditor
+from backend.scripts.calc_metrics import calculate_all_metrics
+from backend.storage_access_layer.utils import uri_to_path
+
 from ..db.db import DB
 from ..utils.types import (
     FootstepReviewPayload,
@@ -16,37 +21,11 @@ class SalFootsteps:
     def __init__(self, db: DB, common: CommonHelper):
         self.db = db
         self.common = common
+        self.editor = FootstepEditor(db, common)
 
     def search_footsteps(
-        self,
-        event_ids: list[str] | None = None,
-        participants: list[int] | None = None,
-        date_from=None,
-        date_to=None,
-        width_min: int | None = None,
-        width_max: int | None = None,
-        height_min: int | None = None,
-        height_max: int | None = None,
-        size_min: int | None = None,
-        size_max: int | None = None,
-        offset: int = 0,
-        limit: int = 60,
+        self, filters: FootstepSearchFilters
     ) -> dict[str, list[FootstepSearchItem] | int]:
-        filters = _normalize_search_filters(
-            event_ids=event_ids,
-            participants=participants,
-            date_from=date_from,
-            date_to=date_to,
-            width_min=width_min,
-            width_max=width_max,
-            height_min=height_min,
-            height_max=height_max,
-            size_min=size_min,
-            size_max=size_max,
-            offset=offset,
-            limit=limit,
-        )
-
         rows, total = self.db.search_footsteps(
             event_ids=filters.event_ids,
             participants=filters.participants,
@@ -132,21 +111,17 @@ class SalFootsteps:
     # This payload is the single source used by the frontend review panel.
 
     def get_footstep_review_context(self, event_id: str, footstep_id: int):
-        _event, err = self.common._require_event(event_id)
-        if err:
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
             return None, err
 
         footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
         if footstep_err or footstep is None:
             return None, footstep_err
 
-        p100, p100_err = self.common._get_p100(event_id)
+        p100, p100_err = self.common._get_p100(event)
         if p100_err or p100 is None:
             return None, p100_err
-
-        image_width, image_height, dim_err = self.common._get_image_dims(p100)
-        if dim_err or image_width is None or image_height is None:
-            return None, dim_err
 
         changes: list[ReviewChangePayload] = []
         for change in self.db.get_local_footstep_changes(event_id, footstep_id):
@@ -160,12 +135,16 @@ class SalFootsteps:
                     "old_x_max": change.old_x_max,
                     "old_y_min": change.old_y_min,
                     "old_y_max": change.old_y_max,
+                    "old_start_frame": change.old_start_frame,
+                    "old_end_frame": change.old_end_frame,
                     "old_label": change.old_label,
                     "new_x_min": change.new_x_min,
                     "new_x_max": change.new_x_max,
                     "new_y_min": change.new_y_min,
                     "new_y_max": change.new_y_max,
                     "new_label": change.new_label,
+                    "new_start_frame": change.new_start_frame,
+                    "new_end_frame": change.new_end_frame,
                 }
             )
 
@@ -184,30 +163,23 @@ class SalFootsteps:
                 y_max=int(footstep.y_max),
             ),
             event_p100=p100,
-            image_width=image_width,
-            image_height=image_height,
             changes=changes,
         )
 
         return payload, None
 
-    def save_footstep_review(
-        self,
-        event_id: str,
-        footstep_id: int,
-        *,
-        x_min: int,
-        x_max: int,
-        y_min: int,
-        y_max: int,
-        label: str | None,
-    ):
+    def save_footstep_review(self, event_id: str, footstep_id: int, edits: dict):
         # Validate and save one local footstep edit.
         #
         # Validation is done here because the SAL knows the real event image
         # bounds and keeps write behavior behind the DB layer. This updates the
         # current local footstep row and lets the DB layer write the matching
         # changelog entry for the edit.
+
+        # Validate the event exists
+        event, event_err = self.common._require_event(event_id)
+        if event_err or event is None:
+            return None, event_err
 
         review, err = self.get_footstep_review_context(event_id, footstep_id)
         if err:
@@ -216,95 +188,92 @@ class SalFootsteps:
         if review is None:
             return None, "missing_file"
 
-        image_width = review["image_width"]
-        image_height = review["image_height"]
-
-        x_min = int(x_min)
-        x_max = int(x_max)
-        y_min = int(y_min)
-        y_max = int(y_max)
-
-        if x_min < 0 or y_min < 0:
-            return None, "invalid_bbox"
-
-        if x_min >= x_max or y_min >= y_max:
-            return None, "invalid_bbox"
-
-        if x_max > image_width or y_max > image_height:
-            return None, "invalid_bbox"
-
-        if label is not None:
-            label = str(label).strip() or None
-
-        updated = self.db.update_local_footstep(
-            event_id,
-            footstep_id,
-            x_min=x_min,
-            x_max=x_max,
-            y_min=y_min,
-            y_max=y_max,
-            label=label,
+        bbox_valid, valid_err = _validate_bounding_box(
+            edits["x_min"],
+            edits["x_max"],
+            edits["y_min"],
+            edits["y_max"],
+            edits["start_frame"],
+            edits["end_frame"],
+            review["event_p100"],
+            self.common,
         )
+
+        if valid_err or not bbox_valid:
+            return None, valid_err
+
+        if edits["label"] is not None:
+            label = str(edits["label"]).strip() or None
+            edits["label"] = label
+
+        edit_ok, edit_err = self.editor.edit_footstep(
+            footstep_id,
+            event_id,
+            {
+                "XMin": edits["x_min"],
+                "XMax": edits["x_max"],
+                "YMin": edits["y_min"],
+                "YMax": edits["y_max"],
+                "StartFrame": edits["start_frame"],
+                "EndFrame": edits["end_frame"],
+            },
+        )
+
+        if edit_err or not edit_ok:
+            return None, edit_err or "edit_failed"
+
+        try:
+            updated = self.db.update_local_footstep(event_id, footstep_id, edits)
+        except ValueError:
+            return None, "invalid_change"
+
         if updated is None:
-            return None, "missing_file"
+            return None, "no_footstep"
+
+        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
+        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
+
+        if metrics_err or new_metrics is None:
+            return None, "calculation_error"
+
+        result = self.db.update_event_metrics(event_id, new_metrics)
+
+        if result is None:
+            return None, "unexpected_error"
 
         return self.get_footstep_review_context(event_id, footstep_id)
 
     def create_footstep(
-        self,
-        event_id: str,
-        *,
-        start_frame: int,
-        end_frame: int,
-        x_min: int,
-        x_max: int,
-        y_min: int,
-        y_max: int,
-        label: str | None,
+        self, event_id: str, new_footstep: CreateFootstepRequestPayload
     ):
-        _event, err = self.common._require_event(event_id)
-        if err:
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
             return None, err
 
-        p100, p100_err = self.common._get_p100(event_id)
+        p100, p100_err = self.common._get_p100(event)
         if p100_err:
             return None, p100_err
 
-        image_width, image_height, dim_err = self.common._get_image_dims(p100)
-        if dim_err or image_width is None or image_height is None:
-            return None, dim_err
-
-        frame_count, err = self.common._get_trial_frame_count(event_id)
+        frame_count, err = self.common._get_trial_frame_count(event)
         if err or frame_count is None:
             return None, err
 
-        start_frame = int(start_frame)
-        end_frame = int(end_frame)
-        x_min = int(x_min)
-        x_max = int(x_max)
-        y_min = int(y_min)
-        y_max = int(y_max)
+        start_frame = int(new_footstep["start_frame"])
+        end_frame = int(new_footstep["end_frame"])
+        x_min = int(new_footstep["x_min"])
+        x_max = int(new_footstep["x_max"])
+        y_min = int(new_footstep["y_min"])
+        y_max = int(new_footstep["y_max"])
 
-        if start_frame < 0 or end_frame < 0:
-            return None, "invalid_frame"
+        bbox_valid, valid_err = _validate_bounding_box(
+            x_min, x_max, y_min, y_max, start_frame, end_frame, p100, self.common
+        )
+        if valid_err or not bbox_valid:
+            return None, valid_err
 
-        if start_frame >= end_frame:
-            return None, "invalid_frame"
-
-        if start_frame >= frame_count or end_frame >= frame_count:
-            return None, "invalid_frame"
-
-        if x_min < 0 or y_min < 0:
-            return None, "invalid_bbox"
-
-        if x_min >= x_max or y_min >= y_max:
-            return None, "invalid_bbox"
-
-        if x_max > image_width or y_max > image_height:
-            return None, "invalid_bbox"
-
-        if label is not None:
-            label = str(label).strip() or None
+        label = None
+        if new_footstep["label"] is not None:
+            label = str(new_footstep["label"]).strip() or None
 
         created = self.db.create_local_footstep(
             event_id,
@@ -322,17 +291,32 @@ class SalFootsteps:
         return self.get_footstep_review_context(event_id, int(created.footstep_id))
 
     def delete_footstep(self, event_id: str, footstep_id: int):
-        _event, err = self.common._require_event(event_id)
-        if err:
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
             return None, err
 
         row = self.db.get_single_footstep(event_id, footstep_id)
         if row is None:
             return None, "missing_file"
 
+        delete_ok, delete_err = self.editor.delete_footstep(footstep_id, event_id)
+        if delete_err or not delete_ok:
+            return None, delete_err or "delete_failed"
+
         deleted = self.db.delete_local_footstep(event_id, footstep_id)
         if deleted is None:
             return None, "missing_file"
+
+        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
+        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
+
+        if metrics_err or new_metrics is None:
+            return None, "calculation_error"
+
+        result = self.db.update_event_metrics(event_id, new_metrics)
+
+        if result is None:
+            return None, "unexpected_error"
 
         return {
             "ok": True,
@@ -489,3 +473,35 @@ def _map_search_row(row) -> FootstepSearchItem:
         "bbox_area": int(row["bbox_area"]),
         "has_thumbnail": bool(row["has_thumbnail"]),
     }
+
+
+def _validate_bounding_box(
+    x_min: int,
+    x_max: int,
+    y_min: int,
+    y_max: int,
+    start_frame: int,
+    end_frame: int,
+    p100,
+    common: CommonHelper,
+):
+    image_width, image_height, dim_err = common._get_image_dims(p100)
+    if dim_err or image_width is None or image_height is None:
+        return False, dim_err
+
+    if x_min < 0 or y_min < 0:
+        return False, "invalid_bbox"
+
+    if x_min >= x_max or y_min >= y_max:
+        return False, "invalid_bbox"
+
+    if x_max > image_width or y_max > image_height:
+        return False, "invalid_bbox"
+
+    if 0 > start_frame > 3000 or 0 > end_frame > 3000:
+        return False, "invalid_bbox"
+
+    if start_frame >= end_frame:
+        return False, "invalid_bbox"
+
+    return True, None

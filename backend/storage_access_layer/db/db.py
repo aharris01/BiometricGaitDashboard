@@ -398,33 +398,90 @@ class DB:
                     old_x_max=int(row.x_max),
                     old_y_min=int(row.y_min),
                     old_y_max=int(row.y_max),
+                    old_start_frame=int(row.start_frame),
+                    old_end_frame=int(row.end_frame),
                     old_label=row.label,
                     new_x_min=None,
                     new_x_max=None,
                     new_y_min=None,
                     new_y_max=None,
+                    new_start_frame=None,
+                    new_end_frame=None,
                     new_label=None,
                 )
             )
 
             session.delete(row)
+            session.flush()
+
+            max_remaining_footstep_id = session.execute(
+                select(func.max(LocalFootstep.footstep_id)).where(
+                    LocalFootstep.event_id == event_id
+                )
+            ).scalar_one_or_none()
+
+            if max_remaining_footstep_id is not None:
+                temp_offset = int(max_remaining_footstep_id) + 1
+
+                session.execute(
+                    text(
+                        """
+                        UPDATE local_footsteps
+                        SET footstep_id = footstep_id + :temp_offset
+                        WHERE event_id = :event_id AND footstep_id > :footstep_id
+                        """
+                    ),
+                    {
+                        "temp_offset": temp_offset,
+                        "event_id": event_id,
+                        "footstep_id": footstep_id,
+                    },
+                )
+
+                session.execute(
+                    text(
+                        """
+                        UPDATE local_footsteps
+                        SET footstep_id = footstep_id - :shift_amount
+                        WHERE event_id = :event_id
+                          AND footstep_id > :footstep_id + :temp_offset
+                        """
+                    ),
+                    {
+                        "shift_amount": temp_offset + 1,
+                        "event_id": event_id,
+                        "footstep_id": footstep_id,
+                        "temp_offset": temp_offset,
+                    },
+                )
+
             return True
 
-    def update_local_footstep(
-        self,
-        event_id: str,
-        footstep_id: int,
-        *,
-        x_min: int,
-        x_max: int,
-        y_min: int,
-        y_max: int,
-        label: str | None,
-    ):
+    def update_local_footstep(self, event_id: str, footstep_id: int, edits: dict):
         # Update one local footstep row in local.db.
         #
         # Before the row is updated, write the old/new values to the local
         # changelog table so manual edits remain traceable.
+
+        valid_columns = {
+            "start_frame",
+            "end_frame",
+            "x_min",
+            "x_max",
+            "y_min",
+            "y_max",
+            "label",
+        }
+        normalized_edits: dict = {}
+        for key, value in edits.items():
+            if key in {"event_id", "footstep_id"}:
+                continue
+
+            if key not in valid_columns:
+                raise ValueError(f"Unknown LocalFootstep column: {key}")
+
+            normalized_edits[key] = value
+
         query = select(LocalFootstep).where(
             LocalFootstep.event_id == event_id,
             LocalFootstep.footstep_id == footstep_id,
@@ -435,26 +492,18 @@ class DB:
             if row is None:
                 return None
 
-            old_x_min = int(row.x_min)
-            old_x_max = int(row.x_max)
-            old_y_min = int(row.y_min)
-            old_y_max = int(row.y_max)
-            old_label = row.label
-
-            new_x_min = int(x_min)
-            new_x_max = int(x_max)
-            new_y_min = int(y_min)
-            new_y_max = int(y_max)
-            new_label = label
+            updated_values: dict = {}
+            actual_change = False
+            for column in valid_columns:
+                old_value = getattr(row, column)
+                # Default to old value if new is missing
+                new_value = normalized_edits.get(column, old_value)
+                updated_values[column] = new_value
+                if old_value != new_value:
+                    actual_change = True
 
             # Do not create a changelog row if nothing actually changed.
-            if (
-                old_x_min == new_x_min
-                and old_x_max == new_x_max
-                and old_y_min == new_y_min
-                and old_y_max == new_y_max
-                and old_label == new_label
-            ):
+            if not actual_change:
                 return row
 
             session.add(
@@ -462,24 +511,57 @@ class DB:
                     event_id=event_id,
                     footstep_id=footstep_id,
                     action="edit",
-                    old_x_min=old_x_min,
-                    old_x_max=old_x_max,
-                    old_y_min=old_y_min,
-                    old_y_max=old_y_max,
-                    old_label=old_label,
-                    new_x_min=new_x_min,
-                    new_x_max=new_x_max,
-                    new_y_min=new_y_min,
-                    new_y_max=new_y_max,
-                    new_label=new_label,
+                    old_x_min=row.x_min,
+                    old_x_max=row.x_max,
+                    old_y_min=row.y_min,
+                    old_y_max=row.y_max,
+                    old_start_frame=row.start_frame,
+                    old_end_frame=row.end_frame,
+                    old_label=row.label,
+                    new_x_min=updated_values["x_min"],
+                    new_x_max=updated_values["x_max"],
+                    new_y_min=updated_values["y_min"],
+                    new_y_max=updated_values["y_max"],
+                    new_start_frame=updated_values["start_frame"],
+                    new_end_frame=updated_values["end_frame"],
+                    new_label=updated_values["label"],
                 )
             )
 
-            row.x_min = new_x_min
-            row.x_max = new_x_max
-            row.y_min = new_y_min
-            row.y_max = new_y_max
-            row.label = new_label
+            for column, value in updated_values.items():
+                setattr(row, column, value)
+
+            session.flush()
+            session.refresh(row)
+            return row
+
+    def update_event_metrics(self, event_id: str, new_metrics: dict):
+        # Update one local_metrics row from a metrics dictionary.
+        valid_columns = set(LocalMetrics.__table__.columns.keys()) - {"event_id"}
+
+        normalized_metrics: dict = {}
+        for key, value in new_metrics.items():
+            if key == "event_id":
+                continue
+
+            if key not in valid_columns:
+                raise ValueError(f"Unknown LocalMetrics column: {key}")
+
+            normalized_metrics[key] = value
+
+        if not normalized_metrics:
+            return None
+
+        query = select(LocalMetrics).where(LocalMetrics.event_id == event_id)
+
+        with self._get_session() as session:
+            row = session.scalars(query).first()
+
+            if row is None:
+                return None
+
+            for column_name, value in normalized_metrics.items():
+                setattr(row, column_name, value)
 
             session.flush()
             session.refresh(row)

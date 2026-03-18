@@ -1,5 +1,7 @@
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 class FakeSAL:
     # participants route
@@ -29,7 +31,6 @@ def client(app_factory):
         yield c
 
 
-@pytest.mark.unit
 def test_participants_internal_error_500(client):
     resp = client.get("/api/participants")
     assert resp.status_code == 500

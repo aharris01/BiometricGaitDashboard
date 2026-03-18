@@ -8,6 +8,8 @@ from frontend.views.footstep_view import (
     render_footstep_empty,
 )
 
+pytestmark = pytest.mark.unit
+
 
 def props(component):
     return component.to_plotly_json()["props"]
@@ -22,7 +24,6 @@ def children_list(component):
     return [children]
 
 
-@pytest.mark.unit
 def test_render_footstep_empty_returns_single_empty_div():
     out = render_footstep_empty("Nothing here")
 
@@ -35,7 +36,6 @@ def test_render_footstep_empty_returns_single_empty_div():
     assert props(empty_div)["children"] == "Nothing here"
 
 
-@pytest.mark.unit
 def test_render_footstep_cards_builds_titles_images_and_area_labels():
     items = [
         {
@@ -70,7 +70,7 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
     assert isinstance(first_button_children[0], html.Img)
     assert (
         props(first_button_children[0])["src"]
-        == f"{API_BASE_URL}/api/events/evt-1/footsteps/3/image"
+        == f"{API_BASE_URL}/api/events/evt-1/footsteps/3/image?rev=0"
     )
     assert props(first_button_children[0])["className"] == "footstep-card-image"
 
@@ -92,7 +92,6 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
     assert props(second_children[2])["children"] == "Area: N/A"
 
 
-@pytest.mark.unit
 def test_footstep_view_renders_sidebar_filters_and_results_panel():
     root = FootstepView()
 

@@ -1,6 +1,8 @@
 import datetime as dt
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 class FakeSAL:
     # ---- swipe route needs this ----
@@ -77,7 +79,6 @@ def client(app_factory):
 # -------------------------
 
 
-@pytest.mark.unit
 def test_swipe_invalid_date_returns_400(client):
     resp = client.get("/api/swipe/1001/2024-99-99/in/1")
     assert resp.status_code == 400
@@ -85,7 +86,6 @@ def test_swipe_invalid_date_returns_400(client):
     assert data["code"] == "invalid_argument"
 
 
-@pytest.mark.unit
 def test_swipe_invalid_direction_returns_400(client):
     resp = client.get("/api/swipe/1001/2024-10-01/sideways/1")
     assert resp.status_code == 400
@@ -93,7 +93,6 @@ def test_swipe_invalid_direction_returns_400(client):
     assert data["code"] == "invalid_argument"
 
 
-@pytest.mark.unit
 def test_swipe_not_found_returns_404(client):
     resp = client.get("/api/swipe/9999/2024-10-01/in/1")
     assert resp.status_code == 404
@@ -106,7 +105,6 @@ def test_swipe_not_found_returns_404(client):
 # -------------------------
 
 
-@pytest.mark.unit
 def test_event_full_missing_event_returns_404(client):
     resp = client.get("/api/events/missing/full")
     assert resp.status_code == 404
@@ -114,7 +112,6 @@ def test_event_full_missing_event_returns_404(client):
     assert data["code"] == "not_found"
 
 
-@pytest.mark.unit
 def test_event_full_grf_missing_file_returns_empty_grf(client):
     resp = client.get("/api/events/nofile_grf/full")
     assert resp.status_code == 200
@@ -122,7 +119,6 @@ def test_event_full_grf_missing_file_returns_empty_grf(client):
     assert data["grf"] == []  # route converts missing_file to empty list
 
 
-@pytest.mark.unit
 def test_event_full_footsteps_missing_file_returns_empty_footsteps(client):
     resp = client.get("/api/events/nofile_steps/full")
     assert resp.status_code == 200
@@ -130,7 +126,6 @@ def test_event_full_footsteps_missing_file_returns_empty_footsteps(client):
     assert data["footsteps"] == []  # route converts missing_file to empty list
 
 
-@pytest.mark.unit
 def test_event_full_payload_includes_details_when_supported(client):
     # previous behaviour returned only summary essentials; new feature adds
     # footstep_details key when SAL provides it

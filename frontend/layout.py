@@ -83,6 +83,16 @@ def build_layout():
                         storage_type="memory",
                     ),
                     Store(
+                        id="footstep-thumbnail-revision-store",
+                        data={},
+                        storage_type="memory",
+                    ),
+                    Store(
+                        id="footstep-results-store",
+                        data=[],
+                        storage_type="memory",
+                    ),
+                    Store(
                         id="metrics_filter_participant_state",
                         data={"prev": []},
                         storage_type="session",

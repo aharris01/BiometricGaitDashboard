@@ -20,7 +20,22 @@ def render_footstep_empty(message: str):
     ]
 
 
-def render_footstep_cards(items: list[dict]):
+def _footstep_thumbnail_src(
+    event_id: str,
+    footstep_id: int,
+    thumbnail_revisions: dict[str, int] | None = None,
+) -> str:
+    revisions = thumbnail_revisions or {}
+    revision = int(revisions.get(f"{event_id}:{footstep_id}", 0))
+    return (
+        f"{API_BASE_URL}/api/events/{event_id}/footsteps/{footstep_id}/image"
+        f"?rev={revision}"
+    )
+
+
+def render_footstep_cards(
+    items: list[dict], thumbnail_revisions: dict[str, int] | None = None
+):
     # Build one card per footstep search result.
     #
     # Each card shows:
@@ -53,7 +68,16 @@ def render_footstep_cards(items: list[dict]):
                         className="footstep-card-image-button",
                         children=[
                             html.Img(
-                                src=f"{API_BASE_URL}/api/events/{event_id}/footsteps/{footstep_id}/image",
+                                id={
+                                    "type": "footstep-thumbnail",
+                                    "event_id": event_id,
+                                    "footstep_id": footstep_id,
+                                },
+                                src=_footstep_thumbnail_src(
+                                    event_id,
+                                    footstep_id,
+                                    thumbnail_revisions=thumbnail_revisions,
+                                ),
                                 className="footstep-card-image",
                             )
                             if has_thumbnail
@@ -482,8 +506,7 @@ def FootstepView():
                         children=[
                             html.H3("Delete local footstep?", className="panel-title"),
                             html.Div(
-                                "This will remove the selected footstep from local.db. "
-                                "The original source files will not be changed.",
+                                "This will delete the footstep from your dataset files and the local database",
                                 style={"marginBottom": "12px"},
                             ),
                             html.Div(

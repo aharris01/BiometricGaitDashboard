@@ -1,5 +1,5 @@
 # frontend/callbacks/footsteps.py
-from dash import ALL, Input, Output, State, Patch, callback, ctx, html, no_update
+from dash import ALL, MATCH, Input, Output, State, callback, ctx, html, no_update
 from dash.exceptions import PreventUpdate
 import numpy as np
 import plotly.express as px
@@ -13,7 +13,11 @@ from frontend.api import (
     save_footstep_review,
     search_footsteps,
 )
-from frontend.views.footstep_view import render_footstep_cards, render_footstep_empty
+from frontend.views.footstep_view import (
+    _footstep_thumbnail_src,
+    render_footstep_cards,
+    render_footstep_empty,
+)
 
 
 def _empty_review():
@@ -40,6 +44,41 @@ def _open_review(event_id: str, footstep_id: int, review: dict, message: str):
 
 def _status_text(loaded: int, total: int) -> str:
     return f"Showing {loaded} of {total} footsteps"
+
+
+def _thumbnail_revision_key(event_id: str, footstep_id: int) -> str:
+    return f"{event_id}:{footstep_id}"
+
+
+def _load_more_style(loaded: int, total: int) -> dict[str, str]:
+    return (
+        {"display": "block", "marginTop": "12px"}
+        if loaded < total
+        else {"display": "none"}
+    )
+
+
+def _refresh_thumbnail_revisions_for_event(
+    thumbnail_revisions: dict[str, int] | None,
+    *,
+    event_id: str,
+    items: list[dict] | None,
+) -> dict[str, int]:
+    current_revisions = thumbnail_revisions or {}
+    refreshed = {
+        revision_key: revision
+        for revision_key, revision in current_revisions.items()
+        if not revision_key.startswith(f"{event_id}:")
+    }
+
+    for item in items or []:
+        if str(item["event_id"]) != event_id:
+            continue
+
+        revision_key = _thumbnail_revision_key(event_id, int(item["footstep_id"]))
+        refreshed[revision_key] = int(current_revisions.get(revision_key, 0)) + 1
+
+    return refreshed
 
 
 def _to_int(value, fallback: int) -> int:
@@ -182,11 +221,9 @@ def register(app, *, cmap):
         )
 
     @callback(
-        Output("footstep-results-grid", "children"),
-        Output("footstep-results-status", "children"),
-        Output("footstep-load-more-wrap", "style"),
         Output("footstep-pagination-store", "data"),
         Output("footstep-review-store", "data", allow_duplicate=True),
+        Output("footstep-results-store", "data"),
         Input("btn-apply-footstep-filters", "n_clicks"),
         State("footstep-size-slider", "value"),
         State("footstep-participant-filter", "value"),
@@ -245,18 +282,6 @@ def register(app, *, cmap):
         items = result.get("items", [])
         total = int(result.get("total", 0))
 
-        children = (
-            render_footstep_cards(items)
-            if items
-            else render_footstep_empty("No matching footsteps.")
-        )
-
-        load_more_style = (
-            {"display": "block", "marginTop": "12px"}
-            if total > len(items)
-            else {"display": "none"}
-        )
-
         pagination_store = {
             "offset": len(items),
             "limit": limit,
@@ -271,23 +296,20 @@ def register(app, *, cmap):
         }
 
         return (
-            children,
-            _status_text(len(items), total),
-            load_more_style,
             pagination_store,
             _empty_review(),
+            items,
         )
 
     @callback(
-        Output("footstep-results-grid", "children", allow_duplicate=True),
-        Output("footstep-results-status", "children", allow_duplicate=True),
-        Output("footstep-load-more-wrap", "style", allow_duplicate=True),
         Output("footstep-pagination-store", "data", allow_duplicate=True),
+        Output("footstep-results-store", "data", allow_duplicate=True),
         Input("btn-load-more-footsteps", "n_clicks"),
         State("footstep-pagination-store", "data"),
+        State("footstep-results-store", "data"),
         prevent_initial_call=True,
     )
-    def load_more_footsteps(_n_clicks, pagination_store):
+    def load_more_footsteps(_n_clicks, pagination_store, visible_items):
         if not pagination_store or not pagination_store.get("applied"):
             raise PreventUpdate
 
@@ -322,25 +344,81 @@ def register(app, *, cmap):
         if not items:
             raise PreventUpdate
 
-        patch = Patch()
-        for card in render_footstep_cards(items):
-            patch.append(card)
-
         new_offset = offset + len(items)
-        load_more_style = (
-            {"display": "block", "marginTop": "12px"}
-            if new_offset < total
-            else {"display": "none"}
-        )
 
         return (
-            patch,
-            _status_text(new_offset, total),
-            load_more_style,
             {
                 **pagination_store,
                 "offset": new_offset,
             },
+            [*(visible_items or []), *items],
+        )
+
+    @callback(
+        Output("footstep-results-grid", "children"),
+        Output("footstep-results-status", "children"),
+        Output("footstep-load-more-wrap", "style"),
+        Input("footstep-results-store", "data"),
+        State("footstep-pagination-store", "data"),
+        State("footstep-thumbnail-revision-store", "data"),
+        prevent_initial_call=False,
+    )
+    def render_footstep_results(
+        visible_items,
+        pagination_store,
+        thumbnail_revisions,
+    ):
+        if not pagination_store or not pagination_store.get("applied"):
+            return (
+                render_footstep_empty(
+                    "No footsteps loaded yet. Choose filters and press OK."
+                ),
+                "Choose filters, then press OK.",
+                {"display": "none"},
+            )
+
+        items = visible_items or []
+        total = int(pagination_store.get("total", len(items)))
+        children = (
+            render_footstep_cards(items, thumbnail_revisions)
+            if items
+            else render_footstep_empty("No matching footsteps.")
+        )
+
+        return (
+            children,
+            _status_text(len(items), total),
+            _load_more_style(len(items), total),
+        )
+
+    @callback(
+        Output(
+            {"type": "footstep-thumbnail", "event_id": MATCH, "footstep_id": MATCH},
+            "src",
+        ),
+        Input("footstep-thumbnail-revision-store", "data"),
+        State(
+            {"type": "footstep-thumbnail", "event_id": MATCH, "footstep_id": MATCH},
+            "id",
+        ),
+        prevent_initial_call=True,
+    )
+    def update_footstep_thumbnail_src(thumbnail_revisions, thumbnail_id):
+        if not thumbnail_id:
+            raise PreventUpdate
+
+        event_id = str(thumbnail_id["event_id"])
+        footstep_id = int(thumbnail_id["footstep_id"])
+        revisions = thumbnail_revisions or {}
+        revision_key = _thumbnail_revision_key(event_id, footstep_id)
+
+        if revision_key not in revisions:
+            raise PreventUpdate
+
+        return _footstep_thumbnail_src(
+            event_id,
+            footstep_id,
+            thumbnail_revisions=revisions,
         )
 
     @callback(
@@ -794,13 +872,23 @@ def register(app, *, cmap):
 
     @callback(
         Output("footstep-review-store", "data", allow_duplicate=True),
-        Output("btn-apply-footstep-filters", "n_clicks", allow_duplicate=True),
+        Output("footstep-pagination-store", "data", allow_duplicate=True),
+        Output("footstep-results-store", "data", allow_duplicate=True),
+        Output("footstep-thumbnail-revision-store", "data", allow_duplicate=True),
         Input("btn-confirm-delete-footstep", "n_clicks"),
         State("footstep-review-store", "data"),
-        State("btn-apply-footstep-filters", "n_clicks"),
+        State("footstep-pagination-store", "data"),
+        State("footstep-results-store", "data"),
+        State("footstep-thumbnail-revision-store", "data"),
         prevent_initial_call=True,
     )
-    def confirm_delete_footstep(_n_clicks, review_store, ok_clicks):
+    def confirm_delete_footstep(
+        _n_clicks,
+        review_store,
+        pagination_store,
+        visible_items,
+        thumbnail_revisions,
+    ):
         if (
             not review_store
             or not review_store.get("open")
@@ -818,9 +906,52 @@ def register(app, *, cmap):
             logger=app.logger,
         )
 
-        return _empty_review(), (ok_clicks or 0) + 1
+        if not pagination_store or not pagination_store.get("applied"):
+            return _empty_review(), no_update, no_update, no_update
+
+        size_range = pagination_store.get("size_range", [0, 10000])
+        height_range = pagination_store.get("height_range", [10, 150])
+        width_range = pagination_store.get("width_range", [10, 130])
+        visible_count = max(1, len(visible_items or []))
+
+        refreshed_result = search_footsteps(
+            event_ids=None,
+            participants=pagination_store.get("participants") or None,
+            date_from=pagination_store.get("start_date"),
+            date_to=pagination_store.get("end_date"),
+            width_min=int(width_range[0]),
+            width_max=int(width_range[1]),
+            height_min=int(height_range[0]),
+            height_max=int(height_range[1]),
+            size_min=int(size_range[0]),
+            size_max=int(size_range[1]),
+            offset=0,
+            limit=visible_count,
+            logger=app.logger,
+        ) or {"items": [], "total": 0}
+
+        refreshed_items = refreshed_result.get("items", [])
+        refreshed_total = int(refreshed_result.get("total", 0))
+        updated_thumbnail_revisions = _refresh_thumbnail_revisions_for_event(
+            thumbnail_revisions,
+            event_id=event_id,
+            items=refreshed_items,
+        )
+        updated_pagination_store = {
+            **pagination_store,
+            "offset": len(refreshed_items),
+            "total": refreshed_total,
+        }
+
+        return (
+            _empty_review(),
+            updated_pagination_store,
+            refreshed_items,
+            updated_thumbnail_revisions,
+        )
 
     @callback(
+        Output("footstep-thumbnail-revision-store", "data", allow_duplicate=True),
         Output("footstep-review-store", "data", allow_duplicate=True),
         Input("btn-save-footstep-review", "n_clicks"),
         State("footstep-review-store", "data"),
@@ -828,7 +959,10 @@ def register(app, *, cmap):
         State("footstep-review-x-max", "value"),
         State("footstep-review-y-min", "value"),
         State("footstep-review-y-max", "value"),
+        State("footstep-create-start-frame", "value"),
+        State("footstep-create-end-frame", "value"),
         State("footstep-review-label", "value"),
+        State("footstep-thumbnail-revision-store", "data"),
         prevent_initial_call=True,
     )
     def save_current_footstep_review(
@@ -838,7 +972,10 @@ def register(app, *, cmap):
         x_max,
         y_min,
         y_max,
+        start_frame,
+        end_frame,
         label,
+        thumbnail_revisions,
     ):
         if (
             not review_store
@@ -867,13 +1004,24 @@ def register(app, *, cmap):
             x_max=bbox["x_max"],
             y_min=bbox["y_min"],
             y_max=bbox["y_max"],
+            start_frame=start_frame,
+            end_frame=end_frame,
             label=label,
             logger=app.logger,
         )
 
-        return _open_review(
-            event_id,
-            footstep_id,
-            saved,
-            "Saved local bbox and label.",
+        new_thumbnail_revisions = dict(thumbnail_revisions or {})
+        revision_key = _thumbnail_revision_key(event_id, footstep_id)
+        new_thumbnail_revisions[revision_key] = (
+            int(new_thumbnail_revisions.get(revision_key, 0)) + 1
+        )
+
+        return (
+            new_thumbnail_revisions,
+            _open_review(
+                event_id,
+                footstep_id,
+                saved,
+                "Saved local bbox and label.",
+            ),
         )

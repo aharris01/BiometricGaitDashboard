@@ -2,8 +2,9 @@ import pytest
 from dash import Dash
 from dash.html import Div
 
+pytestmark = pytest.mark.unit
 
-@pytest.mark.unit
+
 def test_frontend_app_import_smoke():
     # Import should not raise and should create a Dash instance and layout
     import frontend.app as appmod
@@ -12,7 +13,6 @@ def test_frontend_app_import_smoke():
     assert isinstance(appmod.app.layout, Div)
 
 
-@pytest.mark.unit
 def test_run_dash_does_not_start_server(monkeypatch):
     import frontend.app as appmod
 
