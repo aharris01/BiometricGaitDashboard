@@ -1,4 +1,6 @@
-# UAT Participant Setup Guide
+# UAT Participant Setup Guide 
+
+https://github.com/aharris01/BiometricGaitDashboard
 
 ## What you will receive
 - A copy of the application repository
