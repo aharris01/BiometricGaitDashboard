@@ -271,6 +271,7 @@ class SalFootsteps:
         if valid_err or not bbox_valid:
             return None, valid_err
 
+        label = None
         if new_footstep["label"] is not None:
             label = str(new_footstep["label"]).strip() or None
 

@@ -352,3 +352,42 @@ class TestSaveFootstepReview:
         assert err is None
         assert out == {"saved": True}
         assert edits["label"] is None
+
+
+class TestCreateFootstep:
+    @pytest.mark.unit
+    def test_create_footstep_without_label_uses_none(self, helper, common, fake_db):
+        event = SimpleNamespace()
+        common._require_event.return_value = (event, None)
+        common._get_p100.return_value = ([[1.0, 2.0], [3.0, 4.0]], None)
+        common._get_trial_frame_count.return_value = (20, None)
+        fake_db.create_local_footstep.return_value = SimpleNamespace(footstep_id=9)
+        helper.get_footstep_review_context = MagicMock(
+            return_value=({"footstep_id": 9}, None)
+        )
+
+        out, err = helper.create_footstep(
+            "evt-1",
+            {
+                "start_frame": 1,
+                "end_frame": 5,
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+                "label": None,
+            },
+        )
+
+        assert err is None
+        assert out == {"footstep_id": 9}
+        fake_db.create_local_footstep.assert_called_once_with(
+            "evt-1",
+            start_frame=1,
+            end_frame=5,
+            x_min=0,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label=None,
+        )
