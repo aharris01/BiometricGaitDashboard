@@ -1,4 +1,7 @@
+from io import BytesIO
 import os
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any
 from zipfile import ZipFile, ZIP_DEFLATED
 import numpy as np
@@ -102,43 +105,33 @@ class FootstepEditor:
                 f"Error loading trial recording: {trial_recording_err}"
             )
             return False, trial_recording_err
-        # print("Opened trial recording")
-        # print("Updating footstep data files...")
 
-        footsteps: dict[Any, np.ndarray] = {}
-        raw_footsteps: dict[str, np.ndarray] = {}
-        for i, row in metadata_df.iterrows():
-            footstep_data = trial_recording[
-                row["StartFrame"] : row["EndFrame"],
-                row["YMin"] : row["YMax"],
-                row["XMin"] : row["XMax"],
-            ]
-            footsteps[i] = footstep_data
-            raw_footsteps[str(i)] = footstep_data
+        # Update metadata and preprocess only the edited footstep
+        row = metadata_df.loc[metadata_df["FootstepID"] == footstep_id].iloc[0]
+        footstep_data = trial_recording[
+            row["StartFrame"] : row["EndFrame"],
+            row["YMin"] : row["YMax"],
+            row["XMin"] : row["XMax"],
+        ]
 
-        # print("Normalizing and updating steps.npz...")
-        preprocessed_footsteps, _ = preprocess_footsteps(
-            footsteps, metadata_df, h=100, w=100
+        row_mask = metadata_df["FootstepID"] == footstep_id
+
+        single_metadata = metadata_df.loc[row_mask].copy().reset_index(drop=True)
+        processed, updated_metadata = preprocess_footsteps(
+            {footstep_id: footstep_data},
+            single_metadata,
+            h=100,
+            w=100,
         )
-        preprocessed_footsteps_dict = {
-            str(i): f for i, f in enumerate(preprocessed_footsteps)
-        }
-        try:
-            np.savez_compressed(
-                trial_folder / "steps.npz", **preprocessed_footsteps_dict
-            )
-            # print(f"Updated steps.npz: {trial_folder / 'steps.npz'}")
-        except Exception as e:
-            current_app.logger.error(f"Error saving steps.npz: {e}")
-            return False, f"Error saving steps.npz: {e}"
 
-        # print("Updating steps.raw.npz...")
-        try:
-            np.savez(trial_folder / "steps.raw.npz", allow_pickle=True, **raw_footsteps)
-            # print(f"Updated steps.raw.npz: {trial_folder / 'steps.raw.npz'}")
-        except Exception as e:
-            current_app.logger.error(f"Error saving steps.raw.npz: {e}")
-            return False, f"Error saving steps.raw.npz: {e}"
+        for column in updated_metadata.columns:
+            metadata_df.loc[row_mask, column] = updated_metadata.at[0, column]
+
+        processed_member = f"{footstep_id}.npy"
+        raw_member = f"{footstep_id}.npy"
+
+        _rewrite_npz_member(trial_folder / "steps.npz", processed_member, processed)
+        _rewrite_npz_member(trial_folder / "steps.raw.npz", raw_member, footstep_data)
 
         # replace metadata.csv for the event to with updated df
         _, update_csv_err = _update_csv(metadata_df, metadata_file_path)
@@ -383,3 +376,46 @@ def _update_csv(metadata_df, metadata_file_path):
         current_app.logger.error(f"Error saving metadata.csv: {e}")
         return False, f"Error saving metadata.csv: {e}"
     return True, None
+
+
+def _array_to_npy_bytes(array: np.ndarray) -> bytes:
+    buffer = BytesIO()
+    np.save(buffer, array)
+    return buffer.getvalue()
+
+
+def _rewrite_npz_member(
+    archive_path: Path,
+    member_name: str,
+    new_array: np.ndarray,
+) -> None:
+    new_bytes = _array_to_npy_bytes(new_array)
+
+    with NamedTemporaryFile(
+        delete=False, suffix=".npz", dir=archive_path.parent
+    ) as tmp:
+        tmp_path = Path(tmp.name)
+
+    try:
+        with (
+            ZipFile(archive_path, "r") as src,
+            ZipFile(tmp_path, "w", compression=ZIP_DEFLATED) as dst,
+        ):
+            replaced = False
+
+            for info in src.infolist():
+                if info.filename == member_name:
+                    dst.writestr(member_name, new_bytes)
+                    replaced = True
+                    continue
+
+                dst.writestr(info.filename, src.read(info.filename))
+
+            if not replaced:
+                dst.writestr(member_name, new_bytes)
+
+        tmp_path.replace(archive_path)
+    except Exception:
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise
