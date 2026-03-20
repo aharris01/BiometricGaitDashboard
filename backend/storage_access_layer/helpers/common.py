@@ -73,7 +73,7 @@ class CommonHelper:
             return None, "missing_file"
 
     def _get_trial_frame_count(self, event: SwipeEvent):
-        array, arr_err = self._load_npz_from_uri(event.trial_npz_uri, key="arr_0")
+        array, arr_err = self._load_npz_from_uri(event.trial_grf_npz_uri, key="[:,:]")
         if arr_err or array is None:
             return None, arr_err
 
