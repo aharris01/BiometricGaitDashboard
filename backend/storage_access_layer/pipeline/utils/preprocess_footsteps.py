@@ -89,7 +89,7 @@ def spatial_rotation(footstep: np.ndarray):
 
     # grow image to allow room for rotation
     max_sz = max(footstep.shape)
-    footstep_rotated = np.zeros((footstep.shape[0], max_sz, max_sz))
+    footstep_rotated = np.zeros((footstep.shape[0], max_sz, max_sz), dtype=np.uint16)
 
     # rotate each frame and pad to desired shape
     for i, frame in enumerate(footstep):
@@ -159,9 +159,9 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
     # Modified from the original to satisfy pylance, which was complaining about the type of M. The original code was:
     # M = np.float32([[1, 0, x_shift], [0, 1, y_shift]])
     M = np.array(
-        [[1.0, 0.0, float(x_shift)], [0.0, 1.0, float(y_shift)]], dtype=np.float32
+        [[1.0, 0.0, float(x_shift)], [0.0, 1.0, float(y_shift)]], dtype=np.uint16
     )
-    footstep_centered = np.zeros(footstep.shape)
+    footstep_centered = np.zeros(footstep.shape, dtype=np.float32)
 
     for i, frame in enumerate(footstep):
         # Modified from the original to satisfy pylance, which was complaining about the type of frame_centered. The original code was:
@@ -178,7 +178,7 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
 
 # pad footstep with zeros to specified height (h) and width (w)
 def spatial_zeropad(footstep: np.ndarray, w=100, h=100):
-    footstep_padded = np.zeros((footstep.shape[0], h, w))
+    footstep_padded = np.zeros((footstep.shape[0], h, w), dtype=np.uint16)
     top = np.floor((h - footstep.shape[1]) / 2)
     bottom = np.ceil((h - footstep.shape[1]) / 2)
     left = np.floor((w - footstep.shape[2]) / 2)
