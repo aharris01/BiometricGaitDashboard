@@ -1,5 +1,7 @@
 from datetime import date
 
+import numpy as np
+
 from backend.src.routes.footsteps import CreateFootstepRequestPayload
 from backend.storage_access_layer.pipeline.footstep_edits import FootstepEditor
 from backend.scripts.calc_metrics import calculate_all_metrics
@@ -123,7 +125,7 @@ class SalFootsteps:
         if p100_err or p100 is None:
             return None, p100_err
 
-        return self._create_review_payload(event_id, footstep_id, p100, footstep), None
+        return self._create_review_payload(event_id, p100, footstep), None
 
     def save_footstep_review(self, event_id: str, footstep_id: int, edits: dict):
         # Validate and save one local footstep edit.
@@ -196,7 +198,7 @@ class SalFootsteps:
         if result is None:
             return None, "unexpected_error"
 
-        return self._create_review_payload(event_id, footstep_id, p100, footstep), None
+        return self._create_review_payload(event_id, p100, footstep), None
 
     def create_footstep(
         self, event_id: str, new_footstep: CreateFootstepRequestPayload
@@ -243,20 +245,18 @@ class SalFootsteps:
         if footstep is None:
             return None, "missing_file"
 
-        return self._create_review_payload(
-            event_id, footstep.footstep_id, p100, footstep
-        ), None
+        return self._create_review_payload(event_id, p100, footstep), None
 
     def delete_footstep(self, event_id: str, footstep_id: int):
         event, err = self.common._require_event(event_id)
         if err or event is None:
             return None, err
 
-        row = self.db.get_single_footstep(event_id, footstep_id)
-        if row is None:
-            return None, "missing_file"
+        footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
+        if footstep_err or footstep is None:
+            return None, "no_footstep"
 
-        delete_ok, delete_err = self.editor.delete_footstep(footstep_id, event_id)
+        delete_ok, delete_err = self.editor.delete_footstep(footstep, event)
         if delete_err or not delete_ok:
             return None, delete_err or "delete_failed"
 
@@ -367,9 +367,11 @@ class SalFootsteps:
         items.sort(key=lambda x: x["id"])
         return items, None
 
-    def _create_review_payload(self, event_id, footstep_id, p100: np.ndarray, footstep):
+    def _create_review_payload(self, event_id, p100: np.ndarray, footstep):
         changes: list[ReviewChangePayload] = []
-        for change in self.db.get_local_footstep_changes(event_id, footstep_id):
+        for change in self.db.get_local_footstep_changes(
+            event_id, footstep.footstep_id
+        ):
             changes.append(
                 {
                     "action": change.action,
@@ -407,7 +409,7 @@ class SalFootsteps:
                 y_min=int(footstep.y_min),
                 y_max=int(footstep.y_max),
             ),
-            event_p100=p100,
+            event_p100=p100.tolist(),
             changes=changes,
         )
 

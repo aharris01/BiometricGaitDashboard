@@ -40,7 +40,8 @@ def fake_db():
 def common():
     obj = MagicMock()
     obj._require_event = MagicMock(return_value=(SimpleNamespace(), None))
-    obj._get_p100 = MagicMock(return_value=([[1.0, 2.0], [3.0, 4.0]], None))
+    obj._require_footstep = MagicMock(return_value=(SimpleNamespace(), None))
+    obj._get_p100 = MagicMock(return_value=(np.array([[1.0, 2.0], [3.0, 4.0]]), None))
     obj._get_image_dims = MagicMock(return_value=(2, 2, None))
     obj._get_trial_frame_count = MagicMock(return_value=(20, None))
     obj._load_steps_npz = MagicMock()
@@ -133,30 +134,16 @@ class TestSaveFootstepReview:
         assert err == "missing_event"
 
     @pytest.mark.unit
-    def test_save_footstep_review_review_context_error_is_propagated(self, helper):
-        helper.get_footstep_review_context = MagicMock(
-            return_value=(None, "missing_footstep")
-        )
+    def test_save_footstep_review_missing_p100_returns_error(self, helper, common):
+        common._get_p100.return_value = (None, "missing_p100")
 
         out, err = helper.save_footstep_review("evt-1", 6, self._valid_edits())
 
         assert out is None
-        assert err == "missing_footstep"
-
-    @pytest.mark.unit
-    def test_save_footstep_review_missing_review_returns_missing_file(self, helper):
-        helper.get_footstep_review_context = MagicMock(return_value=(None, None))
-
-        out, err = helper.save_footstep_review("evt-1", 6, self._valid_edits())
-
-        assert out is None
-        assert err == "missing_file"
+        assert err == "missing_p100"
 
     @pytest.mark.unit
     def test_save_footstep_review_invalid_bbox_returns_error(self, helper, fake_db):
-        helper.get_footstep_review_context = MagicMock(
-            return_value=(self._valid_review(), None)
-        )
         helper.editor.edit_footstep = MagicMock()
 
         edits = self._valid_edits()
@@ -296,11 +283,18 @@ class TestSaveFootstepReview:
     ):
         event = SimpleNamespace(trial_npz_uri=(tmp_path / "trial.npz").as_uri())
         common._require_event.return_value = (event, None)
-        helper.get_footstep_review_context = MagicMock(
-            side_effect=[(self._valid_review(), None), ({"saved": True}, None)]
-        )
         helper.editor.edit_footstep = MagicMock(return_value=(True, None))
-        fake_db.update_local_footstep.return_value = object()
+        fake_db.update_local_footstep.return_value = SimpleNamespace(
+            event_id="evt-1",
+            footstep_id=6,
+            start_frame=1,
+            x_min=0,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            end_frame=5,
+            label="left",
+        )
         fake_db.update_event_metrics.return_value = object()
         calc_metrics = MagicMock(return_value=({"step_count": 4}, None))
         monkeypatch.setattr(sal_footsteps_module, "calculate_all_metrics", calc_metrics)
@@ -309,21 +303,24 @@ class TestSaveFootstepReview:
         out, err = helper.save_footstep_review("evt-1", 6, edits)
 
         assert err is None
-        assert out == {"saved": True}
-        assert edits["label"] == "left"
-        helper.editor.edit_footstep.assert_called_once_with(
-            6,
-            "evt-1",
-            {
-                "XMin": 0,
-                "XMax": 2,
-                "YMin": 0,
-                "YMax": 2,
-                "StartFrame": 1,
-                "EndFrame": 5,
+        assert out == {
+            "item": {
+                "event_id": "evt-1",
+                "footstep_id": 6,
+                "start_frame": 1,
+                "end_frame": 5,
+                "label": "left",
             },
-            p100=[[1.0, 2.0], [3.0, 4.0]],
-        )
+            "bbox": {
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+            },
+            "event_p100": [[1.0, 2.0], [3.0, 4.0]],
+            "changes": [],
+        }
+        assert out["item"]["label"] == "left"
         fake_db.update_local_footstep.assert_called_once_with("evt-1", 6, edits)
         calc_metrics.assert_called_once_with("evt-1", tmp_path / "metadata.csv")
         fake_db.update_event_metrics.assert_called_once_with("evt-1", {"step_count": 4})
@@ -338,7 +335,17 @@ class TestSaveFootstepReview:
             side_effect=[(self._valid_review(), None), ({"saved": True}, None)]
         )
         helper.editor.edit_footstep = MagicMock(return_value=(True, None))
-        fake_db.update_local_footstep.return_value = object()
+        fake_db.update_local_footstep.return_value = SimpleNamespace(
+            event_id="evt-1",
+            footstep_id=6,
+            start_frame=1,
+            x_min=0,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            end_frame=5,
+            label=None,
+        )
         fake_db.update_event_metrics.return_value = object()
         monkeypatch.setattr(
             sal_footsteps_module,
@@ -351,7 +358,23 @@ class TestSaveFootstepReview:
         out, err = helper.save_footstep_review("evt-1", 6, edits)
 
         assert err is None
-        assert out == {"saved": True}
+        assert out == {
+            "item": {
+                "event_id": "evt-1",
+                "footstep_id": 6,
+                "start_frame": 1,
+                "end_frame": 5,
+                "label": None,
+            },
+            "bbox": {
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+            },
+            "event_p100": [[1.0, 2.0], [3.0, 4.0]],
+            "changes": [],
+        }
         assert edits["label"] is None
 
 
@@ -360,7 +383,7 @@ class TestCreateFootstep:
     def test_create_footstep_without_label_uses_none(self, helper, common, fake_db):
         event = SimpleNamespace()
         common._require_event.return_value = (event, None)
-        common._get_p100.return_value = ([[1.0, 2.0], [3.0, 4.0]], None)
+        common._get_p100.return_value = (np.array([[1.0, 2.0], [3.0, 4.0]]), None)
         common._get_trial_frame_count.return_value = (20, None)
         fake_db.create_local_footstep.return_value = SimpleNamespace(
             footstep_id=9,

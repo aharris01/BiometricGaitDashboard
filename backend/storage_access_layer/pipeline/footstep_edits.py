@@ -1,6 +1,9 @@
 from typing import Any
 import numpy as np
 
+from backend.storage_access_layer.db.models import SwipeEvent
+from backend.storage_access_layer.db.schema import LocalFootstep
+
 from ..utils import uri_to_path
 from ..db.db import DB
 from ..helpers.common import CommonHelper
@@ -23,7 +26,7 @@ class FootstepEditor:
         self.common = common
 
     def edit_footstep(
-        self, footstep_id: int, event_id: str, new_footstep_data: dict, p100: list[list]
+        self, footstep_id: int, event_id: str, new_footstep_data: dict, p100: np.ndarray
     ):
         # ----------------------------------------------
         # Need to find a way to revert any changes if any step in the process fails, to maintain data integrity
@@ -142,15 +145,8 @@ class FootstepEditor:
 
         return True, None
 
-    def delete_footstep(self, footstep_id: int, event_id: str):
-        # validate footstep_id and event_id
-        event, event_err = self.common._require_event(event_id)
-        if event_err or event is None:
-            return False, event_err
-
-        footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
-        if footstep_err or footstep is None:
-            return False, footstep_err
+    def delete_footstep(self, footstep: LocalFootstep, event: SwipeEvent):
+        footstep_id = footstep.footstep_id
 
         # open metadata for the event
         trial_folder = uri_to_path(event.trial_npz_uri).parent

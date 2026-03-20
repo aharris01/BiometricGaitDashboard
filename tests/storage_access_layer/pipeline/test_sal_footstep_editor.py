@@ -392,6 +392,7 @@ class TestFootstepEditorSuccessPaths:
         self, flask_app, editor, common, event, monkeypatch
     ):
         metadata = _make_delete_metadata()
+        footstep = SimpleNamespace(footstep_id=7)
         load_metadata_mock = MagicMock(return_value=metadata.copy())
         savez_compressed_mock = MagicMock()
         savez_mock = MagicMock()
@@ -423,7 +424,7 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
-            ok, err = editor.delete_footstep(7, "event-1")
+            ok, err = editor.delete_footstep(footstep, event)
 
         assert ok is True
         assert err is None
@@ -444,6 +445,7 @@ class TestFootstepEditorSuccessPaths:
         self, flask_app, editor, common, event, monkeypatch
     ):
         metadata = _make_delete_metadata()
+        footstep = SimpleNamespace(footstep_id=7)
         metadata.loc[len(metadata)] = {
             "FootstepID": 8,
             "XMin": 8,
@@ -493,7 +495,7 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
-            ok, err = editor.delete_footstep(7, "event-1")
+            ok, err = editor.delete_footstep(footstep, event)
 
         assert ok is True
         assert err is None
