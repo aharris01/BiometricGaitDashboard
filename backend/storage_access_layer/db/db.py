@@ -413,48 +413,6 @@ class DB:
 
             session.delete(row)
             session.flush()
-
-            max_remaining_footstep_id = session.execute(
-                select(func.max(LocalFootstep.footstep_id)).where(
-                    LocalFootstep.event_id == event_id
-                )
-            ).scalar_one_or_none()
-
-            if max_remaining_footstep_id is not None:
-                temp_offset = int(max_remaining_footstep_id) + 1
-
-                session.execute(
-                    text(
-                        """
-                        UPDATE local_footsteps
-                        SET footstep_id = footstep_id + :temp_offset
-                        WHERE event_id = :event_id AND footstep_id > :footstep_id
-                        """
-                    ),
-                    {
-                        "temp_offset": temp_offset,
-                        "event_id": event_id,
-                        "footstep_id": footstep_id,
-                    },
-                )
-
-                session.execute(
-                    text(
-                        """
-                        UPDATE local_footsteps
-                        SET footstep_id = footstep_id - :shift_amount
-                        WHERE event_id = :event_id
-                          AND footstep_id > :footstep_id + :temp_offset
-                        """
-                    ),
-                    {
-                        "shift_amount": temp_offset + 1,
-                        "event_id": event_id,
-                        "footstep_id": footstep_id,
-                        "temp_offset": temp_offset,
-                    },
-                )
-
             return True
 
     def update_local_footstep(self, event_id: str, footstep_id: int, edits: dict):
