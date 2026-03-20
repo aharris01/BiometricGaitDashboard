@@ -4,6 +4,7 @@
 import collections
 from typing import Any
 import numpy as np
+import numpy.typing as npt
 import cv2
 from sklearn.decomposition import PCA
 from scipy.interpolate import interp1d
@@ -89,7 +90,7 @@ def spatial_rotation(footstep: np.ndarray):
 
     # grow image to allow room for rotation
     max_sz = max(footstep.shape)
-    footstep_rotated = np.zeros((footstep.shape[0], max_sz, max_sz), dtype=np.uint16)
+    footstep_rotated = np.zeros((footstep.shape[0], max_sz, max_sz))
 
     # rotate each frame and pad to desired shape
     for i, frame in enumerate(footstep):
@@ -159,7 +160,7 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
     # Modified from the original to satisfy pylance, which was complaining about the type of M. The original code was:
     # M = np.float32([[1, 0, x_shift], [0, 1, y_shift]])
     M = np.array(
-        [[1.0, 0.0, float(x_shift)], [0.0, 1.0, float(y_shift)]], dtype=np.uint16
+        [[1.0, 0.0, float(x_shift)], [0.0, 1.0, float(y_shift)]], dtype=np.float32
     )
     footstep_centered = np.zeros(footstep.shape, dtype=np.float32)
 
@@ -178,7 +179,7 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
 
 # pad footstep with zeros to specified height (h) and width (w)
 def spatial_zeropad(footstep: np.ndarray, w=100, h=100):
-    footstep_padded = np.zeros((footstep.shape[0], h, w), dtype=np.uint16)
+    footstep_padded = np.zeros((footstep.shape[0], h, w))
     top = np.floor((h - footstep.shape[1]) / 2)
     bottom = np.ceil((h - footstep.shape[1]) / 2)
     left = np.floor((w - footstep.shape[2]) / 2)
@@ -226,7 +227,9 @@ def classify_side(footstep: np.ndarray):
 # interpolate to specified number of frames (t) using a specified method (interp_method).
 # Accepted values for interp_method: ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
 # ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’
-def temporal_interpolation(footstep: np.ndarray, t=101, interp_method="nearest"):
+def temporal_interpolation(
+    footstep: npt.NDArray[np.float32], t=101, interp_method="nearest"
+) -> npt.NDArray[np.float32]:
     # crop-out inactivity at beginning and end of recording
     footstep = _temporal_crop(footstep)
 
@@ -234,7 +237,8 @@ def temporal_interpolation(footstep: np.ndarray, t=101, interp_method="nearest")
     f = interp1d(
         np.linspace(0, 1, footstep.shape[0]), footstep, axis=0, kind=interp_method
     )
-    footstep_interp = f(np.linspace(0, 1, t))
+    raw = f(np.linspace(0, 1, t))
+    footstep_interp = np.asarray(raw, dtype=np.float32)
 
     return footstep_interp
 
@@ -270,6 +274,9 @@ def preprocess_footsteps(footsteps: dict[Any, np.ndarray], metadata, h=75, w=40)
         preprocessed_footsteps.append(footstep_norm)
 
     preprocessed_footsteps = np.stack(preprocessed_footsteps, axis=0)
+    preprocessed_footsteps = np.clip(np.rint(preprocessed_footsteps), 0, 65535).astype(
+        np.uint16
+    )
 
     new_metadata_df = metadata.copy()
     for k, v in new_metadata_dict.items():
