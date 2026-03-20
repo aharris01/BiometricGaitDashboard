@@ -41,26 +41,13 @@ def test_get_trial_frame_count_ok(tmp_path, common, fake_db):
 
 
 @pytest.mark.unit
-def test_get_p100_array_to_list_returns_unexpected_error(common, fake_db):
-    class BrokenArray:
-        def tolist(self):
-            raise RuntimeError("tolist failed")
-
-    event = SimpleNamespace(trial_p100_npz_uri="file:///fake/path.npz")
-    common._load_npz_from_uri = MagicMock(return_value=(BrokenArray(), None))
-
-    data, err = common._get_p100(event)
-    assert data is None
-    assert err == "unexpected_error"
-
-
-@pytest.mark.unit
-def test_get_p100_return_array_on_success(common):
+def test_get_p100_ndarray_on_success(common):
     array = np.array([[1, 2], [3, 4]])
-    expected_list = [[1, 2], [3, 4]]
     event = SimpleNamespace(trial_p100_npz_uri="p100_path")
     common._load_npz_from_uri = MagicMock(return_value=(array, None))
 
     data, err = common._get_p100(event)
     assert err is None
-    assert data == expected_list
+    assert data.shape == array.shape
+    assert data.dtype == array.dtype
+    assert data.all() == array.all()

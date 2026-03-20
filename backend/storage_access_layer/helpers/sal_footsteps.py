@@ -138,12 +138,9 @@ class SalFootsteps:
         if event_err or event is None:
             return None, event_err
 
-        review, err = self.get_footstep_review_context(event_id, footstep_id)
-        if err:
-            return None, err
-
-        if review is None:
-            return None, "missing_file"
+        p100, p100_err = self.common._get_p100(event)
+        if p100_err or p100 is None:
+            return None, p100_err
 
         bbox_valid, valid_err = _validate_bounding_box(
             edits["x_min"],
@@ -152,7 +149,7 @@ class SalFootsteps:
             edits["y_max"],
             edits["start_frame"],
             edits["end_frame"],
-            review["event_p100"],
+            p100,
             self.common,
         )
 
@@ -174,18 +171,18 @@ class SalFootsteps:
                 "StartFrame": edits["start_frame"],
                 "EndFrame": edits["end_frame"],
             },
-            p100=review["event_p100"],
+            p100=p100,
         )
 
         if edit_err or not edit_ok:
             return None, edit_err or "edit_failed"
 
         try:
-            updated = self.db.update_local_footstep(event_id, footstep_id, edits)
+            footstep = self.db.update_local_footstep(event_id, footstep_id, edits)
         except ValueError:
             return None, "invalid_change"
 
-        if updated is None:
+        if footstep is None:
             return None, "no_footstep"
 
         event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
@@ -199,7 +196,7 @@ class SalFootsteps:
         if result is None:
             return None, "unexpected_error"
 
-        return self.get_footstep_review_context(event_id, footstep_id)
+        return self._create_review_payload(event_id, footstep_id, p100, footstep), None
 
     def create_footstep(
         self, event_id: str, new_footstep: CreateFootstepRequestPayload
@@ -209,7 +206,7 @@ class SalFootsteps:
             return None, err
 
         p100, p100_err = self.common._get_p100(event)
-        if p100_err:
+        if p100_err or p100 is None:
             return None, p100_err
 
         frame_count, err = self.common._get_trial_frame_count(event)
@@ -370,7 +367,7 @@ class SalFootsteps:
         items.sort(key=lambda x: x["id"])
         return items, None
 
-    def _create_review_payload(self, event_id, footstep_id, p100, footstep):
+    def _create_review_payload(self, event_id, footstep_id, p100: np.ndarray, footstep):
         changes: list[ReviewChangePayload] = []
         for change in self.db.get_local_footstep_changes(event_id, footstep_id):
             changes.append(

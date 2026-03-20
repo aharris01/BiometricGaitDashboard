@@ -85,24 +85,13 @@ class CommonHelper:
     def _get_p100(self, event: SwipeEvent):
         array, arr_err = self._load_npz_from_uri(event.trial_p100_npz_uri, key="arr_0")
         if arr_err or array is None:
-            return None, arr_err
+            return None, "missing_p100"
 
-        try:
-            return array.tolist(), None
-        except Exception:
-            return None, "unexpected_error"
+        return array, None
 
-    def _get_image_dims(self, p100):
-        if p100 is None or not isinstance(p100, list) or not p100:
-            return None, None, "missing_file"
-
-        first_row = p100[0]
-        if not isinstance(first_row, list) or not first_row:
-            return None, None, "missing_file"
-
-        image_height = len(p100)
-        image_width = len(first_row)
+    def _get_image_dims(self, p100: np.ndarray):
+        image_height, image_width = p100.shape
         if image_width <= 0 or image_height <= 0:
-            return None, None, "missing_file"
+            return None, None, "invalid_img_dimensions"
 
         return image_width, image_height, None
