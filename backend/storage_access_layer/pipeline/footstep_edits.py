@@ -162,10 +162,6 @@ class FootstepEditor:
         # Remove footstep from dataframe
         metadata_df = metadata_df.loc[metadata_df["FootstepID"] != footstep_id].copy()
 
-        # Update other footsteps accordingly ie. change footstep IDs
-        metadata_df.loc[metadata_df["FootstepID"] > footstep_id, "FootstepID"] -= 1
-        metadata_df.reset_index(drop=True, inplace=True)
-
         # Redo anchor identification and path tracing
         p100, p100_err = self.common._load_npz_from_uri(event.trial_p100_npz_uri)
         if p100_err or p100 is None:
