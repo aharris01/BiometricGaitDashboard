@@ -1,4 +1,6 @@
+import os
 from typing import Any
+from zipfile import ZipFile, ZIP_DEFLATED
 import numpy as np
 
 from backend.storage_access_layer.db.models import SwipeEvent
@@ -183,49 +185,22 @@ class FootstepEditor:
             metadata_df["is_anchor"] = metadata_df["path_order"] == 0
             metadata_df["is_on_path"] = metadata_df["path_order"] >= 0
 
-        # Remove footstep from steps.raw.npz and steps.npz, and update remaining footsteps array keys accordingly
-        trial_recording, trial_recording_err = self.common._load_npz_from_uri(
-            event.trial_npz_uri
-        )
-        if trial_recording_err or trial_recording is None:
-            current_app.logger.error(
-                f"Error loading trial recording: {trial_recording_err}"
-            )
-            return False, trial_recording_err
-
-        footsteps: dict[Any, np.ndarray] = {}
-        raw_footsteps: dict[str, np.ndarray] = {}
-        for i, row in metadata_df.iterrows():
-            footstep_data = trial_recording[
-                row["StartFrame"] : row["EndFrame"],
-                row["YMin"] : row["YMax"],
-                row["XMin"] : row["XMax"],
-            ]
-            footsteps[i] = footstep_data
-            raw_footsteps[str(i)] = footstep_data
-
-        try:
-            if footsteps:
-                preprocessed_footsteps, _ = preprocess_footsteps(
-                    footsteps, metadata_df, h=100, w=100
-                )
-                preprocessed_footsteps_dict = {
-                    str(i): f for i, f in enumerate(preprocessed_footsteps)
-                }
-                np.savez_compressed(
-                    trial_folder / "steps.npz", **preprocessed_footsteps_dict
-                )
-            else:
-                np.savez_compressed(trial_folder / "steps.npz")
-        except Exception as e:
-            current_app.logger.error(f"Error saving steps.npz: {e}")
-            return False, f"Error saving steps.npz: {e}"
-
-        try:
-            np.savez(trial_folder / "steps.raw.npz", allow_pickle=True, **raw_footsteps)
-        except Exception as e:
-            current_app.logger.error(f"Error saving steps.raw.npz: {e}")
-            return False, f"Error saving steps.raw.npz: {e}"
+        # Remove footstep from steps.raw.npz and steps.npz by treating archives as zipfiles
+        paths = [
+            (trial_folder / "steps.npz", trial_folder / "temp.npz"),
+            (trial_folder / "steps.raw.npz", trial_folder / "temp.raw.npz"),
+        ]
+        for src_path, tmp_path in paths:
+            with (
+                ZipFile(src_path, "r") as src,
+                ZipFile(tmp_path, "w", compression=ZIP_DEFLATED) as dst,
+            ):
+                for info in src.infolist():
+                    if info.filename == f"{footstep_id}.npy":
+                        continue
+                    data = src.read(info.filename)
+                    dst.writestr(info.filename, data)
+            os.replace(tmp_path, src_path)
 
         # Replace metadata.csv for the event with the updated df
         _, update_csv_err = _update_csv(metadata_df, metadata_file_path)
