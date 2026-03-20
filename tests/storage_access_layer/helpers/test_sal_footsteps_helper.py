@@ -72,7 +72,6 @@ class TestSearchFootstep:
                     "bbox_width": 20,
                     "bbox_height": 30,
                     "bbox_area": 600,
-                    "has_thumbnail": True,
                 }
             ],
             1,
@@ -80,6 +79,7 @@ class TestSearchFootstep:
         search_params = FootstepSearchFilters(
             event_ids=["evt-1", ""], participants=[11111]
         )
+        helper._check_footstep_data = MagicMock(return_value=True)
         out = helper.search_footsteps(search_params)
         assert out["total"] == 1
         assert out["items"][0]["date"] == "2025-01-01"

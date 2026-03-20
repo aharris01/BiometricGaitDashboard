@@ -48,7 +48,7 @@ class SalFootsteps:
         for row in rows:
             row_dict = dict(row)
             row_dict["has_thumbnail"] = self._check_footstep_data(
-                row.event_id, row.footstep_id
+                row["event_id"], row["footstep_id"]
             )
             thumbnail_rows.append(row_dict)
 
