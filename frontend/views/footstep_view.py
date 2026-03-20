@@ -47,6 +47,7 @@ def render_footstep_cards(
     for item in items:
         event_id = str(item["event_id"])
         footstep_id = int(item["footstep_id"])
+        step_number = item.get("step_number")
         bbox_area = item.get("bbox_area")
         has_thumbnail = bool(item.get("has_thumbnail", True))
 
@@ -55,7 +56,11 @@ def render_footstep_cards(
                 className="footstep-card",
                 children=[
                     html.Div(
-                        f"{event_id} · Step {footstep_id}",
+                        (
+                            f"{event_id} · Step {step_number}"
+                            if step_number is not None
+                            else f"{event_id} · Footstep"
+                        ),
                         className="footstep-card-title",
                     ),
                     html.Button(

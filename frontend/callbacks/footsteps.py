@@ -58,6 +58,23 @@ def _load_more_style(loaded: int, total: int) -> dict[str, str]:
     )
 
 
+def _find_step_number(
+    items: list[dict] | None,
+    *,
+    event_id: str,
+    footstep_id: int,
+) -> int | None:
+    for item in items or []:
+        if (
+            str(item.get("event_id")) == event_id
+            and int(item.get("footstep_id", -1)) == footstep_id
+        ):
+            step_number = item.get("step_number")
+            return int(step_number) if step_number is not None else None
+
+    return None
+
+
 def _refresh_thumbnail_revisions_for_event(
     thumbnail_revisions: dict[str, int] | None,
     *,
@@ -346,18 +363,18 @@ def register(app, *, cmap):
             logger=app.logger,
         ) or {"items": [], "total": 0}
 
-        items = result.get("items", [])
-        if not items:
+        new_items = result.get("items", [])
+        if not new_items:
             raise PreventUpdate
 
-        new_offset = offset + len(items)
+        new_offset = offset + len(new_items)
 
         return (
             {
                 **pagination_store,
                 "offset": new_offset,
             },
-            [*(visible_items or []), *items],
+            [*(visible_items or []), *new_items],
         )
 
     @callback(
@@ -492,9 +509,10 @@ def register(app, *, cmap):
         Output("btn-save-footstep-review", "style"),
         Output("btn-show-footstep-history", "style"),
         Input("footstep-review-store", "data"),
+        State("footstep-results-store", "data"),
         prevent_initial_call=False,
     )
-    def populate_footstep_review_panel(review_store):
+    def populate_footstep_review_panel(review_store, visible_items):
         if (
             not review_store
             or not review_store.get("open")
@@ -523,6 +541,11 @@ def register(app, *, cmap):
         item = review["item"]
         bbox = review["bbox"]
         create_mode = bool(review_store.get("create_mode"))
+        step_number = _find_step_number(
+            visible_items,
+            event_id=str(item["event_id"]),
+            footstep_id=int(item["footstep_id"]),
+        )
 
         if create_mode:
             return (
@@ -546,7 +569,11 @@ def register(app, *, cmap):
 
         return (
             {"display": "block"},
-            f"{item['event_id']} · Step {item['footstep_id']}",
+            (
+                f"{item['event_id']} · Step {step_number}"
+                if step_number is not None
+                else f"{item['event_id']} · Footstep"
+            ),
             review_store.get("message")
             or "Drag the box or edit the numbers, then click Save.",
             item["start_frame"],

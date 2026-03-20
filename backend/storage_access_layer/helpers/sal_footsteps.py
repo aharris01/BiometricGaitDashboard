@@ -489,6 +489,7 @@ def _map_search_row(row) -> FootstepSearchItem:
     return {
         "event_id": row["event_id"],
         "footstep_id": int(row["footstep_id"]),
+        "step_number": int(row["step_number"]),
         "participant": row["participant"],
         "date": row["date"].isoformat() if row["date"] is not None else None,
         "start_frame": int(row["start_frame"]),

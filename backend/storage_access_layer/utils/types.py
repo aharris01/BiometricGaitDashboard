@@ -47,6 +47,7 @@ class FootstepReviewPayload(TypedDict):
 class FootstepSearchItem(TypedDict):
     event_id: str
     footstep_id: int
+    step_number: int
     participant: int | None
     date: str | None
     start_frame: int

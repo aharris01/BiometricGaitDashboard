@@ -546,17 +546,22 @@ class DB:
         bbox_width = LocalFootstep.x_max - LocalFootstep.x_min
         bbox_height = LocalFootstep.y_max - LocalFootstep.y_min
         bbox_area = bbox_width * bbox_height
+        step_number = func.row_number().over(
+            partition_by=LocalFootstep.event_id,
+            order_by=(LocalFootstep.start_frame, LocalFootstep.footstep_id),
+        )
 
         # Limit search results to events that are currently present locally.
         local_event_ids = select(LocalSwipeEvent.event_id).where(
             LocalSwipeEvent.present.is_(True)
         )
 
-        # Main query used to fetch the visible result rows.
-        items_query = (
+        # Compute the event-wide sequence number before applying any search filters.
+        ranked_footsteps = (
             select(
                 LocalFootstep.event_id,
                 LocalFootstep.footstep_id,
+                step_number.label("step_number"),
                 ManifestSwipeEvent.participant,
                 ManifestSwipeEvent.date,
                 LocalFootstep.start_frame,
@@ -582,7 +587,11 @@ class DB:
                 ),
             )
             .where(LocalFootstep.event_id.in_(local_event_ids))
+            .subquery()
         )
+
+        # Main query used to fetch the visible result rows.
+        items_query = select(ranked_footsteps)
 
         # Separate count query used for pagination.
         count_query = (
@@ -597,54 +606,53 @@ class DB:
 
         # Apply filters only when the caller provides them.
         if event_ids:
-            items_query = items_query.where(LocalFootstep.event_id.in_(event_ids))
+            items_query = items_query.where(ranked_footsteps.c.event_id.in_(event_ids))
             count_query = count_query.where(LocalFootstep.event_id.in_(event_ids))
 
         if participants:
-            items_query = items_query.where(
-                ManifestSwipeEvent.participant.in_(participants)
-            )
+            items_query = items_query.where(ranked_footsteps.c.participant.in_(participants))
             count_query = count_query.where(
                 ManifestSwipeEvent.participant.in_(participants)
             )
 
         if date_from is not None:
-            items_query = items_query.where(ManifestSwipeEvent.date >= date_from)
+            items_query = items_query.where(ranked_footsteps.c.date >= date_from)
             count_query = count_query.where(ManifestSwipeEvent.date >= date_from)
 
         if date_to is not None:
-            items_query = items_query.where(ManifestSwipeEvent.date <= date_to)
+            items_query = items_query.where(ranked_footsteps.c.date <= date_to)
             count_query = count_query.where(ManifestSwipeEvent.date <= date_to)
 
         if width_min is not None:
-            items_query = items_query.where(bbox_width >= int(width_min))
+            items_query = items_query.where(ranked_footsteps.c.bbox_width >= int(width_min))
             count_query = count_query.where(bbox_width >= int(width_min))
 
         if width_max is not None:
-            items_query = items_query.where(bbox_width <= int(width_max))
+            items_query = items_query.where(ranked_footsteps.c.bbox_width <= int(width_max))
             count_query = count_query.where(bbox_width <= int(width_max))
 
         if height_min is not None:
-            items_query = items_query.where(bbox_height >= int(height_min))
+            items_query = items_query.where(ranked_footsteps.c.bbox_height >= int(height_min))
             count_query = count_query.where(bbox_height >= int(height_min))
 
         if height_max is not None:
-            items_query = items_query.where(bbox_height <= int(height_max))
+            items_query = items_query.where(ranked_footsteps.c.bbox_height <= int(height_max))
             count_query = count_query.where(bbox_height <= int(height_max))
 
         if size_min is not None:
-            items_query = items_query.where(bbox_area >= int(size_min))
+            items_query = items_query.where(ranked_footsteps.c.bbox_area >= int(size_min))
             count_query = count_query.where(bbox_area >= int(size_min))
 
         if size_max is not None:
-            items_query = items_query.where(bbox_area <= int(size_max))
+            items_query = items_query.where(ranked_footsteps.c.bbox_area <= int(size_max))
             count_query = count_query.where(bbox_area <= int(size_max))
 
         # Apply stable ordering before pagination.
         items_query = (
             items_query.order_by(
-                LocalFootstep.event_id,
-                LocalFootstep.start_frame,
+                ranked_footsteps.c.event_id,
+                ranked_footsteps.c.start_frame,
+                ranked_footsteps.c.footstep_id,
             )
             .offset(offset)
             .limit(limit)
