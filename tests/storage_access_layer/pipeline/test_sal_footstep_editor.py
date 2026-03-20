@@ -168,7 +168,7 @@ class TestFootstepEditorFailures:
     ):
         common._require_event.return_value = (None, "missing_event")
 
-        ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data())
+        ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data(), p100=[])
 
         assert ok is False
         assert err == "missing_event"
@@ -180,7 +180,7 @@ class TestFootstepEditorFailures:
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (None, "missing_footstep")
 
-        ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data())
+        ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data(), p100=[])
 
         assert ok is False
         assert err == "missing_footstep"
@@ -197,28 +197,10 @@ class TestFootstepEditorFailures:
         )
 
         with flask_app.app_context():
-            ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data())
+            ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data(), [])
 
         assert ok is False
         assert err == "Error loading metadata: metadata blew up"
-
-    def test_edit_footstep_returns_p100_error_when_npz_load_fails(
-        self, flask_app, editor, common, event, monkeypatch
-    ):
-        common._require_event.return_value = (event, None)
-        common._require_footstep.return_value = (object(), None)
-        monkeypatch.setattr(
-            footstep_edits,
-            "load_metadata",
-            MagicMock(return_value=_make_delete_metadata()),
-        )
-        common._load_npz_from_uri.return_value = (None, "p100_load_failed")
-
-        with flask_app.app_context():
-            ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data())
-
-        assert ok is False
-        assert err == "p100_load_failed"
 
     def test_edit_footstep_returns_trial_recording_error_when_load_fails(
         self, flask_app, editor, common, event, monkeypatch
@@ -234,32 +216,18 @@ class TestFootstepEditorFailures:
         monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
-        common._load_npz_from_uri.side_effect = [
-            (np.ones((120, 120), dtype=float), None),
-            (None, "trial_load_failed"),
-        ]
+        common._load_npz_from_uri.return_value = (None, "trial_load_failed")
 
         with flask_app.app_context():
-            ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data())
+            ok, err = editor.edit_footstep(
+                7,
+                "event-1",
+                _make_new_footstep_data(),
+                p100=np.ones((120, 120), dtype=float),
+            )
 
         assert ok is False
         assert err == "trial_load_failed"
-
-    def test_delete_footstep_returns_p100_error_when_npz_load_fails(
-        self, flask_app, editor, common, event, monkeypatch
-    ):
-        common._require_event.return_value = (event, None)
-        common._require_footstep.return_value = (object(), None)
-        monkeypatch.setattr(
-            footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata())
-        )
-        common._load_npz_from_uri.return_value = (None, "p100_load_failed")
-
-        with flask_app.app_context():
-            ok, err = editor.delete_footstep(7, "event-1")
-
-        assert ok is False
-        assert err == "p100_load_failed"
 
 
 class TestFootstepEditorSuccessPaths:
@@ -279,10 +247,7 @@ class TestFootstepEditorSuccessPaths:
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        common._load_npz_from_uri.side_effect = [
-            (np.ones((120, 120), dtype=float), None),
-            (trial_recording, None),
-        ]
+        common._load_npz_from_uri.return_value = (trial_recording, None)
 
         monkeypatch.setattr(footstep_edits, "load_metadata", load_metadata_mock)
         monkeypatch.setattr(
@@ -305,7 +270,12 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
-            ok, err = editor.edit_footstep(7, "event-1", new_footstep_data)
+            ok, err = editor.edit_footstep(
+                7,
+                "event-1",
+                new_footstep_data,
+                p100=np.ones((120, 120), dtype=float),
+            )
 
         assert ok is True
         assert err is None
@@ -331,10 +301,10 @@ class TestFootstepEditorSuccessPaths:
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        common._load_npz_from_uri.side_effect = [
-            (np.ones((120, 120), dtype=float), None),
-            (np.zeros((250, 120, 120), dtype=float), None),
-        ]
+        common._load_npz_from_uri.return_value = (
+            np.zeros((250, 120, 120), dtype=float),
+            None,
+        )
 
         monkeypatch.setattr(
             footstep_edits, "load_metadata", MagicMock(return_value=metadata)
@@ -361,7 +331,12 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
-            ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data())
+            ok, err = editor.edit_footstep(
+                7,
+                "event-1",
+                _make_new_footstep_data(),
+                p100=np.zeros((720, 480)),
+            )
 
         assert ok is True
         assert err is None
@@ -374,10 +349,10 @@ class TestFootstepEditorSuccessPaths:
     ):
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        common._load_npz_from_uri.side_effect = [
-            (np.ones((120, 120), dtype=float), None),
-            (np.zeros((250, 120, 120), dtype=float), None),
-        ]
+        common._load_npz_from_uri.return_value = (
+            np.zeros((250, 120, 120), dtype=float),
+            None,
+        )
 
         monkeypatch.setattr(
             footstep_edits, "load_metadata", MagicMock(return_value=_make_metadata())
@@ -406,7 +381,9 @@ class TestFootstepEditorSuccessPaths:
         )
 
         with flask_app.app_context():
-            ok, err = editor.edit_footstep(7, "event-1", _make_new_footstep_data())
+            ok, err = editor.edit_footstep(
+                7, "event-1", _make_new_footstep_data(), p100=[]
+            )
 
         assert ok is False
         assert err == "Error saving steps.npz: disk full"

@@ -31,9 +31,9 @@ def test_require_event_returns_missing_event(common, fake_db):
 
 @pytest.mark.unit
 def test_get_trial_frame_count_ok(tmp_path, common, fake_db):
-    trial = tmp_path / "trial.npz"
-    np.savez(trial, arr_0=np.zeros((7, 2, 2)))
-    event = SimpleNamespace(trial_npz_uri=trial.as_uri())
+    trial = tmp_path / "trial.grf.npz"
+    np.savez_compressed(trial, allow_pickle=False, **{"[:,:]": np.zeros((7, 1))})
+    event = SimpleNamespace(trial_grf_npz_uri=trial.as_uri())
 
     frame_count, err = common._get_trial_frame_count(event)
     assert err is None

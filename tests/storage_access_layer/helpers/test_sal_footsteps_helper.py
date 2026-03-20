@@ -322,6 +322,7 @@ class TestSaveFootstepReview:
                 "StartFrame": 1,
                 "EndFrame": 5,
             },
+            p100=[[1.0, 2.0], [3.0, 4.0]],
         )
         fake_db.update_local_footstep.assert_called_once_with("evt-1", 6, edits)
         calc_metrics.assert_called_once_with("evt-1", tmp_path / "metadata.csv")
@@ -361,9 +362,17 @@ class TestCreateFootstep:
         common._require_event.return_value = (event, None)
         common._get_p100.return_value = ([[1.0, 2.0], [3.0, 4.0]], None)
         common._get_trial_frame_count.return_value = (20, None)
-        fake_db.create_local_footstep.return_value = SimpleNamespace(footstep_id=9)
-        helper.get_footstep_review_context = MagicMock(
-            return_value=({"footstep_id": 9}, None)
+        fake_db.create_local_footstep.return_value = SimpleNamespace(
+            footstep_id=9,
+            **{
+                "start_frame": 1,
+                "end_frame": 5,
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+                "label": None,
+            },
         )
 
         out, err = helper.create_footstep(
@@ -380,7 +389,23 @@ class TestCreateFootstep:
         )
 
         assert err is None
-        assert out == {"footstep_id": 9}
+        assert out == {
+            "item": {
+                "event_id": "evt-1",
+                "footstep_id": 9,
+                "start_frame": 1,
+                "end_frame": 5,
+                "label": None,
+            },
+            "bbox": {
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+            },
+            "event_p100": [[1.0, 2.0], [3.0, 4.0]],
+            "changes": [],
+        }
         fake_db.create_local_footstep.assert_called_once_with(
             "evt-1",
             start_frame=1,
