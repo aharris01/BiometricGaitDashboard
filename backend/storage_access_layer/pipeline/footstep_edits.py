@@ -22,7 +22,9 @@ class FootstepEditor:
         self.db = db
         self.common = common
 
-    def edit_footstep(self, footstep_id: int, event_id: str, new_footstep_data: dict):
+    def edit_footstep(
+        self, footstep_id: int, event_id: str, new_footstep_data: dict, p100: list[list]
+    ):
         # ----------------------------------------------
         # Need to find a way to revert any changes if any step in the process fails, to maintain data integrity
         # ----------------------------------------------
@@ -43,12 +45,6 @@ class FootstepEditor:
         except Exception as e:
             current_app.logger.error(f"Error loading metadata: {e}")
             return False, f"Error loading metadata: {e}"
-
-        # open p100 for the event
-        p100, p100_err = self.common._load_npz_from_uri(event.trial_p100_npz_uri)
-        if p100_err or p100 is None:
-            current_app.logger.error(f"Error loading p100 data: {p100_err}")
-            return False, p100_err
 
         # make edits to footstep in df
         metadata_df.loc[

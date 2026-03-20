@@ -123,50 +123,7 @@ class SalFootsteps:
         if p100_err or p100 is None:
             return None, p100_err
 
-        changes: list[ReviewChangePayload] = []
-        for change in self.db.get_local_footstep_changes(event_id, footstep_id):
-            changes.append(
-                {
-                    "action": change.action,
-                    "changed_at": change.changed_at.isoformat(
-                        sep=" ", timespec="seconds"
-                    ),
-                    "old_x_min": change.old_x_min,
-                    "old_x_max": change.old_x_max,
-                    "old_y_min": change.old_y_min,
-                    "old_y_max": change.old_y_max,
-                    "old_start_frame": change.old_start_frame,
-                    "old_end_frame": change.old_end_frame,
-                    "old_label": change.old_label,
-                    "new_x_min": change.new_x_min,
-                    "new_x_max": change.new_x_max,
-                    "new_y_min": change.new_y_min,
-                    "new_y_max": change.new_y_max,
-                    "new_label": change.new_label,
-                    "new_start_frame": change.new_start_frame,
-                    "new_end_frame": change.new_end_frame,
-                }
-            )
-
-        payload = FootstepReviewPayload(
-            item=ReviewItemPayload(
-                event_id=event_id,
-                footstep_id=int(footstep.footstep_id),
-                start_frame=footstep.start_frame,
-                end_frame=footstep.end_frame,
-                label=footstep.label,
-            ),
-            bbox=ReviewBBoxPayload(
-                x_min=int(footstep.x_min),
-                x_max=int(footstep.x_max),
-                y_min=int(footstep.y_min),
-                y_max=int(footstep.y_max),
-            ),
-            event_p100=p100,
-            changes=changes,
-        )
-
-        return payload, None
+        return self._create_review_payload(event_id, footstep_id, p100, footstep), None
 
     def save_footstep_review(self, event_id: str, footstep_id: int, edits: dict):
         # Validate and save one local footstep edit.
@@ -217,6 +174,7 @@ class SalFootsteps:
                 "StartFrame": edits["start_frame"],
                 "EndFrame": edits["end_frame"],
             },
+            p100=review["event_p100"],
         )
 
         if edit_err or not edit_ok:
@@ -275,7 +233,7 @@ class SalFootsteps:
         if new_footstep["label"] is not None:
             label = str(new_footstep["label"]).strip() or None
 
-        created = self.db.create_local_footstep(
+        footstep = self.db.create_local_footstep(
             event_id,
             start_frame=start_frame,
             end_frame=end_frame,
@@ -285,10 +243,12 @@ class SalFootsteps:
             y_max=y_max,
             label=label,
         )
-        if created is None:
+        if footstep is None:
             return None, "missing_file"
 
-        return self.get_footstep_review_context(event_id, int(created.footstep_id))
+        return self._create_review_payload(
+            event_id, footstep.footstep_id, p100, footstep
+        ), None
 
     def delete_footstep(self, event_id: str, footstep_id: int):
         event, err = self.common._require_event(event_id)
@@ -409,6 +369,52 @@ class SalFootsteps:
 
         items.sort(key=lambda x: x["id"])
         return items, None
+
+    def _create_review_payload(self, event_id, footstep_id, p100, footstep):
+        changes: list[ReviewChangePayload] = []
+        for change in self.db.get_local_footstep_changes(event_id, footstep_id):
+            changes.append(
+                {
+                    "action": change.action,
+                    "changed_at": change.changed_at.isoformat(
+                        sep=" ", timespec="seconds"
+                    ),
+                    "old_x_min": change.old_x_min,
+                    "old_x_max": change.old_x_max,
+                    "old_y_min": change.old_y_min,
+                    "old_y_max": change.old_y_max,
+                    "old_start_frame": change.old_start_frame,
+                    "old_end_frame": change.old_end_frame,
+                    "old_label": change.old_label,
+                    "new_x_min": change.new_x_min,
+                    "new_x_max": change.new_x_max,
+                    "new_y_min": change.new_y_min,
+                    "new_y_max": change.new_y_max,
+                    "new_label": change.new_label,
+                    "new_start_frame": change.new_start_frame,
+                    "new_end_frame": change.new_end_frame,
+                }
+            )
+
+        payload = FootstepReviewPayload(
+            item=ReviewItemPayload(
+                event_id=event_id,
+                footstep_id=int(footstep.footstep_id),
+                start_frame=footstep.start_frame,
+                end_frame=footstep.end_frame,
+                label=footstep.label,
+            ),
+            bbox=ReviewBBoxPayload(
+                x_min=int(footstep.x_min),
+                x_max=int(footstep.x_max),
+                y_min=int(footstep.y_min),
+                y_max=int(footstep.y_max),
+            ),
+            event_p100=p100,
+            changes=changes,
+        )
+
+        return payload
 
 
 def _normalize_search_filters(
