@@ -5,6 +5,7 @@ import requests
 from dash.exceptions import PreventUpdate
 
 import frontend.api as api
+from frontend.callbacks.footsteps import _review_label_value
 from frontend.utils import require_values
 
 pytestmark = pytest.mark.unit
@@ -259,6 +260,12 @@ def test_get_date_part_with_filters(monkeypatch):
     assert captured["params"]["year"] == 2024
     assert captured["params"]["month"] == 5
     assert out == {"items": [2024]}
+
+
+def test_review_label_value_normalizes_none_to_empty_string():
+    assert _review_label_value(None) == ""
+    assert _review_label_value("") == ""
+    assert _review_label_value("Left") == "Left"
 
 
 def test_fetch_json_error_with_json_body(monkeypatch):

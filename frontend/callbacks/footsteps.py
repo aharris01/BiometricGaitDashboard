@@ -88,6 +88,12 @@ def _to_int(value, fallback: int) -> int:
         return fallback
 
 
+def _review_label_value(value) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
 def _get_bbox(review: dict, x_min=None, x_max=None, y_min=None, y_max=None):
     saved = review.get("bbox") or {}
 
@@ -504,7 +510,7 @@ def register(app, *, cmap):
                 None,
                 None,
                 None,
-                None,
+                "",
                 "No local changes yet.",
                 "Create New",
                 {"display": "none"},
@@ -529,7 +535,7 @@ def register(app, *, cmap):
                 bbox["x_max"],
                 bbox["y_min"],
                 bbox["y_max"],
-                item.get("label"),
+                _review_label_value(item.get("label")),
                 "Changelog is unavailable while create mode is active.",
                 "Create Footstep",
                 {"display": "inline-block"},
@@ -549,7 +555,7 @@ def register(app, *, cmap):
             bbox["x_max"],
             bbox["y_min"],
             bbox["y_max"],
-            item.get("label"),
+            _review_label_value(item.get("label")),
             _render_history(review.get("changes") or []),
             "Create New",
             {"display": "none"},
