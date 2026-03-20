@@ -41,12 +41,14 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
         {
             "event_id": "evt-1",
             "footstep_id": 3,
+            "step_number": 3,
             "bbox_area": 123,
             "has_thumbnail": True,
         },
         {
             "event_id": "evt-2",
             "footstep_id": 4,
+            "step_number": 9,
             "bbox_area": None,
             "has_thumbnail": False,
         },
@@ -79,7 +81,7 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
     assert props(first_children[2])["className"] == "footstep-card-meta"
 
     assert isinstance(second_children[0], html.Div)
-    assert props(second_children[0])["children"] == "evt-2 · Step 4"
+    assert props(second_children[0])["children"] == "evt-2 · Step 9"
 
     assert isinstance(second_children[1], html.Button)
     second_button_children = children_list(second_children[1])

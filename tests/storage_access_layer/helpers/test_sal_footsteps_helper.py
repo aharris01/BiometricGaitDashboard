@@ -61,6 +61,7 @@ class TestSearchFootstep:
                 {
                     "event_id": "evt-1",
                     "footstep_id": 2,
+                    "step_number": 7,
                     "participant": 11111,
                     "date": dt.date(2025, 1, 1),
                     "start_frame": 10,
@@ -83,6 +84,7 @@ class TestSearchFootstep:
         out = helper.search_footsteps(search_params)
         assert out["total"] == 1
         assert out["items"][0]["date"] == "2025-01-01"
+        assert out["items"][0]["step_number"] == 7
 
 
 class TestGetFootstep:
