@@ -43,7 +43,16 @@ class SalFootsteps:
             limit=filters.limit,
         )
 
-        items = [_map_search_row(row) for row in rows]
+        thumbnail_rows = []
+
+        for row in rows:
+            row_dict = dict(row)
+            row_dict["has_thumbnail"] = self._check_footstep_data(
+                row.event_id, row.footstep_id
+            )
+            thumbnail_rows.append(row_dict)
+
+        items = [_map_search_row(row) for row in thumbnail_rows]
 
         return {"items": items, "total": total}
 
@@ -415,6 +424,21 @@ class SalFootsteps:
 
         return payload
 
+    def _check_footstep_data(self, event_id, footstep_id):
+        event, err = self.common._require_event(event_id)
+        if err:
+            return False
+
+        steps_npz, steps_err = self.common._load_steps_npz(event)
+        if steps_err or steps_npz is None:
+            return False
+
+        key = str(footstep_id)
+        if key not in steps_npz.files:
+            return False
+
+        return True
+
 
 def _normalize_search_filters(
     event_ids: list[str] | None = None,
@@ -476,7 +500,7 @@ def _map_search_row(row) -> FootstepSearchItem:
         "bbox_width": int(row["bbox_width"]),
         "bbox_height": int(row["bbox_height"]),
         "bbox_area": int(row["bbox_area"]),
-        "has_thumbnail": bool(row["has_thumbnail"]),
+        "has_thumbnail": row["has_thumbnail"],
     }
 
 

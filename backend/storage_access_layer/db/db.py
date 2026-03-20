@@ -225,6 +225,7 @@ class DB:
                 "trial_npz_uri": f"{root_path}/trial.npz",
                 "trial_p100_npz_uri": f"{root_path}/trial.p100.npz",
                 "trial_grf_npz_uri": f"{root_path}/trial.grf.npz",
+                "trial_folder": root_path,
             }
 
             return SwipeEvent(**event_dict)
@@ -567,7 +568,6 @@ class DB:
                 bbox_width.label("bbox_width"),
                 bbox_height.label("bbox_height"),
                 bbox_area.label("bbox_area"),
-                (ManifestFootstep.footstep_id.is_not(None)).label("has_thumbnail"),
             )
             .select_from(LocalFootstep)
             .join(
@@ -644,7 +644,7 @@ class DB:
         items_query = (
             items_query.order_by(
                 LocalFootstep.event_id,
-                LocalFootstep.footstep_id,
+                LocalFootstep.start_frame,
             )
             .offset(offset)
             .limit(limit)
