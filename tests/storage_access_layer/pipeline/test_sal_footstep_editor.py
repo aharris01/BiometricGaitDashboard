@@ -245,14 +245,25 @@ class TestFootstepEditorSuccessPaths:
     ):
         metadata = _make_metadata()
         new_footstep_data = _make_new_footstep_data()
+        updated_metadata = metadata.copy()
+        for key, value in new_footstep_data.items():
+            updated_metadata.loc[updated_metadata["FootstepID"] == 7, key] = value
+        updated_metadata["valid"] = True
+        updated_metadata["heading_angle"] = 1.25
+        updated_metadata["path_order"] = 0
+        updated_metadata["is_anchor"] = True
+        updated_metadata["is_on_path"] = True
         load_metadata_mock = MagicMock(return_value=metadata.copy())
-        savez_compressed_mock = MagicMock()
-        savez_mock = MagicMock()
         update_csv_mock = MagicMock(return_value=(True, None))
         preprocess_mock = MagicMock(
-            return_value=([np.full((100, 100), 3.0, dtype=float)], None)
+            return_value=(
+                np.full((1, 101, 100, 100), 3, dtype=np.uint16),
+                updated_metadata,
+            )
         )
         trial_recording = np.arange(250 * 120 * 120).reshape(250, 120, 120)
+        trial_dir = footstep_edits.uri_to_path(event.trial_npz_uri).parent
+        _write_step_archives(trial_dir, (7,))
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
@@ -272,10 +283,6 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: 0)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
         monkeypatch.setattr(footstep_edits, "preprocess_footsteps", preprocess_mock)
-        monkeypatch.setattr(
-            footstep_edits.np, "savez_compressed", savez_compressed_mock
-        )
-        monkeypatch.setattr(footstep_edits.np, "savez", savez_mock)
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
@@ -298,15 +305,23 @@ class TestFootstepEditorSuccessPaths:
         assert edited_row["heading_angle"] == 1.25
 
         preprocess_footsteps_arg = preprocess_mock.call_args.args[0]
-        assert preprocess_footsteps_arg[0].shape == (160, 64, 32)
-        savez_compressed_mock.assert_called_once()
-        savez_mock.assert_called_once()
+        assert preprocess_footsteps_arg[7].shape == (160, 64, 32)
+        with ZipFile(trial_dir / "steps.npz") as archive:
+            assert sorted(archive.namelist()) == ["7.npy"]
+        with ZipFile(trial_dir / "steps.raw.npz") as archive:
+            assert sorted(archive.namelist()) == ["7.npy"]
 
     def test_edit_footstep_marks_step_invalid_when_edited_bounds_fail_validation(
         self, flask_app, editor, common, event, monkeypatch
     ):
         metadata = _make_metadata()
+        updated_metadata = metadata.copy()
+        for key, value in _make_new_footstep_data().items():
+            updated_metadata.loc[updated_metadata["FootstepID"] == 7, key] = value
+        updated_metadata["valid"] = False
         update_csv_mock = MagicMock(return_value=(True, None))
+        trial_dir = footstep_edits.uri_to_path(event.trial_npz_uri).parent
+        _write_step_archives(trial_dir, (7,))
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
@@ -333,10 +348,13 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(
             footstep_edits,
             "preprocess_footsteps",
-            MagicMock(return_value=([np.zeros((100, 100), dtype=float)], None)),
+            MagicMock(
+                return_value=(
+                    np.zeros((1, 101, 100, 100), dtype=np.uint16),
+                    updated_metadata,
+                )
+            ),
         )
-        monkeypatch.setattr(footstep_edits.np, "savez_compressed", MagicMock())
-        monkeypatch.setattr(footstep_edits.np, "savez", MagicMock())
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
@@ -356,6 +374,9 @@ class TestFootstepEditorSuccessPaths:
     def test_edit_footstep_returns_error_when_saving_steps_file_fails(
         self, flask_app, editor, common, event, monkeypatch
     ):
+        trial_dir = footstep_edits.uri_to_path(event.trial_npz_uri).parent
+        _write_step_archives(trial_dir, (7,))
+
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
         common._load_npz_from_uri.return_value = (
@@ -381,21 +402,22 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(
             footstep_edits,
             "preprocess_footsteps",
-            MagicMock(return_value=([np.zeros((100, 100), dtype=float)], None)),
+            MagicMock(
+                return_value=(
+                    np.zeros((1, 101, 100, 100), dtype=np.uint16),
+                    _make_metadata(),
+                )
+            ),
         )
         monkeypatch.setattr(
-            footstep_edits.np,
-            "savez_compressed",
+            footstep_edits,
+            "_rewrite_npz_member",
             MagicMock(side_effect=OSError("disk full")),
         )
 
         with flask_app.app_context():
-            ok, err = editor.edit_footstep(
-                7, "event-1", _make_new_footstep_data(), p100=[]
-            )
-
-        assert ok is False
-        assert err == "Error saving steps.npz: disk full"
+            with pytest.raises(OSError, match="disk full"):
+                editor.edit_footstep(7, "event-1", _make_new_footstep_data(), p100=[])
 
     def test_delete_footstep_updates_metadata_and_saves_outputs(
         self, flask_app, editor, common, event, monkeypatch
@@ -409,7 +431,10 @@ class TestFootstepEditorSuccessPaths:
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        common._load_npz_from_uri.return_value = (np.ones((120, 120), dtype=float), None)
+        common._load_npz_from_uri.return_value = (
+            np.ones((120, 120), dtype=float),
+            None,
+        )
 
         monkeypatch.setattr(footstep_edits, "load_metadata", load_metadata_mock)
         monkeypatch.setattr(
