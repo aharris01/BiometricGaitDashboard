@@ -1128,6 +1128,7 @@ def register(app, *, cmap):
     @callback(
         Output("footstep-thumbnail-revision-store", "data", allow_duplicate=True),
         Output("footstep-review-store", "data", allow_duplicate=True),
+        Output("footstep-context-store", "data", allow_duplicate=True),
         Input("btn-save-footstep-review", "n_clicks"),
         State("footstep-review-store", "data"),
         State("footstep-review-x-min", "value"),
@@ -1138,6 +1139,7 @@ def register(app, *, cmap):
         State("footstep-create-end-frame", "value"),
         State("footstep-review-label", "value"),
         State("footstep-thumbnail-revision-store", "data"),
+        State("footstep-context-store", "data"),
         prevent_initial_call=True,
     )
     def save_current_footstep_review(
@@ -1151,6 +1153,7 @@ def register(app, *, cmap):
         end_frame,
         label,
         thumbnail_revisions,
+        context_store,
     ):
         if (
             not review_store
@@ -1184,6 +1187,11 @@ def register(app, *, cmap):
             label=label,
             logger=app.logger,
         )
+        refreshed_details = get_footstep_details(
+            event_id,
+            footstep_id,
+            logger=app.logger,
+        )
 
         new_thumbnail_revisions = dict(thumbnail_revisions or {})
         revision_key = _thumbnail_revision_key(event_id, footstep_id)
@@ -1199,4 +1207,11 @@ def register(app, *, cmap):
                 saved,
                 "Saved local bbox and label.",
             ),
+            {
+                **(context_store or _empty_context()),
+                "open": True,
+                "event_id": event_id,
+                "footstep_id": footstep_id,
+                "details": refreshed_details,
+            },
         )
