@@ -338,18 +338,12 @@ def FootstepView():
                                             dcc.Graph(
                                                 id="footstep-context-p100-graph",
                                                 className="footstep-context-p100-graph",
-                                                style={"height": "260px"},
+                                                style={"height": "360px"},
                                                 config={"displaylogo": False},
                                             ),
                                             dcc.Graph(
                                                 id="footstep-context-grf-graph",
                                                 className="footstep-context-grf-graph",
-                                                style={"height": "220px"},
-                                                config={"displaylogo": False},
-                                            ),
-                                            dcc.Graph(
-                                                id="footstep-context-cop-graph",
-                                                className="footstep-context-cop-graph",
                                                 style={"height": "220px"},
                                                 config={"displaylogo": False},
                                             ),

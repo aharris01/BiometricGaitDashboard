@@ -666,8 +666,7 @@
 }
 
 .footstep-context-p100-graph,
-.footstep-context-grf-graph,
-.footstep-context-cop-graph {
+.footstep-context-grf-graph {
   flex: 0 0 auto;
 }
 

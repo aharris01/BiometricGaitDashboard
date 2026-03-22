@@ -237,22 +237,88 @@ def _placeholder_figure(message: str, *, height: int):
     return fig
 
 
-def _make_context_p100_figure(p100: list[list[float]] | None, cmap):
+def _make_context_p100_figure(
+    p100: list[list[float]] | None,
+    cmap,
+    cop_x: list[float] | None = None,
+    cop_y: list[float] | None = None,
+):
     if not p100:
-        return _placeholder_figure("P100 not available for this footstep.", height=260)
+        return _placeholder_figure("P100 not available for this footstep.", height=360)
 
     fig = px.imshow(p100, color_continuous_scale=cmap)
     z_max = max(max(row) for row in p100) if p100 else 1
     fig.update_traces(zmin=0, zmax=z_max)
     fig.update_layout(
-        height=260,
+        height=360,
         margin=dict(l=10, r=10, t=10, b=30),
         coloraxis_showscale=False,
         plot_bgcolor="black",
         paper_bgcolor="white",
     )
+
+    if cop_x and cop_y:
+        cop_pairs = [
+            (float(x), float(y))
+            for x, y in zip(cop_x, cop_y, strict=False)
+            if x is not None
+            and y is not None
+            and np.isfinite(x)
+            and np.isfinite(y)
+        ]
+        if cop_pairs:
+            xs = [pair[0] for pair in cop_pairs]
+            ys = [pair[1] for pair in cop_pairs]
+            fig.add_trace(
+                go.Scatter(
+                    x=xs,
+                    y=ys,
+                    mode="lines+markers",
+                    line=dict(color="#ef4444", width=2),
+                    marker=dict(size=5, color="#ef4444"),
+                    name="COP Path",
+                    showlegend=True,
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[xs[0]],
+                    y=[ys[0]],
+                    mode="markers",
+                    marker=dict(size=8, color="#22c55e"),
+                    name="Start",
+                    text=["Start"],
+                    hoverinfo="text",
+                    showlegend=True,
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[xs[-1]],
+                    y=[ys[-1]],
+                    mode="markers",
+                    marker=dict(size=8, color="#111827"),
+                    name="End",
+                    text=["End"],
+                    hoverinfo="text",
+                    showlegend=True,
+                )
+            )
+
     fig.update_xaxes(constrain="domain", scaleanchor="y", showgrid=False)
     fig.update_yaxes(autorange="reversed", constrain="domain", showgrid=False)
+    fig.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0,
+            font=dict(size=10),
+            bgcolor="rgba(255,255,255,0.75)",
+            borderwidth=0,
+        )
+    )
     return fig
 
 
@@ -271,36 +337,6 @@ def _make_context_grf_figure(grf: list[float] | None):
         paper_bgcolor="white",
     )
     return fig
-
-
-def _make_context_cop_figure(
-    cop_x: list[float] | None,
-    cop_y: list[float] | None,
-):
-    if not cop_x and not cop_y:
-        return _placeholder_figure("COP not available for this footstep.", height=220)
-
-    fig = go.Figure()
-    if cop_x:
-        fig.add_trace(
-            go.Scatter(y=list(cop_x), mode="lines", name="COP X", line=dict(color="#dc2626"))
-        )
-    if cop_y:
-        fig.add_trace(
-            go.Scatter(y=list(cop_y), mode="lines", name="COP Y", line=dict(color="#059669"))
-        )
-    fig.update_layout(
-        height=220,
-        margin=dict(l=30, r=20, t=10, b=30),
-        xaxis_title="Frame",
-        yaxis_title="COP",
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-    )
-    return fig
-
-
 def register(app, *, cmap):
     @callback(
         Output("footstep-participant-filter", "options"),
@@ -737,7 +773,6 @@ def register(app, *, cmap):
         Output("footstep-context-meta", "children"),
         Output("footstep-context-p100-graph", "figure"),
         Output("footstep-context-grf-graph", "figure"),
-        Output("footstep-context-cop-graph", "figure"),
         Input("footstep-context-store", "data"),
         State("footstep-results-store", "data"),
         prevent_initial_call=False,
@@ -753,7 +788,6 @@ def register(app, *, cmap):
                 "Click a thumbnail to inspect that footstep.",
                 _placeholder_figure("No footstep selected.", height=260),
                 _placeholder_figure("No GRF data to display yet.", height=220),
-                _placeholder_figure("No COP data to display yet.", height=220),
             )
 
         event_id = str(context_store["event_id"])
@@ -773,9 +807,13 @@ def register(app, *, cmap):
         return (
             title,
             f"Event ID: {event_id}\nBackend Footstep ID: {footstep_id}",
-            _make_context_p100_figure(details.get("p100"), cmap),
+            _make_context_p100_figure(
+                details.get("p100"),
+                cmap,
+                details.get("cop_x"),
+                details.get("cop_y"),
+            ),
             _make_context_grf_figure(details.get("grf")),
-            _make_context_cop_figure(details.get("cop_x"), details.get("cop_y")),
         )
 
     @callback(
