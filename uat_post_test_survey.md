@@ -74,7 +74,7 @@ most useful immediate future goal: identify misaligned trial or outlier, tweak t
 - Other: **progressing through trial step by step**
 
 10. Did the footstep-focused view support the kind of inspection and comparison you would want during normal post-extraction review?
-- **Yes** -- grf and cop data could be useful for this view in the future
+- **Yes** -- Ground Reaction Force (grf) and Center of Pressure (cop) data could be useful for this view in the future
 - No
 - Partially
 
