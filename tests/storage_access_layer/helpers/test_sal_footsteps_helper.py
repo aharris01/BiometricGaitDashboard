@@ -28,6 +28,7 @@ def fake_db():
     db.search_footsteps = MagicMock()
     db.get_event_footsteps = MagicMock()
     db.get_single_footstep = MagicMock()
+    db.get_single_footstep.return_value = None
     db.get_local_footstep_changes = MagicMock(return_value=[])
     db.update_local_footstep = MagicMock()
     db.update_event_metrics = MagicMock()
@@ -134,6 +135,71 @@ class TestGetFootstep:
         assert details["grf"] == [1.0, 2.0]
         assert details["cop_x"] == [0.0, 1.0]
         assert details["cop_y"] == [0.0, 1.0]
+
+
+class TestCreateDraftFootstep:
+    @pytest.mark.unit
+    def test_create_draft_footstep_returns_serialized_volume(self, helper, common):
+        event = SimpleNamespace()
+        common._require_event.return_value = (event, None)
+        common._get_p100.return_value = (np.ones((8, 8), dtype=float), None)
+        common._get_image_dims.return_value = (8, 8, None)
+        helper.editor.create_draft_footstep = MagicMock(
+            return_value=(
+                {
+                    "StartFrame": 12,
+                    "EndFrame": 40,
+                    "XMin": 1,
+                    "XMax": 5,
+                    "YMin": 2,
+                    "YMax": 6,
+                    "time_recording": np.ones((28, 4, 4), dtype=float),
+                },
+                None,
+            )
+        )
+
+        out, err = helper.create_draft_footstep(
+            "evt-1",
+            {
+                "x_min": 1,
+                "x_max": 5,
+                "y_min": 2,
+                "y_max": 6,
+            },
+        )
+
+        assert err is None
+        assert out is not None
+        assert out["event_id"] == "evt-1"
+        assert out["start_frame"] == 12
+        assert out["end_frame"] == 40
+        assert out["depth"] == 28
+        assert len(out["volume"]) == 28
+        helper.editor.create_draft_footstep.assert_called_once()
+
+    @pytest.mark.unit
+    def test_create_draft_footstep_propagates_editor_error(self, helper, common):
+        event = SimpleNamespace()
+        common._require_event.return_value = (event, None)
+        common._get_p100.return_value = (np.ones((8, 8), dtype=float), None)
+        common._get_image_dims.return_value = (8, 8, None)
+        helper.editor.create_draft_footstep = MagicMock(
+            return_value=(None, "no_pressure_data")
+        )
+
+        out, err = helper.create_draft_footstep(
+            "evt-1",
+            {
+                "x_min": 1,
+                "x_max": 5,
+                "y_min": 2,
+                "y_max": 6,
+            },
+        )
+
+        assert out is None
+        assert err == "no_pressure_data"
 
 
 class TestSaveFootstepReview:
@@ -412,6 +478,7 @@ class TestCreateFootstep:
         common._require_event.return_value = (event, None)
         common._get_p100.return_value = (np.array([[1.0, 2.0], [3.0, 4.0]]), None)
         common._get_trial_frame_count.return_value = (20, None)
+        helper.editor.create_footstep = MagicMock(return_value=(9, None))
         fake_db.create_local_footstep.return_value = SimpleNamespace(
             footstep_id=9,
             **{
@@ -458,6 +525,7 @@ class TestCreateFootstep:
         }
         fake_db.create_local_footstep.assert_called_once_with(
             "evt-1",
+            footstep_id=9,
             start_frame=1,
             end_frame=5,
             x_min=0,
@@ -465,4 +533,93 @@ class TestCreateFootstep:
             y_min=0,
             y_max=2,
             label=None,
+        )
+        helper.editor.create_footstep.assert_called_once_with(
+            "evt-1",
+            {
+                "start_frame": 1,
+                "end_frame": 5,
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+            },
+        )
+
+    @pytest.mark.unit
+    def test_create_footstep_propagates_pipeline_editor_error(
+        self, helper, common, fake_db
+    ):
+        event = SimpleNamespace()
+        common._require_event.return_value = (event, None)
+        common._get_p100.return_value = (np.array([[1.0, 2.0], [3.0, 4.0]]), None)
+        common._get_trial_frame_count.return_value = (20, None)
+        helper.editor.create_footstep = MagicMock(return_value=(False, "missing_file"))
+
+        out, err = helper.create_footstep(
+            "evt-1",
+            {
+                "start_frame": 1,
+                "end_frame": 5,
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+                "label": None,
+            },
+        )
+
+        assert out is None
+        assert err == "missing_file"
+        fake_db.create_local_footstep.assert_not_called()
+
+    @pytest.mark.unit
+    def test_create_footstep_updates_existing_local_row_on_retry(
+        self, helper, common, fake_db
+    ):
+        event = SimpleNamespace()
+        common._require_event.return_value = (event, None)
+        common._get_p100.return_value = (np.array([[1.0, 2.0], [3.0, 4.0]]), None)
+        common._get_trial_frame_count.return_value = (20, None)
+        helper.editor.create_footstep = MagicMock(return_value=(9, None))
+        fake_db.get_single_footstep.return_value = SimpleNamespace(footstep_id=9)
+        fake_db.update_local_footstep.return_value = SimpleNamespace(
+            footstep_id=9,
+            start_frame=1,
+            end_frame=5,
+            x_min=0,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label=None,
+        )
+
+        out, err = helper.create_footstep(
+            "evt-1",
+            {
+                "start_frame": 1,
+                "end_frame": 5,
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+                "label": None,
+            },
+        )
+
+        assert err is None
+        assert out is not None
+        fake_db.create_local_footstep.assert_not_called()
+        fake_db.update_local_footstep.assert_called_once_with(
+            "evt-1",
+            9,
+            {
+                "start_frame": 1,
+                "end_frame": 5,
+                "x_min": 0,
+                "x_max": 2,
+                "y_min": 0,
+                "y_max": 2,
+                "label": None,
+            },
         )

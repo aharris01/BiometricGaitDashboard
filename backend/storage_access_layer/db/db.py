@@ -330,6 +330,7 @@ class DB:
         self,
         event_id: str,
         *,
+        footstep_id: int | None = None,
         start_frame: int,
         end_frame: int,
         x_min: int,
@@ -340,7 +341,11 @@ class DB:
     ):
         # Create one new local footstep row and log the create action.
         with self._get_session() as session:
-            next_footstep_id = self.get_next_local_footstep_id(event_id)
+            next_footstep_id = (
+                int(footstep_id)
+                if footstep_id is not None
+                else self.get_next_local_footstep_id(event_id)
+            )
 
             row = LocalFootstep(
                 event_id=event_id,

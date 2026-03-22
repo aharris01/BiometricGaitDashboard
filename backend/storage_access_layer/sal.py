@@ -99,6 +99,9 @@ class SAL:
     ):
         return self.footsteps.create_footstep(event_id, new_footstep)
 
+    def create_draft_footstep(self, event_id: str, draft_footstep: dict):
+        return self.footsteps.create_draft_footstep(event_id, draft_footstep)
+
     def delete_footstep(self, event_id: str, footstep_id: int):
         return self.footsteps.delete_footstep(event_id, footstep_id)
 

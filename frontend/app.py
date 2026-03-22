@@ -51,7 +51,17 @@ app.clientside_callback(
 
 app.clientside_callback(
     """
-    function(viewDraftClicks, closeClicks, cancelCreateClicks, reviewStore, currentRequest) {
+    function(
+        viewDraftClicks,
+        closeClicks,
+        cancelCreateClicks,
+        reviewStore,
+        currentRequest,
+        xMin,
+        xMax,
+        yMin,
+        yMax
+    ) {
         const noUpdate = window.dash_clientside.no_update;
         const review = reviewStore || {};
         const triggered = window.dash_clientside.callback_context.triggered_id;
@@ -65,20 +75,16 @@ app.clientside_callback(
         }
 
         if (triggered === "btn-create-footstep") {
-            const item = review.review.item || {};
-            const bbox = review.review.bbox || {};
             return [
                 {"display": "flex"},
                 {
                     token: Date.now(),
                     event_id: review.event_id,
                     footstep_id: review.footstep_id,
-                    start_frame: item.start_frame,
-                    end_frame: item.end_frame,
-                    x_min: bbox.x_min,
-                    x_max: bbox.x_max,
-                    y_min: bbox.y_min,
-                    y_max: bbox.y_max
+                    x_min: xMin,
+                    x_max: xMax,
+                    y_min: yMin,
+                    y_max: yMax
                 }
             ];
         }
@@ -93,6 +99,10 @@ app.clientside_callback(
     Input("btn-cancel-create-footstep", "n_clicks"),
     Input("footstep-review-store", "data"),
     State("footstep-draft-request-store", "data"),
+    State("footstep-review-x-min", "value"),
+    State("footstep-review-x-max", "value"),
+    State("footstep-review-y-min", "value"),
+    State("footstep-review-y-max", "value"),
 )
 
 

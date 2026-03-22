@@ -414,6 +414,29 @@ def create_footstep(
     )
 
 
+def create_draft_footstep(
+    event_id: str,
+    *,
+    x_min: int,
+    x_max: int,
+    y_min: int,
+    y_max: int,
+    logger=None,
+):
+    return post_json(
+        f"{API_BASE_URL}/api/footsteps/{event_id}/draft",
+        payload={
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_min,
+            "y_max": y_max,
+        },
+        context="create_draft_footstep",
+        logger=logger,
+        timeout=None,
+    )
+
+
 # Delete Function Helper Function
 def delete_footstep(
     event_id: str,

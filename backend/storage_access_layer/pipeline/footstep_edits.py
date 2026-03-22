@@ -199,6 +199,53 @@ class FootstepEditor:
 
         return True, None
 
+    def create_draft_footstep(self, event_id: str, new_footstep, frame_padding: int = 20):
+        event, event_err = self.common._require_event(event_id)
+        if event_err or event is None:
+            return None, event_err
+
+        trial_recording, trial_recording_err = self.common._load_trial_recording(event)
+        if trial_recording_err or trial_recording is None:
+            current_app.logger.error(
+                f"Error loading trial recording: {trial_recording_err}"
+            )
+            return None, trial_recording_err
+
+        x_min, x_max, y_min, y_max = _extract_bbox(new_footstep)
+
+        frame_count, height, width = trial_recording.shape
+        if x_min < 0 or y_min < 0 or x_min >= x_max or y_min >= y_max:
+            return None, "invalid_bbox"
+        if x_max > width or y_max > height:
+            return None, "invalid_bbox"
+
+        spatial_slice = trial_recording[:, y_min:y_max, x_min:x_max]
+        pressure_over_time = np.any(spatial_slice != 0, axis=(1, 2))
+        active_frames = np.flatnonzero(pressure_over_time)
+
+        if active_frames.size == 0:
+            return None, "no_pressure_data"
+
+        start_frame = max(0, int(active_frames[0]) - frame_padding)
+        end_frame = min(frame_count, int(active_frames[-1]) + frame_padding + 1)
+
+        return (
+            {
+                "StartFrame": start_frame,
+                "EndFrame": end_frame,
+                "XMin": x_min,
+                "XMax": x_max,
+                "YMin": y_min,
+                "YMax": y_max,
+                "time_recording": trial_recording[
+                    start_frame:end_frame,
+                    y_min:y_max,
+                    x_min:x_max,
+                ],
+            },
+            None,
+        )
+
     def create_footstep(self, event_id: str, new_footstep):
         # validate footstep_id and event_id
         event, event_err = self.common._require_event(event_id)
@@ -220,12 +267,8 @@ class FootstepEditor:
             current_app.logger.error(f"Error loading p100 data: {p100_err}")
             return False, p100_err
 
-        start_frame = int(new_footstep.get("StartFrame", new_footstep["start_frame"]))
-        end_frame = int(new_footstep.get("EndFrame", new_footstep["end_frame"]))
-        x_min = int(new_footstep.get("XMin", new_footstep["x_min"]))
-        x_max = int(new_footstep.get("XMax", new_footstep["x_max"]))
-        y_min = int(new_footstep.get("YMin", new_footstep["y_min"]))
-        y_max = int(new_footstep.get("YMax", new_footstep["y_max"]))
+        start_frame, end_frame = _extract_frame_range(new_footstep)
+        x_min, x_max, y_min, y_max = _extract_bbox(new_footstep)
 
         new_row: dict[str, Any]
         if metadata_df.empty:
@@ -365,6 +408,38 @@ class FootstepEditor:
             return False, update_csv_err
 
         return new_footstep_id, None
+
+
+def _extract_bbox(new_footstep) -> tuple[int, int, int, int]:
+    x_min = new_footstep["XMin"] if "XMin" in new_footstep else new_footstep["x_min"]
+    x_max = new_footstep["XMax"] if "XMax" in new_footstep else new_footstep["x_max"]
+    y_min = new_footstep["YMin"] if "YMin" in new_footstep else new_footstep["y_min"]
+    y_max = new_footstep["YMax"] if "YMax" in new_footstep else new_footstep["y_max"]
+
+    return (
+        int(x_min),
+        int(x_max),
+        int(y_min),
+        int(y_max),
+    )
+
+
+def _extract_frame_range(new_footstep) -> tuple[int, int]:
+    start_frame = (
+        new_footstep["StartFrame"]
+        if "StartFrame" in new_footstep
+        else new_footstep["start_frame"]
+    )
+    end_frame = (
+        new_footstep["EndFrame"]
+        if "EndFrame" in new_footstep
+        else new_footstep["end_frame"]
+    )
+
+    return (
+        int(start_frame),
+        int(end_frame),
+    )
 
 
 def _update_csv(metadata_df, metadata_file_path):

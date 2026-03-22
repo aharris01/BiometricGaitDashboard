@@ -517,6 +517,89 @@ class TestFootstepEditorSuccessPaths:
         with ZipFile(trial_dir / "steps.raw.npz") as archive:
             assert sorted(archive.namelist()) == ["6.npy"]
 
+    def test_create_draft_footstep_returns_active_time_window_and_bbox(
+        self, flask_app, editor, common, event
+    ):
+        trial_recording = np.zeros((120, 80, 90), dtype=float)
+        trial_recording[30:61, 10:30, 5:25] = 1.0
+
+        common._require_event.return_value = (event, None)
+        common._load_trial_recording.return_value = (trial_recording, None)
+
+        with flask_app.app_context():
+            draft, err = editor.create_draft_footstep(
+                "event-1",
+                {
+                    "x_min": 5,
+                    "x_max": 25,
+                    "y_min": 10,
+                    "y_max": 30,
+                },
+            )
+
+        assert err is None
+        assert draft is not None
+        assert draft["StartFrame"] == 10
+        assert draft["EndFrame"] == 81
+        assert draft["XMin"] == 5
+        assert draft["XMax"] == 25
+        assert draft["YMin"] == 10
+        assert draft["YMax"] == 30
+        np.testing.assert_array_equal(
+            draft["time_recording"],
+            trial_recording[10:81, 10:30, 5:25],
+        )
+
+    def test_create_draft_footstep_returns_error_when_bbox_has_no_pressure(
+        self, flask_app, editor, common, event
+    ):
+        common._require_event.return_value = (event, None)
+        common._load_trial_recording.return_value = (
+            np.zeros((120, 80, 90), dtype=float),
+            None,
+        )
+
+        with flask_app.app_context():
+            draft, err = editor.create_draft_footstep(
+                "event-1",
+                {
+                    "x_min": 5,
+                    "x_max": 25,
+                    "y_min": 10,
+                    "y_max": 30,
+                },
+            )
+
+        assert draft is None
+        assert err == "no_pressure_data"
+
+    def test_create_draft_footstep_accepts_uppercase_bbox_keys(
+        self, flask_app, editor, common, event
+    ):
+        trial_recording = np.zeros((80, 40, 40), dtype=float)
+        trial_recording[12:20, 6:12, 4:10] = 1.0
+
+        common._require_event.return_value = (event, None)
+        common._load_trial_recording.return_value = (trial_recording, None)
+
+        with flask_app.app_context():
+            draft, err = editor.create_draft_footstep(
+                "event-1",
+                {
+                    "XMin": 4,
+                    "XMax": 10,
+                    "YMin": 6,
+                    "YMax": 12,
+                },
+            )
+
+        assert err is None
+        assert draft is not None
+        assert draft["XMin"] == 4
+        assert draft["XMax"] == 10
+        assert draft["YMin"] == 6
+        assert draft["YMax"] == 12
+
     def test_create_footstep_inserts_by_start_frame_and_renumbers_following_ids(
         self, flask_app, editor, common, event, monkeypatch
     ):

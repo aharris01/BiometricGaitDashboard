@@ -2,7 +2,10 @@ from datetime import date
 
 import numpy as np
 
-from backend.src.routes.footsteps import CreateFootstepRequestPayload
+from backend.src.routes.footsteps import (
+    CreateFootstepRequestPayload,
+    DraftFootstepRequestPayload,
+)
 from backend.storage_access_layer.pipeline.footstep_edits import FootstepEditor
 from backend.scripts.calc_metrics import calculate_all_metrics
 from backend.storage_access_layer.utils import uri_to_path
@@ -241,20 +244,107 @@ class SalFootsteps:
         if new_footstep["label"] is not None:
             label = str(new_footstep["label"]).strip() or None
 
-        footstep = self.db.create_local_footstep(
+        new_footstep_id, create_err = self.editor.create_footstep(
             event_id,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            x_min=x_min,
-            x_max=x_max,
-            y_min=y_min,
-            y_max=y_max,
-            label=label,
+            {
+                "start_frame": start_frame,
+                "end_frame": end_frame,
+                "x_min": x_min,
+                "x_max": x_max,
+                "y_min": y_min,
+                "y_max": y_max,
+            },
         )
+        if create_err or new_footstep_id is False:
+            return None, create_err or "missing_file"
+
+        existing_footstep = self.db.get_single_footstep(event_id, int(new_footstep_id))
+        if existing_footstep is not None:
+            footstep = self.db.update_local_footstep(
+                event_id,
+                int(new_footstep_id),
+                {
+                    "start_frame": start_frame,
+                    "end_frame": end_frame,
+                    "x_min": x_min,
+                    "x_max": x_max,
+                    "y_min": y_min,
+                    "y_max": y_max,
+                    "label": label,
+                },
+            )
+        else:
+            footstep = self.db.create_local_footstep(
+                event_id,
+                footstep_id=int(new_footstep_id),
+                start_frame=start_frame,
+                end_frame=end_frame,
+                x_min=x_min,
+                x_max=x_max,
+                y_min=y_min,
+                y_max=y_max,
+                label=label,
+            )
+
         if footstep is None:
             return None, "missing_file"
 
         return self._create_review_payload(event_id, p100, footstep), None
+
+    def create_draft_footstep(
+        self, event_id: str, draft_footstep: DraftFootstepRequestPayload
+    ):
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
+            return None, err
+
+        p100, p100_err = self.common._get_p100(event)
+        if p100_err or p100 is None:
+            return None, p100_err
+
+        x_min = int(draft_footstep["x_min"])
+        x_max = int(draft_footstep["x_max"])
+        y_min = int(draft_footstep["y_min"])
+        y_max = int(draft_footstep["y_max"])
+
+        bbox_valid, valid_err = _validate_bounding_box(
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            0,
+            1,
+            p100,
+            self.common,
+        )
+        if valid_err or not bbox_valid:
+            return None, valid_err
+
+        draft, draft_err = self.editor.create_draft_footstep(
+            event_id,
+            {
+                "XMin": x_min,
+                "XMax": x_max,
+                "YMin": y_min,
+                "YMax": y_max,
+            },
+        )
+        if draft_err or draft is None:
+            return None, draft_err or "missing_file"
+
+        time_recording = np.asarray(draft["time_recording"])
+
+        return {
+            "event_id": event_id,
+            "start_frame": int(draft["StartFrame"]),
+            "end_frame": int(draft["EndFrame"]),
+            "x_min": int(draft["XMin"]),
+            "x_max": int(draft["XMax"]),
+            "y_min": int(draft["YMin"]),
+            "y_max": int(draft["YMax"]),
+            "depth": int(time_recording.shape[0]),
+            "volume": time_recording.tolist(),
+        }, None
 
     def delete_footstep(self, event_id: str, footstep_id: int):
         event, err = self.common._require_event(event_id)

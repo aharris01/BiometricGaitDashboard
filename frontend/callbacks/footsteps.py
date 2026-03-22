@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from frontend.api import (
+    create_draft_footstep,
     create_footstep,
     delete_footstep,
     get_date_bounds,
@@ -435,6 +436,25 @@ def _make_draft_preview_figure(
     fig.update_xaxes(constrain="domain", scaleanchor="y")
     fig.update_yaxes(autorange="reversed", constrain="domain")
     return fig
+
+
+def _resolve_draft_depth_range(
+    *,
+    slider_max: int,
+    depth_range: list[int] | None,
+    reset_range: bool,
+) -> list[int]:
+    if reset_range or not depth_range or len(depth_range) != 2:
+        return [0, slider_max]
+
+    start_idx = max(0, min(slider_max, int(depth_range[0])))
+    end_idx = max(0, min(slider_max, int(depth_range[1])))
+    if start_idx > end_idx:
+        start_idx, end_idx = end_idx, start_idx
+
+    return [start_idx, end_idx]
+
+
 def register(app, *, cmap):
     @callback(
         Output("footstep-participant-filter", "options"),
@@ -1180,28 +1200,24 @@ def register(app, *, cmap):
         Input("footstep-draft-request-store", "data"),
         prevent_initial_call=True,
     )
-    def build_fake_footstep_draft(request_data):
+    def build_footstep_draft(request_data):
         if not request_data:
             raise PreventUpdate
 
-        width = max(
-            8,
-            int(request_data.get("x_max", 0)) - int(request_data.get("x_min", 0)) + 1,
-        )
-        height = max(
-            8,
-            int(request_data.get("y_max", 0)) - int(request_data.get("y_min", 0)) + 1,
-        )
-        start_frame = int(request_data.get("start_frame", 0) or 0)
-        end_frame = int(request_data.get("end_frame", start_frame + 5) or (start_frame + 5))
-        depth = max(2, abs(end_frame - start_frame) + 1)
-        volume = _make_fake_draft_volume(width=width, height=height, depth=depth)
+        event_id = str(request_data["event_id"])
+        x_min = int(request_data["x_min"])
+        x_max = int(request_data["x_max"])
+        y_min = int(request_data["y_min"])
+        y_max = int(request_data["y_max"])
 
-        return {
-            "event_id": request_data.get("event_id"),
-            "depth": depth,
-            "volume": volume,
-        }
+        return create_draft_footstep(
+            event_id,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+            logger=app.logger,
+        )
 
     @callback(
         Output("footstep-draft-range-slider", "min"),
@@ -1226,15 +1242,14 @@ def register(app, *, cmap):
             )
 
         volume = draft_store["volume"]
-        depth = int(draft_store.get("depth", len(volume)))
+        depth = len(volume)
         slider_max = max(0, depth - 1)
-        if not depth_range or len(depth_range) != 2:
-            depth_range = [0, slider_max]
-
-        start_idx = max(0, min(slider_max, int(depth_range[0])))
-        end_idx = max(0, min(slider_max, int(depth_range[1])))
-        if start_idx > end_idx:
-            start_idx, end_idx = end_idx, start_idx
+        resolved_range = _resolve_draft_depth_range(
+            slider_max=slider_max,
+            depth_range=depth_range,
+            reset_range=ctx.triggered_id == "footstep-draft-store",
+        )
+        start_idx, end_idx = resolved_range
 
         marks = {
             idx: str(idx)
@@ -1246,9 +1261,9 @@ def register(app, *, cmap):
         return (
             0,
             slider_max,
-            [start_idx, end_idx],
+            resolved_range,
             marks,
-            _make_draft_preview_figure(volume, [start_idx, end_idx], cmap),
+            _make_draft_preview_figure(volume, resolved_range, cmap),
             (
                 f"Depth range: [{start_idx}, {end_idx}] | "
                 f"Projected image shape: {np.asarray(projected).shape if projected is not None else 'N/A'} | "

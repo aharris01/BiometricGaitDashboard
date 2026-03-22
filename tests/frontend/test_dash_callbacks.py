@@ -5,7 +5,7 @@ import requests
 from dash.exceptions import PreventUpdate
 
 import frontend.api as api
-from frontend.callbacks.footsteps import _review_label_value
+from frontend.callbacks.footsteps import _resolve_draft_depth_range, _review_label_value
 from frontend.utils import require_values
 
 pytestmark = pytest.mark.unit
@@ -90,6 +90,26 @@ def test_require_values_all_present_ok():
         direction="in",
         event=1,
     )
+
+
+def test_resolve_draft_depth_range_resets_to_full_span_for_new_draft():
+    out = _resolve_draft_depth_range(
+        slider_max=101,
+        depth_range=[0, 0],
+        reset_range=True,
+    )
+
+    assert out == [0, 101]
+
+
+def test_resolve_draft_depth_range_preserves_manual_slider_selection():
+    out = _resolve_draft_depth_range(
+        slider_max=101,
+        depth_range=[12, 48],
+        reset_range=False,
+    )
+
+    assert out == [12, 48]
 
 
 # ------------------------------------------------------------
@@ -200,6 +220,35 @@ def test_get_event_footstep_p100s(monkeypatch):
     out = api.get_event_footstep_p100s("evt-1")
 
     assert out == {"items": []}
+
+
+def test_create_draft_footstep_posts_bbox(monkeypatch):
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None):
+        captured["url"] = url
+        captured["json"] = json
+        captured["timeout"] = timeout
+        return StubResponse({"depth": 3, "volume": [[[1]], [[2]], [[3]]]})
+
+    monkeypatch.setattr(api.requests, "post", fake_post)
+
+    out = api.create_draft_footstep(
+        "evt-1",
+        x_min=1,
+        x_max=5,
+        y_min=2,
+        y_max=6,
+    )
+
+    assert captured["url"].endswith("/api/footsteps/evt-1/draft")
+    assert captured["json"] == {
+        "x_min": 1,
+        "x_max": 5,
+        "y_min": 2,
+        "y_max": 6,
+    }
+    assert out["depth"] == 3
 
 
 def test_fetch_json_logs_on_error(monkeypatch):
