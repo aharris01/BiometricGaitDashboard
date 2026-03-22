@@ -705,19 +705,22 @@ def register(app, *, cmap):
         )
 
     @callback(
+        Output("footstep-context-title", "children"),
         Output("footstep-context-meta", "children"),
         Output("footstep-context-p100-graph", "figure"),
         Output("footstep-context-grf-graph", "figure"),
         Input("footstep-context-store", "data"),
+        State("footstep-results-store", "data"),
         prevent_initial_call=False,
     )
-    def populate_footstep_context_panel(context_store):
+    def populate_footstep_context_panel(context_store, visible_items):
         if (
             not context_store
             or not context_store.get("open")
             or not context_store.get("details")
         ):
             return (
+                "Footstep Context",
                 "Click a thumbnail to inspect that footstep.",
                 _placeholder_figure("No footstep selected.", height=260),
                 _placeholder_figure("No GRF data to display yet.", height=220),
@@ -726,8 +729,19 @@ def register(app, *, cmap):
         event_id = str(context_store["event_id"])
         footstep_id = int(context_store["footstep_id"])
         details = context_store["details"] or {}
+        step_number = _find_step_number(
+            visible_items,
+            event_id=event_id,
+            footstep_id=footstep_id,
+        )
+        title = (
+            f"Footstep Context: {step_number}"
+            if step_number is not None
+            else "Footstep Context"
+        )
 
         return (
+            title,
             f"Event ID: {event_id}\nBackend Footstep ID: {footstep_id}",
             _make_context_p100_figure(details.get("p100"), cmap),
             _make_context_grf_figure(details.get("grf")),

@@ -325,6 +325,7 @@ def FootstepView():
                                                 children=[
                                                     html.H3(
                                                         "Footstep Context",
+                                                        id="footstep-context-title",
                                                         className="panel-title",
                                                     ),
                                                 ],

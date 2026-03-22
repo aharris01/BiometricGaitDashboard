@@ -324,6 +324,7 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(context_header, html.Div)
     context_header_children = children_list(context_header)
     assert isinstance(context_header_children[0], html.H3)
+    assert props(context_header_children[0])["id"] == "footstep-context-title"
     assert props(context_header_children[0])["children"] == "Footstep Context"
 
     assert isinstance(context_meta, html.Div)
