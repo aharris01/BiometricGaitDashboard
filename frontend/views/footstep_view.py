@@ -282,9 +282,6 @@ def FootstepView():
                             html.Div(
                                 className="footstep-top-main",
                                 children=[
-                                    # -------------------------------------------------
-                                    # Right panel: footstep search results
-                                    # -------------------------------------------------
                                     html.Div(
                                         className="footstep-results-panel",
                                         children=[
@@ -324,39 +321,6 @@ def FootstepView():
                                             ),
                                         ],
                                     ),
-                                    html.Div(
-                                        id="footstep-context-panel",
-                                        className="footstep-context-panel",
-                                        children=[
-                                            html.Div(
-                                                className="panel-header",
-                                                children=[
-                                                    html.H3(
-                                                        "Footstep Context",
-                                                        id="footstep-context-title",
-                                                        className="panel-title",
-                                                    ),
-                                                ],
-                                            ),
-                                            html.Div(
-                                                id="footstep-context-meta",
-                                                className="footstep-context-meta",
-                                                children="Click a thumbnail to inspect that footstep.",
-                                            ),
-                                            dcc.Graph(
-                                                id="footstep-context-p100-graph",
-                                                className="footstep-context-p100-graph",
-                                                style={"height": "360px"},
-                                                config={"displaylogo": False},
-                                            ),
-                                            dcc.Graph(
-                                                id="footstep-context-grf-graph",
-                                                className="footstep-context-grf-graph",
-                                                style={"height": "220px"},
-                                                config={"displaylogo": False},
-                                            ),
-                                        ],
-                                    ),
                                 ],
                             ),
                         ],
@@ -364,6 +328,39 @@ def FootstepView():
                     html.Div(
                         className="footstep-row footstep-bottom-row",
                         children=[
+                            html.Div(
+                                id="footstep-context-panel",
+                                className="footstep-context-panel",
+                                children=[
+                                    html.Div(
+                                        className="panel-header",
+                                        children=[
+                                            html.H3(
+                                                "Footstep Context",
+                                                id="footstep-context-title",
+                                                className="panel-title",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        id="footstep-context-meta",
+                                        className="footstep-context-meta",
+                                        children="Click a thumbnail to inspect that footstep.",
+                                    ),
+                                    dcc.Graph(
+                                        id="footstep-context-p100-graph",
+                                        className="footstep-context-p100-graph",
+                                        style={"height": "360px"},
+                                        config={"displaylogo": False},
+                                    ),
+                                    dcc.Graph(
+                                        id="footstep-context-grf-graph",
+                                        className="footstep-context-grf-graph",
+                                        style={"height": "220px"},
+                                        config={"displaylogo": False},
+                                    ),
+                                ],
+                            ),
                             html.Div(
                                 id="footstep-review-panel",
                                 className="footstep-review-panel",

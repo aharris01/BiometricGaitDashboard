@@ -146,21 +146,22 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert props(top_main)["className"] == "footstep-top-main"
 
     top_main_children = children_list(top_main)
-    assert len(top_main_children) == 2
+    assert len(top_main_children) == 1
 
     results_panel = top_main_children[0]
-    context_panel = top_main_children[1]
 
     assert isinstance(results_panel, html.Div)
     assert props(results_panel)["className"] == "footstep-results-panel"
 
+    bottom_row_children = children_list(bottom_row)
+    assert len(bottom_row_children) == 2
+
+    context_panel = bottom_row_children[0]
+    review_panel = bottom_row_children[1]
+
     assert isinstance(context_panel, html.Div)
     assert props(context_panel)["id"] == "footstep-context-panel"
     assert props(context_panel)["className"] == "footstep-context-panel"
-
-    bottom_row_children = children_list(bottom_row)
-    assert len(bottom_row_children) == 1
-    review_panel = bottom_row_children[0]
 
     assert isinstance(review_panel, html.Div)
     assert props(review_panel)["id"] == "footstep-review-panel"
