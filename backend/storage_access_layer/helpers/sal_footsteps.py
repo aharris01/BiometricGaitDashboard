@@ -317,6 +317,49 @@ class SalFootsteps:
 
         return step_p100.tolist(), step_grf.tolist(), None
 
+    def get_footstep_context_data(self, event_id: str, step_id: int):
+        event, err = self.common._require_event(event_id)
+        if err:
+            return None, err
+
+        steps_npz, steps_err = self.common._load_steps_npz(event)
+        if steps_err or steps_npz is None:
+            return None, steps_err
+
+        key = str(step_id)
+        if key not in steps_npz.files:
+            return None, "missing_file"
+
+        vol = steps_npz[key]  # (T, H, W)
+        step_p100 = vol.max(axis=0)  # (H, W)
+        step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+
+        y_coords = np.arange(vol.shape[1], dtype=float)[None, :, None]
+        x_coords = np.arange(vol.shape[2], dtype=float)[None, None, :]
+
+        cop_x_num = (vol * x_coords).sum(axis=(1, 2))
+        cop_y_num = (vol * y_coords).sum(axis=(1, 2))
+
+        cop_x = np.divide(
+            cop_x_num,
+            step_grf,
+            out=np.full(step_grf.shape, np.nan, dtype=float),
+            where=step_grf != 0,
+        )
+        cop_y = np.divide(
+            cop_y_num,
+            step_grf,
+            out=np.full(step_grf.shape, np.nan, dtype=float),
+            where=step_grf != 0,
+        )
+
+        return {
+            "p100": step_p100.tolist(),
+            "grf": step_grf.tolist(),
+            "cop_x": cop_x.tolist(),
+            "cop_y": cop_y.tolist(),
+        }, None
+
     # Return the max-pressure image for every footstep in one event.
     # This is mainly used by the summary view when many footsteps
     # need to be shown without loading each one separately.

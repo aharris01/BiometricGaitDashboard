@@ -273,6 +273,34 @@ def _make_context_grf_figure(grf: list[float] | None):
     return fig
 
 
+def _make_context_cop_figure(
+    cop_x: list[float] | None,
+    cop_y: list[float] | None,
+):
+    if not cop_x and not cop_y:
+        return _placeholder_figure("COP not available for this footstep.", height=220)
+
+    fig = go.Figure()
+    if cop_x:
+        fig.add_trace(
+            go.Scatter(y=list(cop_x), mode="lines", name="COP X", line=dict(color="#dc2626"))
+        )
+    if cop_y:
+        fig.add_trace(
+            go.Scatter(y=list(cop_y), mode="lines", name="COP Y", line=dict(color="#059669"))
+        )
+    fig.update_layout(
+        height=220,
+        margin=dict(l=30, r=20, t=10, b=30),
+        xaxis_title="Frame",
+        yaxis_title="COP",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+    )
+    return fig
+
+
 def register(app, *, cmap):
     @callback(
         Output("footstep-participant-filter", "options"),
@@ -709,6 +737,7 @@ def register(app, *, cmap):
         Output("footstep-context-meta", "children"),
         Output("footstep-context-p100-graph", "figure"),
         Output("footstep-context-grf-graph", "figure"),
+        Output("footstep-context-cop-graph", "figure"),
         Input("footstep-context-store", "data"),
         State("footstep-results-store", "data"),
         prevent_initial_call=False,
@@ -724,6 +753,7 @@ def register(app, *, cmap):
                 "Click a thumbnail to inspect that footstep.",
                 _placeholder_figure("No footstep selected.", height=260),
                 _placeholder_figure("No GRF data to display yet.", height=220),
+                _placeholder_figure("No COP data to display yet.", height=220),
             )
 
         event_id = str(context_store["event_id"])
@@ -745,6 +775,7 @@ def register(app, *, cmap):
             f"Event ID: {event_id}\nBackend Footstep ID: {footstep_id}",
             _make_context_p100_figure(details.get("p100"), cmap),
             _make_context_grf_figure(details.get("grf")),
+            _make_context_cop_figure(details.get("cop_x"), details.get("cop_y")),
         )
 
     @callback(

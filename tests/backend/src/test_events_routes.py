@@ -148,8 +148,11 @@ def test_event_footsteps_p100s_missing_file_returns_empty_list(app_factory):
 
 
 class FakeSALFootstepDetail(FakeSAL):
-    def get_footstep_data(self, event_id: str, step_id: int):
-        return ([1, 2], [0.1, 0.2], None)
+    def get_footstep_context_data(self, event_id: str, step_id: int):
+        return (
+            {"p100": [1, 2], "grf": [0.1, 0.2], "cop_x": [0.0, 1.0], "cop_y": [1.0, 0.0]},
+            None,
+        )
 
 
 def test_event_footstep_detail_ok(app_factory):
@@ -160,11 +163,13 @@ def test_event_footstep_detail_ok(app_factory):
         data = resp.get_json()
         assert "p100" in data
         assert "grf" in data
+        assert "cop_x" in data
+        assert "cop_y" in data
 
 
 class FakeSALFootstepDetailMissingEvent(FakeSAL):
-    def get_footstep_data(self, event_id: str, step_id: int):
-        return (None, None, "missing_event")
+    def get_footstep_context_data(self, event_id: str, step_id: int):
+        return (None, "missing_event")
 
 
 def test_event_footstep_detail_missing_event(app_factory):
@@ -175,8 +180,8 @@ def test_event_footstep_detail_missing_event(app_factory):
 
 
 class FakeSALFootstepDetailMissingFile(FakeSAL):
-    def get_footstep_data(self, event_id: str, step_id: int):
-        return (None, None, "missing_file")
+    def get_footstep_context_data(self, event_id: str, step_id: int):
+        return (None, "missing_file")
 
 
 def test_event_footstep_detail_missing_file(app_factory):

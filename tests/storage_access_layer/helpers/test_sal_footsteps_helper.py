@@ -110,6 +110,31 @@ class TestGetFootstep:
         assert p100 is None and grf is None
         assert err == "missing_file"
 
+    @pytest.mark.unit
+    def test_get_footstep_context_data_includes_cop(self, tmp_path, helper, common):
+        trial = tmp_path / "trial.npz"
+        np.savez(trial, arr_0=np.zeros((2, 2)))
+        steps_path = trial.with_name("steps.npz")
+        step_vol = np.array(
+            [
+                [[1.0, 0.0], [0.0, 0.0]],
+                [[0.0, 0.0], [0.0, 2.0]],
+            ]
+        )
+        _write_npz_with_numeric_keys(steps_path, {"0": step_vol})
+
+        event = SimpleNamespace(trial_npz_uri=trial.as_uri())
+        common._require_event.return_value = (event, None)
+        common._load_steps_npz.return_value = (np.load(steps_path), None)
+
+        details, err = helper.get_footstep_context_data("evt-1", 0)
+
+        assert err is None
+        assert details["p100"] == [[1.0, 0.0], [0.0, 2.0]]
+        assert details["grf"] == [1.0, 2.0]
+        assert details["cop_x"] == [0.0, 1.0]
+        assert details["cop_y"] == [0.0, 1.0]
+
 
 class TestSaveFootstepReview:
     def _valid_edits(self):

@@ -347,6 +347,12 @@ def FootstepView():
                                                 style={"height": "220px"},
                                                 config={"displaylogo": False},
                                             ),
+                                            dcc.Graph(
+                                                id="footstep-context-cop-graph",
+                                                className="footstep-context-cop-graph",
+                                                style={"height": "220px"},
+                                                config={"displaylogo": False},
+                                            ),
                                         ],
                                     ),
                                 ],

@@ -314,12 +314,13 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     # Context panel
     # --------------------------------------------
     context_children = children_list(context_panel)
-    assert len(context_children) == 4
+    assert len(context_children) == 5
 
     context_header = context_children[0]
     context_meta = context_children[1]
     context_p100 = context_children[2]
     context_grf = context_children[3]
+    context_cop = context_children[4]
 
     assert isinstance(context_header, html.Div)
     context_header_children = children_list(context_header)
@@ -339,3 +340,6 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
 
     assert isinstance(context_grf, dcc.Graph)
     assert props(context_grf)["id"] == "footstep-context-grf-graph"
+
+    assert isinstance(context_cop, dcc.Graph)
+    assert props(context_cop)["id"] == "footstep-context-cop-graph"
