@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, TypeAlias, TypeVar, Literal
 
@@ -22,6 +24,7 @@ class CommonHelper:
         self._trial_recording_cache_dir = (
             Path(tempfile.gettempdir()) / "biometric_gait_dashboard"
         )
+        self._trial_recording_cache_ttl_seconds = 24 * 60 * 60
 
     def _require_event(self, event_id: str) -> Result[SwipeEvent]:
         event = self.db.get_swipe_event(event_id)
@@ -65,11 +68,32 @@ class CommonHelper:
     def _get_trial_recording_cache_path(self, event_id: str) -> Path:
         return self._trial_recording_cache_dir / f"{event_id}.trial.npy"
 
+    def _prune_trial_recording_cache(self) -> None:
+        if not self._trial_recording_cache_dir.exists():
+            return
+
+        cutoff = time.time() - self._trial_recording_cache_ttl_seconds
+        for cache_path in self._trial_recording_cache_dir.glob("*.trial.npy"):
+            try:
+                if cache_path.stat().st_mtime < cutoff:
+                    cache_path.unlink()
+            except FileNotFoundError:
+                continue
+            except Exception:
+                continue
+
+    def _touch_trial_recording_cache(self, cache_path: Path) -> None:
+        try:
+            os.utime(cache_path, None)
+        except Exception:
+            return
+
     def _load_trial_recording(self, event: SwipeEvent) -> Result[np.ndarray]:
         event_id = getattr(event, "event_id", None)
         if not isinstance(event_id, str) or not event_id:
             return None, "missing_event"
 
+        self._prune_trial_recording_cache()
         cache_path = self._get_trial_recording_cache_path(event_id)
         if cache_path.exists():
             try:
@@ -78,6 +102,7 @@ class CommonHelper:
                 pass
             else:
                 if isinstance(cached, np.ndarray):
+                    self._touch_trial_recording_cache(cache_path)
                     return cached, None
 
         array, arr_err = self._load_npz_from_uri(event.trial_npz_uri)
@@ -97,6 +122,7 @@ class CommonHelper:
 
         if not isinstance(cached, np.ndarray):
             return array, None
+        self._touch_trial_recording_cache(cache_path)
         return cached, None
 
     def _load_steps_npz(self, event: Any):

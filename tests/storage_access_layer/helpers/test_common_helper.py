@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -108,3 +110,46 @@ def test_load_trial_recording_rebuilds_cache_when_cache_file_is_missing(tmp_path
     assert err is None
     np.testing.assert_array_equal(loaded, array)
     assert cache_path.exists()
+
+
+@pytest.mark.unit
+def test_load_trial_recording_prunes_stale_cache_files(tmp_path, common):
+    trial = tmp_path / "trial.npz"
+    array = np.arange(24, dtype=np.uint16).reshape(2, 3, 4)
+    np.savez_compressed(trial, arr_0=array)
+    event = SimpleNamespace(event_id="evt-4", trial_npz_uri=trial.as_uri())
+    common._trial_recording_cache_dir = tmp_path / "cache"
+
+    stale_cache_path = common._get_trial_recording_cache_path("old-event")
+    stale_cache_path.parent.mkdir(parents=True, exist_ok=True)
+    np.save(stale_cache_path, array, allow_pickle=False)
+    old_mtime = time.time() - (common._trial_recording_cache_ttl_seconds + 60)
+    os.utime(stale_cache_path, (old_mtime, old_mtime))
+
+    loaded, err = common._load_trial_recording(event)
+
+    assert err is None
+    np.testing.assert_array_equal(loaded, array)
+    assert not stale_cache_path.exists()
+
+
+@pytest.mark.unit
+def test_load_trial_recording_refreshes_cache_timestamp_on_access(tmp_path, common):
+    trial = tmp_path / "trial.npz"
+    array = np.arange(24, dtype=np.uint16).reshape(2, 3, 4)
+    np.savez_compressed(trial, arr_0=array)
+    event = SimpleNamespace(event_id="evt-5", trial_npz_uri=trial.as_uri())
+    common._trial_recording_cache_dir = tmp_path / "cache"
+
+    _, first_err = common._load_trial_recording(event)
+    assert first_err is None
+
+    cache_path = common._get_trial_recording_cache_path("evt-5")
+    stale_mtime = time.time() - 60
+    os.utime(cache_path, (stale_mtime, stale_mtime))
+
+    loaded, err = common._load_trial_recording(event)
+
+    assert err is None
+    np.testing.assert_array_equal(loaded, array)
+    assert cache_path.stat().st_mtime > stale_mtime
