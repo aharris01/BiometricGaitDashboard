@@ -97,9 +97,7 @@ class FootstepEditor:
         # take new bounding box data from trial recording and update steps.raw.npz and steps.npz
 
         # print("Opening trial recording...")
-        trial_recording, trial_recording_err = self.common._load_npz_from_uri(
-            event.trial_npz_uri
-        )
+        trial_recording, trial_recording_err = self.common._load_trial_recording(event)
         if trial_recording_err or trial_recording is None:
             current_app.logger.error(
                 f"Error loading trial recording: {trial_recording_err}"
@@ -123,6 +121,7 @@ class FootstepEditor:
             h=100,
             w=100,
         )
+        processed_step = processed[0]
 
         for column in updated_metadata.columns:
             metadata_df.loc[row_mask, column] = updated_metadata.at[0, column]
@@ -130,7 +129,9 @@ class FootstepEditor:
         processed_member = f"{footstep_id}.npy"
         raw_member = f"{footstep_id}.npy"
 
-        _rewrite_npz_member(trial_folder / "steps.npz", processed_member, processed)
+        _rewrite_npz_member(
+            trial_folder / "steps.npz", processed_member, processed_step
+        )
         _rewrite_npz_member(trial_folder / "steps.raw.npz", raw_member, footstep_data)
 
         # replace metadata.csv for the event to with updated df
@@ -314,9 +315,7 @@ class FootstepEditor:
         # take new bounding box data from trial recording and update steps.raw.npz and steps.npz
 
         # print("Opening trial recording...")
-        trial_recording, trial_recording_err = self.common._load_npz_from_uri(
-            event.trial_npz_uri
-        )
+        trial_recording, trial_recording_err = self.common._load_trial_recording(event)
         if trial_recording_err or trial_recording is None:
             current_app.logger.error(
                 f"Error loading trial recording: {trial_recording_err}"

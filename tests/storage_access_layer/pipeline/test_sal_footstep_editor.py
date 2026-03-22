@@ -1,3 +1,4 @@
+from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from zipfile import ZipFile
@@ -36,6 +37,7 @@ def editor(common):
 def event(tmp_path):
     trial_path = tmp_path / "trial.npz"
     return SimpleNamespace(
+        event_id="event-1",
         trial_npz_uri=trial_path.as_uri(),
         trial_p100_npz_uri=(tmp_path / "p100.npz").as_uri(),
     )
@@ -225,7 +227,7 @@ class TestFootstepEditorFailures:
         monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
-        common._load_npz_from_uri.return_value = (None, "trial_load_failed")
+        common._load_trial_recording.return_value = (None, "trial_load_failed")
 
         with flask_app.app_context():
             ok, err = editor.edit_footstep(
@@ -267,7 +269,7 @@ class TestFootstepEditorSuccessPaths:
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        common._load_npz_from_uri.return_value = (trial_recording, None)
+        common._load_trial_recording.return_value = (trial_recording, None)
 
         monkeypatch.setattr(footstep_edits, "load_metadata", load_metadata_mock)
         monkeypatch.setattr(
@@ -308,8 +310,62 @@ class TestFootstepEditorSuccessPaths:
         assert preprocess_footsteps_arg[7].shape == (160, 64, 32)
         with ZipFile(trial_dir / "steps.npz") as archive:
             assert sorted(archive.namelist()) == ["7.npy"]
+            processed_member = np.load(BytesIO(archive.read("7.npy")))
+            assert processed_member.shape == (101, 100, 100)
         with ZipFile(trial_dir / "steps.raw.npz") as archive:
             assert sorted(archive.namelist()) == ["7.npy"]
+
+    def test_edit_footstep_saves_single_processed_step_without_batch_dimension(
+        self, flask_app, editor, common, event, monkeypatch
+    ):
+        metadata = _make_metadata()
+        processed_batch = np.full((1, 101, 100, 100), 7, dtype=np.uint16)
+        trial_recording = np.arange(250 * 120 * 120).reshape(250, 120, 120)
+        trial_dir = footstep_edits.uri_to_path(event.trial_npz_uri).parent
+        _write_step_archives(trial_dir, (7,))
+
+        common._require_event.return_value = (event, None)
+        common._require_footstep.return_value = (object(), None)
+        common._load_trial_recording.return_value = (trial_recording, None)
+
+        monkeypatch.setattr(
+            footstep_edits, "load_metadata", MagicMock(return_value=metadata.copy())
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expected_bb_size", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_is_within_expect_duration", lambda row: True
+        )
+        monkeypatch.setattr(
+            footstep_edits, "identify_anchor_footstep", lambda metadata: None
+        )
+        monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
+        monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
+        monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
+        monkeypatch.setattr(
+            footstep_edits,
+            "preprocess_footsteps",
+            MagicMock(return_value=(processed_batch, metadata.copy())),
+        )
+        monkeypatch.setattr(
+            footstep_edits, "_update_csv", MagicMock(return_value=(True, None))
+        )
+
+        with flask_app.app_context():
+            ok, err = editor.edit_footstep(
+                7,
+                "event-1",
+                _make_new_footstep_data(),
+                p100=np.ones((120, 120), dtype=float),
+            )
+
+        assert ok is True
+        assert err is None
+        with ZipFile(trial_dir / "steps.npz") as archive:
+            processed_member = np.load(BytesIO(archive.read("7.npy")))
+        assert processed_member.shape == (101, 100, 100)
+        np.testing.assert_array_equal(processed_member, processed_batch[0])
 
     def test_edit_footstep_marks_step_invalid_when_edited_bounds_fail_validation(
         self, flask_app, editor, common, event, monkeypatch
@@ -325,7 +381,7 @@ class TestFootstepEditorSuccessPaths:
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        common._load_npz_from_uri.return_value = (
+        common._load_trial_recording.return_value = (
             np.zeros((250, 120, 120), dtype=float),
             None,
         )
@@ -379,7 +435,7 @@ class TestFootstepEditorSuccessPaths:
 
         common._require_event.return_value = (event, None)
         common._require_footstep.return_value = (object(), None)
-        common._load_npz_from_uri.return_value = (
+        common._load_trial_recording.return_value = (
             np.zeros((250, 120, 120), dtype=float),
             None,
         )
@@ -473,8 +529,11 @@ class TestFootstepEditorSuccessPaths:
         common._require_event.return_value = (event, None)
         common._load_npz_from_uri.side_effect = [
             (np.ones((120, 120), dtype=float), None),
-            (np.zeros((250, 120, 120), dtype=float), None),
         ]
+        common._load_trial_recording.return_value = (
+            np.zeros((250, 120, 120), dtype=float),
+            None,
+        )
 
         monkeypatch.setattr(
             footstep_edits, "load_metadata", MagicMock(return_value=metadata.copy())
@@ -538,8 +597,11 @@ class TestFootstepEditorSuccessPaths:
         common._require_event.return_value = (event, None)
         common._load_npz_from_uri.side_effect = [
             (np.ones((120, 120), dtype=float), None),
-            (np.zeros((250, 120, 120), dtype=float), None),
         ]
+        common._load_trial_recording.return_value = (
+            np.zeros((250, 120, 120), dtype=float),
+            None,
+        )
 
         monkeypatch.setattr(
             footstep_edits, "load_metadata", MagicMock(return_value=metadata.copy())
