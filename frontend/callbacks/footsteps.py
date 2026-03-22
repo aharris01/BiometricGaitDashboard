@@ -549,7 +549,7 @@ def register(app, *, cmap):
 
         if create_mode:
             return (
-                {"display": "block"},
+                {"display": "flex", "flexDirection": "column"},
                 f"{item['event_id']} · Create New Footstep",
                 "Create mode is active. Adjust the bbox and enter start_frame / end_frame, then click Create Footstep.",
                 item["start_frame"],
@@ -568,7 +568,7 @@ def register(app, *, cmap):
             )
 
         return (
-            {"display": "block"},
+            {"display": "flex", "flexDirection": "column"},
             (
                 f"{item['event_id']} · Step {step_number}"
                 if step_number is not None

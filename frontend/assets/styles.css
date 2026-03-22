@@ -576,12 +576,33 @@
    Footsteps View
    ========================================================= */
 
-.footstep-row {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 540px;
-  gap: 12px;
+#footstep-view {
   width: 100%;
-  align-items: start;
+}
+
+.footstep-layout {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(calc(100vh - 124px), auto));
+  gap: 16px;
+  width: 100%;
+}
+
+.footstep-row {
+  width: 100%;
+  min-height: calc(100vh - 124px);
+}
+
+.footstep-top-row {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  height: calc(100vh - 124px);
+  max-height: calc(100vh - 124px);
+}
+
+.footstep-bottom-row {
+  display: block;
 }
 
 .footstep-sidebar,
@@ -593,26 +614,53 @@
   padding: 12px;
   box-sizing: border-box;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .footstep-sidebar {
-  position: sticky;
-  top: 84px;
-  align-self: start;
-  max-height: calc(100vh - 96px);
   overflow-y: auto;
 }
 
 .footstep-results-panel {
-  min-height: 420px;
+  overflow: hidden;
+  max-height: calc(100vh - 124px);
+}
+
+.footstep-results-panel .panel-header {
+  flex: 0 0 auto;
+}
+
+#footstep-results-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .footstep-review-panel {
-  position: sticky;
-  top: 84px;
-  align-self: start;
-  max-height: calc(100vh - 96px);
   overflow-y: auto;
+}
+
+.footstep-review-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.footstep-review-graph-wrap {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.footstep-review-graph {
+  flex: 1 1 auto;
+  min-height: 360px;
 }
 
 .footstep-filter-actions,
@@ -708,9 +756,9 @@
 
 .footstep-review-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 10px;
-  margin-top: 12px;
+  align-content: start;
 }
 
 .footstep-review-fields .metrics-field {
@@ -793,31 +841,14 @@
 }
 
 @media (max-width: 1500px) {
-  .footstep-row {
-    grid-template-columns: 280px minmax(0, 1fr) 520px;
-  }
-
   .footstep-card-grid {
     grid-template-columns: repeat(3, 190px);
   }
 }
 
 @media (max-width: 1200px) {
-  .footstep-row {
+  .footstep-top-row {
     grid-template-columns: 280px 1fr;
-  }
-
-  .footstep-review-panel {
-    grid-column: 1 / -1;
-    position: static;
-    max-height: none;
-    overflow: visible;
-  }
-
-  .footstep-sidebar {
-    position: static;
-    max-height: none;
-    overflow: visible;
   }
 
   .footstep-card-grid {
@@ -826,7 +857,31 @@
 }
 
 @media (max-width: 900px) {
+  .footstep-layout {
+    grid-template-rows: repeat(2, auto);
+  }
+
   .footstep-row {
+    min-height: auto;
+  }
+
+  .footstep-top-row {
+    grid-template-columns: 1fr;
+    height: auto;
+    max-height: none;
+  }
+
+  .footstep-sidebar,
+  .footstep-results-panel,
+  .footstep-review-panel {
+    height: auto;
+  }
+
+  .footstep-results-panel {
+    max-height: none;
+  }
+
+  .footstep-review-content {
     grid-template-columns: 1fr;
   }
 

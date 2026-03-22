@@ -104,12 +104,12 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     root_children = children_list(root)
     assert len(root_children) == 3
 
-    row = root_children[0]
+    layout = root_children[0]
     history_modal = root_children[1]
     delete_modal = root_children[2]
 
-    assert isinstance(row, html.Div)
-    assert props(row)["className"] == "footstep-row"
+    assert isinstance(layout, html.Div)
+    assert props(layout)["className"] == "footstep-layout"
 
     assert isinstance(history_modal, html.Div)
     assert props(history_modal)["id"] == "footstep-history-modal"
@@ -117,18 +117,33 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(delete_modal, html.Div)
     assert props(delete_modal)["id"] == "footstep-delete-modal"
 
-    row_children = children_list(row)
-    assert len(row_children) == 3
+    layout_children = children_list(layout)
+    assert len(layout_children) == 2
 
-    sidebar = row_children[0]
-    results_panel = row_children[1]
-    review_panel = row_children[2]
+    top_row = layout_children[0]
+    bottom_row = layout_children[1]
+
+    assert isinstance(top_row, html.Div)
+    assert props(top_row)["className"] == "footstep-row footstep-top-row"
+
+    assert isinstance(bottom_row, html.Div)
+    assert props(bottom_row)["className"] == "footstep-row footstep-bottom-row"
+
+    top_row_children = children_list(top_row)
+    assert len(top_row_children) == 2
+
+    sidebar = top_row_children[0]
+    results_panel = top_row_children[1]
 
     assert isinstance(sidebar, html.Div)
     assert props(sidebar)["className"] == "footstep-sidebar"
 
     assert isinstance(results_panel, html.Div)
     assert props(results_panel)["className"] == "footstep-results-panel"
+
+    bottom_row_children = children_list(bottom_row)
+    assert len(bottom_row_children) == 1
+    review_panel = bottom_row_children[0]
 
     assert isinstance(review_panel, html.Div)
     assert props(review_panel)["id"] == "footstep-review-panel"
