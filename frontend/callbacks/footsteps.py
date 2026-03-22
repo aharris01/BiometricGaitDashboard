@@ -907,7 +907,7 @@ def register(app, *, cmap):
             or not review_store.get("review")
         ):
             return (
-                {"display": "none"},
+                {"display": "flex", "flexDirection": "column"},
                 "Review",
                 "Click a footstep thumbnail to edit its bbox on the full event image.",
                 None,

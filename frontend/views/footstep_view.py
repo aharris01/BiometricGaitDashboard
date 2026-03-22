@@ -369,7 +369,7 @@ def FootstepView():
                             html.Div(
                                 id="footstep-review-panel",
                                 className="footstep-review-panel",
-                                style={"display": "none"},
+                                style={"display": "flex", "flexDirection": "column"},
                                 children=[
                                     html.Div(
                                         className="panel-header",
