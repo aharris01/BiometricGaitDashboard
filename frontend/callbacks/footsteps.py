@@ -274,9 +274,10 @@ def _make_context_p100_figure(
                     x=xs,
                     y=ys,
                     mode="lines+markers",
-                    line=dict(color="#ef4444", width=2),
-                    marker=dict(size=5, color="#ef4444"),
+                    line=dict(color="#ff2bd6", width=2),
+                    marker=dict(size=5, color="#ff2bd6"),
                     name="COP Path",
+                    legendgroup="cop-overlay",
                     showlegend=True,
                 )
             )
@@ -285,8 +286,13 @@ def _make_context_p100_figure(
                     x=[xs[0]],
                     y=[ys[0]],
                     mode="markers",
-                    marker=dict(size=8, color="#22c55e"),
+                    marker=dict(
+                        size=8,
+                        color="#22c55e",
+                        line=dict(color="#ffffff", width=2),
+                    ),
                     name="Start",
+                    legendgroup="cop-overlay",
                     text=["Start"],
                     hoverinfo="text",
                     showlegend=True,
@@ -297,8 +303,13 @@ def _make_context_p100_figure(
                     x=[xs[-1]],
                     y=[ys[-1]],
                     mode="markers",
-                    marker=dict(size=8, color="#111827"),
+                    marker=dict(
+                        size=8,
+                        color="#111827",
+                        line=dict(color="#ffffff", width=2),
+                    ),
                     name="End",
+                    legendgroup="cop-overlay",
                     text=["End"],
                     hoverinfo="text",
                     showlegend=True,
@@ -317,6 +328,7 @@ def _make_context_p100_figure(
             font=dict(size=10),
             bgcolor="rgba(255,255,255,0.75)",
             borderwidth=0,
+            groupclick="togglegroup",
         )
     )
     return fig
