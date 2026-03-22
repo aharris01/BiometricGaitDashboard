@@ -984,6 +984,7 @@ def register(app, *, cmap):
 
     @callback(
         Output("footstep-context-title", "children"),
+        Output("footstep-context-step", "children"),
         Output("footstep-context-meta", "children"),
         Output("footstep-context-p100-graph", "figure"),
         Output("footstep-context-grf-graph", "figure"),
@@ -999,6 +1000,7 @@ def register(app, *, cmap):
         ):
             return (
                 "Footstep Context",
+                "",
                 "Click a thumbnail to inspect that footstep.",
                 _placeholder_figure("No footstep selected.", height=260),
                 _placeholder_figure("No GRF data to display yet.", height=220),
@@ -1012,14 +1014,10 @@ def register(app, *, cmap):
             event_id=event_id,
             footstep_id=footstep_id,
         )
-        title = (
-            f"Footstep Context: {step_number}"
-            if step_number is not None
-            else "Footstep Context"
-        )
 
         return (
-            title,
+            "Footstep Context",
+            f"Step {step_number}" if step_number is not None else "",
             f"Event ID: {event_id}\nBackend Footstep ID: {footstep_id}",
             _make_context_p100_figure(
                 details.get("p100"),

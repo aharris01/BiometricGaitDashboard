@@ -319,18 +319,23 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     # Context panel
     # --------------------------------------------
     context_children = children_list(context_panel)
-    assert len(context_children) == 4
+    assert len(context_children) == 5
 
     context_header = context_children[0]
-    context_meta = context_children[1]
-    context_p100 = context_children[2]
-    context_grf = context_children[3]
+    context_step = context_children[1]
+    context_meta = context_children[2]
+    context_p100 = context_children[3]
+    context_grf = context_children[4]
 
     assert isinstance(context_header, html.Div)
     context_header_children = children_list(context_header)
     assert isinstance(context_header_children[0], html.H3)
     assert props(context_header_children[0])["id"] == "footstep-context-title"
     assert props(context_header_children[0])["children"] == "Footstep Context"
+
+    assert isinstance(context_step, html.Div)
+    assert props(context_step)["id"] == "footstep-context-step"
+    assert props(context_step)["children"] == ""
 
     assert isinstance(context_meta, html.Div)
     assert props(context_meta)["id"] == "footstep-context-meta"

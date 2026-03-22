@@ -343,6 +343,11 @@ def FootstepView():
                                         ],
                                     ),
                                     html.Div(
+                                        id="footstep-context-step",
+                                        className="footstep-context-step",
+                                        children="",
+                                    ),
+                                    html.Div(
                                         id="footstep-context-meta",
                                         className="footstep-context-meta",
                                         children="Click a thumbnail to inspect that footstep.",
