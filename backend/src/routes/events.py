@@ -112,7 +112,10 @@ def get_footstep_image(event_id: str, step_id: int):
     if err or p100 is None:
         return Response("Footstep not found", status=404, mimetype="text/plain")
 
-    img = create_image_bytes(p100)
+    try:
+        img = create_image_bytes(p100)
+    except ValueError as e:
+        return make_error(400, "p100_error", str(e))
 
     return Response(
         img.data,
