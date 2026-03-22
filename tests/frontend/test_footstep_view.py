@@ -102,11 +102,12 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert props(root)["className"] == "hidden"
 
     root_children = children_list(root)
-    assert len(root_children) == 3
+    assert len(root_children) == 4
 
     layout = root_children[0]
     history_modal = root_children[1]
     delete_modal = root_children[2]
+    draft_modal = root_children[3]
 
     assert isinstance(layout, html.Div)
     assert props(layout)["className"] == "footstep-layout"
@@ -116,6 +117,9 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
 
     assert isinstance(delete_modal, html.Div)
     assert props(delete_modal)["id"] == "footstep-delete-modal"
+
+    assert isinstance(draft_modal, html.Div)
+    assert props(draft_modal)["id"] == "footstep-draft-modal"
 
     layout_children = children_list(layout)
     assert len(layout_children) == 2
@@ -339,3 +343,10 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
 
     assert isinstance(context_grf, dcc.Graph)
     assert props(context_grf)["id"] == "footstep-context-grf-graph"
+
+    # --------------------------------------------
+    # Draft modal
+    # --------------------------------------------
+    draft_children = children_list(draft_modal)
+    assert len(draft_children) == 1
+    assert isinstance(draft_children[0], html.Div)

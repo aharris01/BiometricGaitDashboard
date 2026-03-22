@@ -588,5 +588,58 @@ def FootstepView():
                     )
                 ],
             ),
+            html.Div(
+                id="footstep-draft-modal",
+                className="footstep-history-modal",
+                style={"display": "none"},
+                children=[
+                    html.Div(
+                        className="footstep-history-modal-card footstep-draft-modal-card",
+                        children=[
+                            html.Div(
+                                className="panel-header",
+                                children=[
+                                    html.H3("Draft Preview", className="panel-title"),
+                                    html.Button(
+                                        "Close",
+                                        id="btn-close-footstep-draft",
+                                        className="mode-btn",
+                                    ),
+                                ],
+                            ),
+                            dcc.Loading(
+                                id="footstep-draft-loading",
+                                type="default",
+                                children=[
+                                    dcc.Graph(
+                                        id="footstep-draft-graph",
+                                        style={"height": "420px"},
+                                        config={"displaylogo": False},
+                                    )
+                                ],
+                            ),
+                            html.Div(
+                                "Select frame range:",
+                                style={"marginTop": "12px", "marginBottom": "8px"},
+                            ),
+                            dcc.RangeSlider(
+                                id="footstep-draft-range-slider",
+                                min=0,
+                                max=0,
+                                step=1,
+                                value=[0, 0],
+                                allowCross=False,
+                                marks={0: "0"},
+                                tooltip={"placement": "bottom", "always_visible": True},
+                            ),
+                            html.Div(
+                                id="footstep-draft-info",
+                                style={"marginTop": "12px"},
+                                children="Draft preview will appear here.",
+                            ),
+                        ],
+                    )
+                ],
+            ),
         ],
     )

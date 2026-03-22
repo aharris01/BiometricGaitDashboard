@@ -103,6 +103,16 @@ def build_layout():
                         storage_type="memory",
                     ),
                     Store(
+                        id="footstep-draft-request-store",
+                        data=None,
+                        storage_type="memory",
+                    ),
+                    Store(
+                        id="footstep-draft-store",
+                        data=None,
+                        storage_type="memory",
+                    ),
+                    Store(
                         id="metrics_filter_participant_state",
                         data={"prev": []},
                         storage_type="session",

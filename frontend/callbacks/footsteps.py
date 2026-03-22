@@ -349,6 +349,92 @@ def _make_context_grf_figure(grf: list[float] | None):
         paper_bgcolor="white",
     )
     return fig
+
+
+def _make_draft_placeholder_figure(message: str):
+    return _placeholder_figure(message, height=420)
+
+
+def _make_fake_draft_volume(
+    *,
+    width: int,
+    height: int,
+    depth: int,
+) -> list[list[list[float]]]:
+    width = max(8, width)
+    height = max(8, height)
+    depth = max(2, depth)
+
+    xs = np.arange(width, dtype=float)[None, :]
+    ys = np.arange(height, dtype=float)[:, None]
+    frames: list[list[list[float]]] = []
+
+    for idx in range(depth):
+        center_x = (width - 1) * ((idx + 1) / (depth + 1))
+        center_y = (height - 1) * (0.35 + 0.3 * np.sin((idx / max(depth - 1, 1)) * np.pi))
+        sigma_x = max(width / 5.5, 1.5)
+        sigma_y = max(height / 5.5, 1.5)
+        frame = np.exp(
+            -(
+                ((xs - center_x) ** 2) / (2 * sigma_x**2)
+                + ((ys - center_y) ** 2) / (2 * sigma_y**2)
+            )
+        )
+        frames.append((frame * (1.0 + 0.1 * idx)).tolist())
+
+    return frames
+
+
+def _max_projection_in_range(
+    volume: list[list[list[float]]] | None,
+    start_idx: int,
+    end_idx: int,
+):
+    if not volume:
+        return None
+
+    volume_np = np.asarray(volume, dtype=float)
+    selected = volume_np[start_idx : end_idx + 1, :, :]
+    if selected.shape[0] == 0:
+        return None
+    return np.max(selected, axis=0)
+
+
+def _make_draft_preview_figure(
+    volume: list[list[list[float]]] | None,
+    depth_range: list[int] | None,
+    cmap,
+):
+    if not volume:
+        return _make_draft_placeholder_figure("Loading draft preview...")
+
+    if not depth_range or len(depth_range) != 2:
+        depth_range = [0, len(volume) - 1]
+
+    start_idx = max(0, int(depth_range[0]))
+    end_idx = min(len(volume) - 1, int(depth_range[1]))
+    if start_idx > end_idx:
+        start_idx, end_idx = end_idx, start_idx
+
+    projected = _max_projection_in_range(volume, start_idx, end_idx)
+    if projected is None:
+        return _make_draft_placeholder_figure("Draft preview is empty.")
+
+    volume_np = np.asarray(volume, dtype=float)
+    fig = px.imshow(
+        projected,
+        color_continuous_scale=cmap,
+        zmin=float(np.min(volume_np)),
+        zmax=float(np.max(volume_np)),
+    )
+    fig.update_layout(
+        height=420,
+        margin=dict(l=20, r=20, t=20, b=20),
+        coloraxis_showscale=False,
+    )
+    fig.update_xaxes(constrain="domain", scaleanchor="y")
+    fig.update_yaxes(autorange="reversed", constrain="domain")
+    return fig
 def register(app, *, cmap):
     @callback(
         Output("footstep-participant-filter", "options"),
@@ -695,6 +781,7 @@ def register(app, *, cmap):
         Output("btn-create-footstep", "children"),
         Output("btn-cancel-create-footstep", "style"),
         Output("btn-delete-footstep", "style"),
+        Output("btn-save-footstep-review", "children"),
         Output("btn-save-footstep-review", "style"),
         Output("btn-show-footstep-history", "style"),
         Input("footstep-review-store", "data"),
@@ -722,6 +809,7 @@ def register(app, *, cmap):
                 "Create New",
                 {"display": "none"},
                 {"display": "inline-block"},
+                "Edit",
                 {"display": "inline-block"},
                 {"display": "inline-block"},
             )
@@ -740,7 +828,7 @@ def register(app, *, cmap):
             return (
                 {"display": "flex", "flexDirection": "column"},
                 f"{item['event_id']} · Create New Footstep",
-                "Create mode is active. Adjust the bbox and enter start_frame / end_frame, then click Create Footstep.",
+                "Create mode is active. Adjust the bbox, click View Draft to preview, then click Create Footstep.",
                 item["start_frame"],
                 item["end_frame"],
                 bbox["x_min"],
@@ -749,10 +837,11 @@ def register(app, *, cmap):
                 bbox["y_max"],
                 _review_label_value(item.get("label")),
                 "Changelog is unavailable while create mode is active.",
-                "Create Footstep",
+                "View Draft",
                 {"display": "inline-block"},
                 {"display": "none"},
-                {"display": "none"},
+                "Create Footstep",
+                {"display": "inline-block"},
                 {"display": "none"},
             )
 
@@ -776,6 +865,7 @@ def register(app, *, cmap):
             "Create New",
             {"display": "none"},
             {"display": "inline-block"},
+            "Edit",
             {"display": "inline-block"},
             {"display": "inline-block"},
         )
@@ -1083,40 +1173,87 @@ def register(app, *, cmap):
                 },
                 no_update,
             )
+        raise PreventUpdate
 
-        bbox = _get_bbox(
-            review,
-            x_min=x_min,
-            x_max=x_max,
-            y_min=y_min,
-            y_max=y_max,
-        )
-
-        if start_frame is None or end_frame is None:
+    @callback(
+        Output("footstep-draft-store", "data"),
+        Input("footstep-draft-request-store", "data"),
+        prevent_initial_call=True,
+    )
+    def build_fake_footstep_draft(request_data):
+        if not request_data:
             raise PreventUpdate
 
-        created = create_footstep(
-            event_id,
-            start_frame=int(start_frame),
-            end_frame=int(end_frame),
-            x_min=bbox["x_min"],
-            x_max=bbox["x_max"],
-            y_min=bbox["y_min"],
-            y_max=bbox["y_max"],
-            label=label,
-            logger=app.logger,
+        width = max(
+            8,
+            int(request_data.get("x_max", 0)) - int(request_data.get("x_min", 0)) + 1,
         )
+        height = max(
+            8,
+            int(request_data.get("y_max", 0)) - int(request_data.get("y_min", 0)) + 1,
+        )
+        start_frame = int(request_data.get("start_frame", 0) or 0)
+        end_frame = int(request_data.get("end_frame", start_frame + 5) or (start_frame + 5))
+        depth = max(2, abs(end_frame - start_frame) + 1)
+        volume = _make_fake_draft_volume(width=width, height=height, depth=depth)
 
-        new_footstep_id = int(created["item"]["footstep_id"])
+        return {
+            "event_id": request_data.get("event_id"),
+            "depth": depth,
+            "volume": volume,
+        }
+
+    @callback(
+        Output("footstep-draft-range-slider", "min"),
+        Output("footstep-draft-range-slider", "max"),
+        Output("footstep-draft-range-slider", "value"),
+        Output("footstep-draft-range-slider", "marks"),
+        Output("footstep-draft-graph", "figure"),
+        Output("footstep-draft-info", "children"),
+        Input("footstep-draft-store", "data"),
+        Input("footstep-draft-range-slider", "value"),
+        prevent_initial_call=False,
+    )
+    def populate_footstep_draft_preview(draft_store, depth_range):
+        if not draft_store or not draft_store.get("volume"):
+            return (
+                0,
+                0,
+                [0, 0],
+                {0: "0"},
+                _make_draft_placeholder_figure("Loading draft preview..."),
+                "Draft preview will appear here.",
+            )
+
+        volume = draft_store["volume"]
+        depth = int(draft_store.get("depth", len(volume)))
+        slider_max = max(0, depth - 1)
+        if not depth_range or len(depth_range) != 2:
+            depth_range = [0, slider_max]
+
+        start_idx = max(0, min(slider_max, int(depth_range[0])))
+        end_idx = max(0, min(slider_max, int(depth_range[1])))
+        if start_idx > end_idx:
+            start_idx, end_idx = end_idx, start_idx
+
+        marks = {
+            idx: str(idx)
+            for idx in sorted({0, slider_max, slider_max // 2})
+        }
+        projected = _max_projection_in_range(volume, start_idx, end_idx)
+        max_pressure = float(np.max(projected)) if projected is not None else 0.0
 
         return (
-            _open_review(
-                event_id,
-                new_footstep_id,
-                created,
-                "Created new footstep locally.",
+            0,
+            slider_max,
+            [start_idx, end_idx],
+            marks,
+            _make_draft_preview_figure(volume, [start_idx, end_idx], cmap),
+            (
+                f"Depth range: [{start_idx}, {end_idx}] | "
+                f"Projected image shape: {np.asarray(projected).shape if projected is not None else 'N/A'} | "
+                f"Max pressure in projection: {max_pressure:.3f}"
             ),
-            (ok_clicks or 0) + 1,
         )
 
     @callback(
@@ -1224,6 +1361,7 @@ def register(app, *, cmap):
         Output("footstep-thumbnail-revision-store", "data", allow_duplicate=True),
         Output("footstep-review-store", "data", allow_duplicate=True),
         Output("footstep-context-store", "data", allow_duplicate=True),
+        Output("btn-apply-footstep-filters", "n_clicks", allow_duplicate=True),
         Input("btn-save-footstep-review", "n_clicks"),
         State("footstep-review-store", "data"),
         State("footstep-review-x-min", "value"),
@@ -1235,6 +1373,7 @@ def register(app, *, cmap):
         State("footstep-review-label", "value"),
         State("footstep-thumbnail-revision-store", "data"),
         State("footstep-context-store", "data"),
+        State("btn-apply-footstep-filters", "n_clicks"),
         prevent_initial_call=True,
     )
     def save_current_footstep_review(
@@ -1249,17 +1388,16 @@ def register(app, *, cmap):
         label,
         thumbnail_revisions,
         context_store,
+        ok_clicks,
     ):
         if (
             not review_store
             or not review_store.get("open")
             or not review_store.get("review")
-            or review_store.get("create_mode")
         ):
             raise PreventUpdate
 
         event_id = str(review_store["event_id"])
-        footstep_id = int(review_store["footstep_id"])
         review = review_store["review"]
 
         bbox = _get_bbox(
@@ -1270,6 +1408,50 @@ def register(app, *, cmap):
             y_max=y_max,
         )
 
+        new_thumbnail_revisions = dict(thumbnail_revisions or {})
+
+        if review_store.get("create_mode"):
+            if start_frame is None or end_frame is None:
+                raise PreventUpdate
+
+            created = create_footstep(
+                event_id,
+                start_frame=int(start_frame),
+                end_frame=int(end_frame),
+                x_min=bbox["x_min"],
+                x_max=bbox["x_max"],
+                y_min=bbox["y_min"],
+                y_max=bbox["y_max"],
+                label=label,
+                logger=app.logger,
+            )
+
+            new_footstep_id = int(created["item"]["footstep_id"])
+            refreshed_details = get_footstep_details(
+                event_id,
+                new_footstep_id,
+                logger=app.logger,
+            )
+
+            return (
+                new_thumbnail_revisions,
+                _open_review(
+                    event_id,
+                    new_footstep_id,
+                    created,
+                    "Created new footstep locally.",
+                ),
+                {
+                    **(context_store or _empty_context()),
+                    "open": True,
+                    "event_id": event_id,
+                    "footstep_id": new_footstep_id,
+                    "details": refreshed_details,
+                },
+                (ok_clicks or 0) + 1,
+            )
+
+        footstep_id = int(review_store["footstep_id"])
         saved = save_footstep_review(
             event_id,
             footstep_id,
@@ -1287,8 +1469,6 @@ def register(app, *, cmap):
             footstep_id,
             logger=app.logger,
         )
-
-        new_thumbnail_revisions = dict(thumbnail_revisions or {})
         revision_key = _thumbnail_revision_key(event_id, footstep_id)
         new_thumbnail_revisions[revision_key] = (
             int(new_thumbnail_revisions.get(revision_key, 0)) + 1
@@ -1309,4 +1489,5 @@ def register(app, *, cmap):
                 "footstep_id": footstep_id,
                 "details": refreshed_details,
             },
+            no_update,
         )

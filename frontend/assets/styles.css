@@ -845,6 +845,10 @@
   flex-direction: column;
 }
 
+.footstep-draft-modal-card {
+  width: min(880px, 100%);
+}
+
 .footstep-review-history {
   display: flex;
   flex-direction: column;

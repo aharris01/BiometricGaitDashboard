@@ -49,6 +49,52 @@ app.clientside_callback(
     State("scroll-store", "data"),
 )
 
+app.clientside_callback(
+    """
+    function(viewDraftClicks, closeClicks, cancelCreateClicks, reviewStore, currentRequest) {
+        const noUpdate = window.dash_clientside.no_update;
+        const review = reviewStore || {};
+        const triggered = window.dash_clientside.callback_context.triggered_id;
+
+        if (!review.open || !review.review || !review.create_mode) {
+            return [{"display": "none"}, noUpdate];
+        }
+
+        if (triggered === "btn-close-footstep-draft" || triggered === "btn-cancel-create-footstep") {
+            return [{"display": "none"}, noUpdate];
+        }
+
+        if (triggered === "btn-create-footstep") {
+            const item = review.review.item || {};
+            const bbox = review.review.bbox || {};
+            return [
+                {"display": "flex"},
+                {
+                    token: Date.now(),
+                    event_id: review.event_id,
+                    footstep_id: review.footstep_id,
+                    start_frame: item.start_frame,
+                    end_frame: item.end_frame,
+                    x_min: bbox.x_min,
+                    x_max: bbox.x_max,
+                    y_min: bbox.y_min,
+                    y_max: bbox.y_max
+                }
+            ];
+        }
+
+        return [{"display": "none"}, noUpdate];
+    }
+    """,
+    Output("footstep-draft-modal", "style"),
+    Output("footstep-draft-request-store", "data"),
+    Input("btn-create-footstep", "n_clicks"),
+    Input("btn-close-footstep-draft", "n_clicks"),
+    Input("btn-cancel-create-footstep", "n_clicks"),
+    Input("footstep-review-store", "data"),
+    State("footstep-draft-request-store", "data"),
+)
+
 
 def run_dash(debug_mode: bool = False) -> None:
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
