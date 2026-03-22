@@ -3,11 +3,13 @@ from dash import ALL, MATCH, Input, Output, State, callback, ctx, html, no_updat
 from dash.exceptions import PreventUpdate
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 
 from frontend.api import (
     create_footstep,
     delete_footstep,
     get_date_bounds,
+    get_footstep_details,
     get_footstep_review,
     get_participants,
     save_footstep_review,
@@ -39,6 +41,15 @@ def _open_review(event_id: str, footstep_id: int, review: dict, message: str):
         "review": review,
         "message": message,
         "create_mode": False,
+    }
+
+
+def _empty_context():
+    return {
+        "open": False,
+        "event_id": None,
+        "footstep_id": None,
+        "details": None,
     }
 
 
@@ -202,6 +213,66 @@ def _render_history(changes: list[dict]):
     return items
 
 
+def _placeholder_figure(message: str, *, height: int):
+    fig = go.Figure()
+    fig.update_layout(
+        height=height,
+        margin=dict(l=20, r=20, t=20, b=20),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        annotations=[
+            dict(
+                text=message,
+                x=0.5,
+                y=0.5,
+                xref="paper",
+                yref="paper",
+                showarrow=False,
+                font=dict(size=13, color="#6b7280"),
+            )
+        ],
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+    )
+    return fig
+
+
+def _make_context_p100_figure(p100: list[list[float]] | None, cmap):
+    if not p100:
+        return _placeholder_figure("P100 not available for this footstep.", height=260)
+
+    fig = px.imshow(p100, color_continuous_scale=cmap)
+    z_max = max(max(row) for row in p100) if p100 else 1
+    fig.update_traces(zmin=0, zmax=z_max)
+    fig.update_layout(
+        height=260,
+        margin=dict(l=10, r=10, t=10, b=30),
+        coloraxis_showscale=False,
+        plot_bgcolor="black",
+        paper_bgcolor="white",
+    )
+    fig.update_xaxes(constrain="domain", scaleanchor="y", showgrid=False)
+    fig.update_yaxes(autorange="reversed", constrain="domain", showgrid=False)
+    return fig
+
+
+def _make_context_grf_figure(grf: list[float] | None):
+    if not grf:
+        return _placeholder_figure("GRF not available for this footstep.", height=220)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=list(grf), mode="lines", line=dict(color="#2563eb")))
+    fig.update_layout(
+        height=220,
+        margin=dict(l=30, r=20, t=10, b=30),
+        xaxis_title="Frame",
+        yaxis_title="GRF",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+    )
+    return fig
+
+
 def register(app, *, cmap):
     @callback(
         Output("footstep-participant-filter", "options"),
@@ -323,6 +394,48 @@ def register(app, *, cmap):
             _empty_review(),
             items,
         )
+
+    @callback(
+        Output("footstep-context-store", "data"),
+        Input(
+            {"type": "footstep-review-open", "event_id": ALL, "footstep_id": ALL},
+            "n_clicks",
+        ),
+        Input("btn-close-footstep-review", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def load_footstep_context(_open_clicks, _close_clicks):
+        triggered = ctx.triggered_id
+
+        if triggered == "btn-close-footstep-review":
+            return _empty_context()
+
+        if not isinstance(triggered, dict):
+            raise PreventUpdate
+
+        if triggered.get("type") != "footstep-review-open":
+            raise PreventUpdate
+
+        clicked_value = None
+        if ctx.inputs_list and isinstance(ctx.inputs_list[0], list):
+            for item in ctx.inputs_list[0]:
+                if item.get("id") == triggered:
+                    clicked_value = item.get("value")
+                    break
+
+        if clicked_value in (None, 0):
+            raise PreventUpdate
+
+        event_id = str(triggered["event_id"])
+        footstep_id = int(triggered["footstep_id"])
+        details = get_footstep_details(event_id, footstep_id, logger=app.logger)
+
+        return {
+            "open": True,
+            "event_id": event_id,
+            "footstep_id": footstep_id,
+            "details": details,
+        }
 
     @callback(
         Output("footstep-pagination-store", "data", allow_duplicate=True),
@@ -589,6 +702,35 @@ def register(app, *, cmap):
             {"display": "inline-block"},
             {"display": "inline-block"},
             {"display": "inline-block"},
+        )
+
+    @callback(
+        Output("footstep-context-meta", "children"),
+        Output("footstep-context-p100-graph", "figure"),
+        Output("footstep-context-grf-graph", "figure"),
+        Input("footstep-context-store", "data"),
+        prevent_initial_call=False,
+    )
+    def populate_footstep_context_panel(context_store):
+        if (
+            not context_store
+            or not context_store.get("open")
+            or not context_store.get("details")
+        ):
+            return (
+                "Click a thumbnail to inspect that footstep.",
+                _placeholder_figure("No footstep selected.", height=260),
+                _placeholder_figure("No GRF data to display yet.", height=220),
+            )
+
+        event_id = str(context_store["event_id"])
+        footstep_id = int(context_store["footstep_id"])
+        details = context_store["details"] or {}
+
+        return (
+            f"Event ID: {event_id}\nBackend Footstep ID: {footstep_id}",
+            _make_context_p100_figure(details.get("p100"), cmap),
+            _make_context_grf_figure(details.get("grf")),
         )
 
     @callback(

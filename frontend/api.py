@@ -335,6 +335,15 @@ def search_footsteps(
     )
 
 
+def get_footstep_details(event_id: str, footstep_id: int, *, logger=None):
+    # Fetch the per-footstep p100 and GRF payload for the context panel.
+    return fetch_json(
+        f"{API_BASE_URL}/api/events/{event_id}/footsteps/{footstep_id}",
+        context="get_footstep_details",
+        logger=logger,
+    )
+
+
 def get_footstep_review(event_id: str, footstep_id: int, *, logger=None):
     # Fetch the full-event review payload for one footstep.
     return fetch_json(

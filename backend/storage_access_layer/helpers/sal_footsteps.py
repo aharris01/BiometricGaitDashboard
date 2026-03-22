@@ -315,7 +315,7 @@ class SalFootsteps:
         # This is used like a simple force-over-time curve.
         step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
 
-        return step_p100, step_grf.tolist(), None
+        return step_p100.tolist(), step_grf.tolist(), None
 
     # Return the max-pressure image for every footstep in one event.
     # This is mainly used by the summary view when many footsteps

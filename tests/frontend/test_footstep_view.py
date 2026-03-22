@@ -133,13 +133,26 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert len(top_row_children) == 2
 
     sidebar = top_row_children[0]
-    results_panel = top_row_children[1]
+    top_main = top_row_children[1]
 
     assert isinstance(sidebar, html.Div)
     assert props(sidebar)["className"] == "footstep-sidebar"
 
+    assert isinstance(top_main, html.Div)
+    assert props(top_main)["className"] == "footstep-top-main"
+
+    top_main_children = children_list(top_main)
+    assert len(top_main_children) == 2
+
+    results_panel = top_main_children[0]
+    context_panel = top_main_children[1]
+
     assert isinstance(results_panel, html.Div)
     assert props(results_panel)["className"] == "footstep-results-panel"
+
+    assert isinstance(context_panel, html.Div)
+    assert props(context_panel)["id"] == "footstep-context-panel"
+    assert props(context_panel)["className"] == "footstep-context-panel"
 
     bottom_row_children = children_list(bottom_row)
     assert len(bottom_row_children) == 1
@@ -296,3 +309,32 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(load_more_children[0], html.Button)
     assert props(load_more_children[0])["id"] == "btn-load-more-footsteps"
     assert props(load_more_children[0])["children"] == "Load More"
+
+    # --------------------------------------------
+    # Context panel
+    # --------------------------------------------
+    context_children = children_list(context_panel)
+    assert len(context_children) == 4
+
+    context_header = context_children[0]
+    context_meta = context_children[1]
+    context_p100 = context_children[2]
+    context_grf = context_children[3]
+
+    assert isinstance(context_header, html.Div)
+    context_header_children = children_list(context_header)
+    assert isinstance(context_header_children[0], html.H3)
+    assert props(context_header_children[0])["children"] == "Footstep Context"
+
+    assert isinstance(context_meta, html.Div)
+    assert props(context_meta)["id"] == "footstep-context-meta"
+    assert (
+        props(context_meta)["children"]
+        == "Click a thumbnail to inspect that footstep."
+    )
+
+    assert isinstance(context_p100, dcc.Graph)
+    assert props(context_p100)["id"] == "footstep-context-p100-graph"
+
+    assert isinstance(context_grf, dcc.Graph)
+    assert props(context_grf)["id"] == "footstep-context-grf-graph"

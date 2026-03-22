@@ -277,38 +277,75 @@ def FootstepView():
                                     ),
                                 ],
                             ),
-                            # -------------------------------------------------
-                            # Right panel: footstep search results
-                            # -------------------------------------------------
                             html.Div(
-                                className="footstep-results-panel",
+                                className="footstep-top-main",
                                 children=[
+                                    # -------------------------------------------------
+                                    # Right panel: footstep search results
+                                    # -------------------------------------------------
                                     html.Div(
-                                        className="panel-header",
+                                        className="footstep-results-panel",
                                         children=[
-                                            html.H3("Footsteps", className="panel-title"),
                                             html.Div(
-                                                "Choose filters, then press OK.",
-                                                id="footstep-results-status",
+                                                className="panel-header",
+                                                children=[
+                                                    html.H3("Footsteps", className="panel-title"),
+                                                    html.Div(
+                                                        "Choose filters, then press OK.",
+                                                        id="footstep-results-status",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                id="footstep-results-grid",
+                                                className="footstep-card-grid",
+                                                children=render_footstep_empty(
+                                                    "No footsteps loaded yet. Choose filters and press OK."
+                                                ),
+                                            ),
+                                            html.Div(
+                                                id="footstep-load-more-wrap",
+                                                style={"display": "none", "marginTop": "12px"},
+                                                children=[
+                                                    html.Button(
+                                                        "Load More",
+                                                        id="btn-load-more-footsteps",
+                                                        className="mode-btn",
+                                                    )
+                                                ],
                                             ),
                                         ],
                                     ),
                                     html.Div(
-                                        id="footstep-results-grid",
-                                        className="footstep-card-grid",
-                                        children=render_footstep_empty(
-                                            "No footsteps loaded yet. Choose filters and press OK."
-                                        ),
-                                    ),
-                                    html.Div(
-                                        id="footstep-load-more-wrap",
-                                        style={"display": "none", "marginTop": "12px"},
+                                        id="footstep-context-panel",
+                                        className="footstep-context-panel",
                                         children=[
-                                            html.Button(
-                                                "Load More",
-                                                id="btn-load-more-footsteps",
-                                                className="mode-btn",
-                                            )
+                                            html.Div(
+                                                className="panel-header",
+                                                children=[
+                                                    html.H3(
+                                                        "Footstep Context",
+                                                        className="panel-title",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                id="footstep-context-meta",
+                                                className="footstep-context-meta",
+                                                children="Click a thumbnail to inspect that footstep.",
+                                            ),
+                                            dcc.Graph(
+                                                id="footstep-context-p100-graph",
+                                                className="footstep-context-p100-graph",
+                                                style={"height": "260px"},
+                                                config={"displaylogo": False},
+                                            ),
+                                            dcc.Graph(
+                                                id="footstep-context-grf-graph",
+                                                className="footstep-context-grf-graph",
+                                                style={"height": "220px"},
+                                                config={"displaylogo": False},
+                                            ),
                                         ],
                                     ),
                                 ],
