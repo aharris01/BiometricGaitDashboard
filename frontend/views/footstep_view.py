@@ -153,7 +153,7 @@ def FootstepView():
                                                         className="ok-btn",
                                                     ),
                                                 ],
-                                            )
+                                            ),
                                         ],
                                     ),
                                     html.Details(
@@ -253,7 +253,9 @@ def FootstepView():
                                                     html.Div(
                                                         className="metrics-field",
                                                         children=[
-                                                            html.Label("Total Footstep Size"),
+                                                            html.Label(
+                                                                "Total Footstep Size"
+                                                            ),
                                                             dcc.RangeSlider(
                                                                 id="footstep-size-slider",
                                                                 min=0,
@@ -289,7 +291,10 @@ def FootstepView():
                                             html.Div(
                                                 className="panel-header",
                                                 children=[
-                                                    html.H3("Footsteps", className="panel-title"),
+                                                    html.H3(
+                                                        "Footsteps",
+                                                        className="panel-title",
+                                                    ),
                                                     html.Div(
                                                         "Choose filters, then press OK.",
                                                         id="footstep-results-status",
@@ -305,7 +310,10 @@ def FootstepView():
                                             ),
                                             html.Div(
                                                 id="footstep-load-more-wrap",
-                                                style={"display": "none", "marginTop": "12px"},
+                                                style={
+                                                    "display": "none",
+                                                    "marginTop": "12px",
+                                                },
                                                 children=[
                                                     html.Button(
                                                         "Load More",
@@ -428,7 +436,9 @@ def FootstepView():
                                                                 "drawrect",
                                                                 "eraseshape",
                                                             ],
-                                                            "edits": {"shapePosition": True},
+                                                            "edits": {
+                                                                "shapePosition": True
+                                                            },
                                                         },
                                                     )
                                                 ],
@@ -611,10 +621,25 @@ def FootstepView():
                                 id="footstep-draft-loading",
                                 type="default",
                                 children=[
-                                    dcc.Graph(
-                                        id="footstep-draft-graph",
-                                        style={"height": "420px"},
-                                        config={"displaylogo": False},
+                                    html.Div(
+                                        style={
+                                            "display": "grid",
+                                            "gridTemplateColumns": "minmax(0, 1fr) minmax(320px, 420px)",
+                                            "gap": "16px",
+                                            "alignItems": "start",
+                                        },
+                                        children=[
+                                            dcc.Graph(
+                                                id="footstep-draft-graph",
+                                                style={"height": "420px"},
+                                                config={"displaylogo": False},
+                                            ),
+                                            dcc.Graph(
+                                                id="footstep-draft-grf-graph",
+                                                style={"height": "420px"},
+                                                config={"displaylogo": False},
+                                            ),
+                                        ],
                                     )
                                 ],
                             ),

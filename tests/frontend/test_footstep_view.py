@@ -334,8 +334,7 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(context_meta, html.Div)
     assert props(context_meta)["id"] == "footstep-context-meta"
     assert (
-        props(context_meta)["children"]
-        == "Click a thumbnail to inspect that footstep."
+        props(context_meta)["children"] == "Click a thumbnail to inspect that footstep."
     )
 
     assert isinstance(context_p100, dcc.Graph)

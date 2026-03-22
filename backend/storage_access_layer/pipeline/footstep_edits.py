@@ -199,7 +199,9 @@ class FootstepEditor:
 
         return True, None
 
-    def create_draft_footstep(self, event_id: str, new_footstep, frame_padding: int = 20):
+    def create_draft_footstep(
+        self, event_id: str, new_footstep, frame_padding: int = 20
+    ):
         event, event_err = self.common._require_event(event_id)
         if event_err or event is None:
             return None, event_err

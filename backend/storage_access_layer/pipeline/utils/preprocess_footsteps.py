@@ -180,12 +180,8 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
     arr_l = np.sum(img_peak, axis=1)
     active_l = _active_indices_1d(arr_l, thresh)
     active_w = _active_indices_1d(arr_w, thresh)
-    max_y_shift = min(
-        active_l[0], l - active_l[-1]
-    )
-    max_x_shift = min(
-        active_w[0], w - active_w[-1]
-    )
+    max_y_shift = min(active_l[0], l - active_l[-1])
+    max_x_shift = min(active_w[0], w - active_w[-1])
 
     x_shift = w // 2 - x_center
     y_shift = l // 2 - y_center

@@ -92,7 +92,9 @@ def test_load_trial_recording_uses_cached_npy_when_available(tmp_path, common):
 
 
 @pytest.mark.unit
-def test_load_trial_recording_rebuilds_cache_when_cache_file_is_missing(tmp_path, common):
+def test_load_trial_recording_rebuilds_cache_when_cache_file_is_missing(
+    tmp_path, common
+):
     trial = tmp_path / "trial.npz"
     array = np.arange(60, dtype=np.uint16).reshape(3, 4, 5)
     np.savez_compressed(trial, arr_0=array)

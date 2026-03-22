@@ -150,7 +150,12 @@ def test_event_footsteps_p100s_missing_file_returns_empty_list(app_factory):
 class FakeSALFootstepDetail(FakeSAL):
     def get_footstep_context_data(self, event_id: str, step_id: int):
         return (
-            {"p100": [1, 2], "grf": [0.1, 0.2], "cop_x": [0.0, 1.0], "cop_y": [1.0, 0.0]},
+            {
+                "p100": [1, 2],
+                "grf": [0.1, 0.2],
+                "cop_x": [0.0, 1.0],
+                "cop_y": [1.0, 0.0],
+            },
             None,
         )
 

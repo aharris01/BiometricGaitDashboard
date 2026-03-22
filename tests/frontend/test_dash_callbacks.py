@@ -7,6 +7,7 @@ from dash.exceptions import PreventUpdate
 import frontend.api as api
 from frontend.callbacks.footsteps import (
     _draft_range_to_frame_bounds,
+    _make_draft_grf_figure,
     _resolve_draft_frame_range,
     _resolve_draft_depth_range,
     _review_label_value,
@@ -149,6 +150,23 @@ def test_draft_range_to_frame_bounds_returns_absolute_trial_frames():
     )
 
     assert out == (21, 23)
+
+
+def test_make_draft_grf_figure_uses_absolute_frame_axis():
+    fig = _make_draft_grf_figure(
+        [
+            [[1, 1], [1, 1]],
+            [[2, 2], [2, 2]],
+            [[3, 3], [3, 3]],
+        ],
+        [11, 12],
+        draft_start_frame=10,
+    )
+
+    trace = fig.data[0]
+
+    assert list(trace["x"]) == [10, 11, 12]
+    assert list(trace["y"]) == [4, 8, 12]
 
 
 # ------------------------------------------------------------

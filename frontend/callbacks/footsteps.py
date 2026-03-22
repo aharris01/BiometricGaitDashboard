@@ -262,10 +262,7 @@ def _make_context_p100_figure(
         cop_pairs = [
             (float(x), float(y))
             for x, y in zip(cop_x, cop_y, strict=False)
-            if x is not None
-            and y is not None
-            and np.isfinite(x)
-            and np.isfinite(y)
+            if x is not None and y is not None and np.isfinite(x) and np.isfinite(y)
         ]
         if cop_pairs:
             xs = [pair[0] for pair in cop_pairs]
@@ -352,6 +349,58 @@ def _make_context_grf_figure(grf: list[float] | None):
     return fig
 
 
+def _make_draft_grf_figure(
+    volume: list[list[list[float]]] | None,
+    frame_range: list[int] | None,
+    *,
+    draft_start_frame: int,
+):
+    if not volume:
+        return _placeholder_figure("GRF not available for this draft.", height=420)
+
+    volume_np = np.asarray(volume, dtype=float)
+    full_grf = volume_np.reshape(volume_np.shape[0], -1).sum(axis=1)
+
+    if not frame_range or len(frame_range) != 2:
+        start_idx = 0
+        end_idx = len(full_grf) - 1
+    else:
+        start_idx = max(0, int(frame_range[0]) - draft_start_frame)
+        end_idx = min(len(full_grf) - 1, int(frame_range[1]) - draft_start_frame)
+
+    if start_idx > end_idx:
+        start_idx, end_idx = end_idx, start_idx
+
+    frame_axis = np.arange(draft_start_frame, draft_start_frame + len(full_grf))
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=frame_axis,
+            y=full_grf,
+            mode="lines",
+            line=dict(color="#2563eb"),
+            name="Draft GRF",
+        )
+    )
+    fig.add_vrect(
+        x0=frame_axis[start_idx],
+        x1=frame_axis[end_idx],
+        fillcolor="rgba(37, 99, 235, 0.14)",
+        line_width=0,
+    )
+    fig.update_layout(
+        height=420,
+        margin=dict(l=40, r=20, t=20, b=40),
+        xaxis_title="Frame",
+        yaxis_title="GRF",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        showlegend=False,
+    )
+    return fig
+
+
 def _make_draft_placeholder_figure(message: str):
     return _placeholder_figure(message, height=420)
 
@@ -372,7 +421,9 @@ def _make_fake_draft_volume(
 
     for idx in range(depth):
         center_x = (width - 1) * ((idx + 1) / (depth + 1))
-        center_y = (height - 1) * (0.35 + 0.3 * np.sin((idx / max(depth - 1, 1)) * np.pi))
+        center_y = (height - 1) * (
+            0.35 + 0.3 * np.sin((idx / max(depth - 1, 1)) * np.pi)
+        )
         sigma_x = max(width / 5.5, 1.5)
         sigma_y = max(height / 5.5, 1.5)
         frame = np.exp(
@@ -1222,9 +1273,6 @@ def register(app, *, cmap):
         ):
             raise PreventUpdate
 
-        event_id = str(review_store["event_id"])
-        review = review_store["review"]
-
         if not review_store.get("create_mode"):
             return (
                 {
@@ -1266,6 +1314,7 @@ def register(app, *, cmap):
         Output("footstep-draft-range-slider", "value"),
         Output("footstep-draft-range-slider", "marks"),
         Output("footstep-draft-graph", "figure"),
+        Output("footstep-draft-grf-graph", "figure"),
         Output("footstep-draft-info", "children"),
         Input("footstep-draft-store", "data"),
         Input("footstep-draft-range-slider", "value"),
@@ -1279,6 +1328,7 @@ def register(app, *, cmap):
                 [0, 0],
                 {0: "0"},
                 _make_draft_placeholder_figure("Loading draft preview..."),
+                _placeholder_figure("GRF not available for this draft.", height=420),
                 "Draft preview will appear here.",
             )
 
@@ -1297,7 +1347,9 @@ def register(app, *, cmap):
 
         marks = {
             frame: str(frame)
-            for frame in sorted({draft_start, draft_end, (draft_start + draft_end) // 2})
+            for frame in sorted(
+                {draft_start, draft_end, (draft_start + draft_end) // 2}
+            )
         }
         projected = _max_projection_in_range(volume, start_idx, end_idx)
         max_pressure = float(np.max(projected)) if projected is not None else 0.0
@@ -1308,6 +1360,11 @@ def register(app, *, cmap):
             resolved_range,
             marks,
             _make_draft_preview_figure(volume, [start_idx, end_idx], cmap),
+            _make_draft_grf_figure(
+                volume,
+                resolved_range,
+                draft_start_frame=draft_start,
+            ),
             (
                 f"Frame range: [{resolved_range[0]}, {resolved_range[1]}] | "
                 f"Projected image shape: {np.asarray(projected).shape if projected is not None else 'N/A'} | "
