@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
 from typing import Any, TypeAlias, TypeVar, Literal
 
 import numpy as np
@@ -17,6 +19,9 @@ Result: TypeAlias = tuple[T | None, ErrorCode | None]
 class CommonHelper:
     def __init__(self, db: DB):
         self.db = db
+        self._trial_recording_cache_dir = (
+            Path(tempfile.gettempdir()) / "biometric_gait_dashboard"
+        )
 
     def _require_event(self, event_id: str) -> Result[SwipeEvent]:
         event = self.db.get_swipe_event(event_id)
@@ -56,6 +61,43 @@ class CommonHelper:
         if not isinstance(arr, np.ndarray):
             return None, "missing_file"
         return arr, None
+
+    def _get_trial_recording_cache_path(self, event_id: str) -> Path:
+        return self._trial_recording_cache_dir / f"{event_id}.trial.npy"
+
+    def _load_trial_recording(self, event: SwipeEvent) -> Result[np.ndarray]:
+        event_id = getattr(event, "event_id", None)
+        if not isinstance(event_id, str) or not event_id:
+            return None, "missing_event"
+
+        cache_path = self._get_trial_recording_cache_path(event_id)
+        if cache_path.exists():
+            try:
+                cached = np.load(cache_path, allow_pickle=False)
+            except Exception:
+                pass
+            else:
+                if isinstance(cached, np.ndarray):
+                    return cached, None
+
+        array, arr_err = self._load_npz_from_uri(event.trial_npz_uri)
+        if arr_err or array is None:
+            return None, arr_err
+
+        try:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            np.save(cache_path, array, allow_pickle=False)
+        except Exception:
+            return array, None
+
+        try:
+            cached = np.load(cache_path, allow_pickle=False)
+        except Exception:
+            return array, None
+
+        if not isinstance(cached, np.ndarray):
+            return array, None
+        return cached, None
 
     def _load_steps_npz(self, event: Any):
         try:
