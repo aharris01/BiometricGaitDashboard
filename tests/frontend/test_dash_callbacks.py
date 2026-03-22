@@ -5,7 +5,12 @@ import requests
 from dash.exceptions import PreventUpdate
 
 import frontend.api as api
-from frontend.callbacks.footsteps import _resolve_draft_depth_range, _review_label_value
+from frontend.callbacks.footsteps import (
+    _draft_range_to_frame_bounds,
+    _resolve_draft_frame_range,
+    _resolve_draft_depth_range,
+    _review_label_value,
+)
 from frontend.utils import require_values
 
 pytestmark = pytest.mark.unit
@@ -110,6 +115,40 @@ def test_resolve_draft_depth_range_preserves_manual_slider_selection():
     )
 
     assert out == [12, 48]
+
+
+def test_resolve_draft_frame_range_resets_to_absolute_draft_bounds():
+    out = _resolve_draft_frame_range(
+        draft_start=20,
+        draft_end=60,
+        frame_range=[0, 0],
+        reset_range=True,
+    )
+
+    assert out == [20, 60]
+
+
+def test_resolve_draft_frame_range_preserves_absolute_selection():
+    out = _resolve_draft_frame_range(
+        draft_start=20,
+        draft_end=60,
+        frame_range=[24, 38],
+        reset_range=False,
+    )
+
+    assert out == [24, 38]
+
+
+def test_draft_range_to_frame_bounds_returns_absolute_trial_frames():
+    out = _draft_range_to_frame_bounds(
+        {
+            "start_frame": 20,
+            "volume": [[[1]], [[2]], [[3]], [[4]]],
+        },
+        [21, 23],
+    )
+
+    assert out == (21, 23)
 
 
 # ------------------------------------------------------------

@@ -1,5 +1,6 @@
 import datetime as dt
 import pathlib
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -281,6 +282,46 @@ class TestFootstepSelectionHelpers:
         loss_dict = _find_next_footstep(metadata, 10)
 
         assert set(loss_dict) == {11}
+
+    def test_find_next_footstep_handles_zero_spread_losses_without_warning(self):
+        metadata = _make_footstep_metadata(
+            [
+                {
+                    "FootstepID": 1,
+                    "Direction": "out",
+                    "t": 100,
+                    "x": 100,
+                    "y": 100,
+                    "heading_angle": 0.0,
+                    "path_order": 0,
+                },
+                {
+                    "FootstepID": 2,
+                    "Direction": "out",
+                    "t": 150,
+                    "x": 50,
+                    "y": 100,
+                    "heading_angle": 0.0,
+                    "path_order": -1,
+                },
+                {
+                    "FootstepID": 3,
+                    "Direction": "out",
+                    "t": 150,
+                    "x": 150,
+                    "y": 100,
+                    "heading_angle": 0.0,
+                    "path_order": -1,
+                },
+            ]
+        )
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            loss_dict = _find_next_footstep(metadata, 1)
+
+        assert caught == []
+        assert set(loss_dict) == {2, 3}
 
 
 class TestTracePath:

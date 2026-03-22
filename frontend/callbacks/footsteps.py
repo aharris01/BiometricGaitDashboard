@@ -455,6 +455,47 @@ def _resolve_draft_depth_range(
     return [start_idx, end_idx]
 
 
+def _resolve_draft_frame_range(
+    *,
+    draft_start: int,
+    draft_end: int,
+    frame_range: list[int] | None,
+    reset_range: bool,
+) -> list[int]:
+    if reset_range or not frame_range or len(frame_range) != 2:
+        return [draft_start, draft_end]
+
+    start_frame = max(draft_start, min(draft_end, int(frame_range[0])))
+    end_frame = max(draft_start, min(draft_end, int(frame_range[1])))
+    if start_frame > end_frame:
+        start_frame, end_frame = end_frame, start_frame
+
+    return [start_frame, end_frame]
+
+
+def _draft_range_to_frame_bounds(
+    draft_store: dict | None,
+    depth_range: list[int] | None,
+) -> tuple[int, int] | None:
+    if not draft_store or not draft_store.get("volume"):
+        return None
+
+    volume = draft_store["volume"]
+    draft_start = int(draft_store.get("start_frame", 0))
+    draft_end = draft_start + max(0, len(volume) - 1)
+    resolved_range = _resolve_draft_frame_range(
+        draft_start=draft_start,
+        draft_end=draft_end,
+        frame_range=depth_range,
+        reset_range=False,
+    )
+
+    return (
+        int(resolved_range[0]),
+        int(resolved_range[1]),
+    )
+
+
 def register(app, *, cmap):
     @callback(
         Output("footstep-participant-filter", "options"),
@@ -1243,33 +1284,50 @@ def register(app, *, cmap):
 
         volume = draft_store["volume"]
         depth = len(volume)
-        slider_max = max(0, depth - 1)
-        resolved_range = _resolve_draft_depth_range(
-            slider_max=slider_max,
-            depth_range=depth_range,
+        draft_start = int(draft_store.get("start_frame", 0))
+        draft_end = draft_start + max(0, depth - 1)
+        resolved_range = _resolve_draft_frame_range(
+            draft_start=draft_start,
+            draft_end=draft_end,
+            frame_range=depth_range,
             reset_range=ctx.triggered_id == "footstep-draft-store",
         )
-        start_idx, end_idx = resolved_range
+        start_idx = resolved_range[0] - draft_start
+        end_idx = resolved_range[1] - draft_start
 
         marks = {
-            idx: str(idx)
-            for idx in sorted({0, slider_max, slider_max // 2})
+            frame: str(frame)
+            for frame in sorted({draft_start, draft_end, (draft_start + draft_end) // 2})
         }
         projected = _max_projection_in_range(volume, start_idx, end_idx)
         max_pressure = float(np.max(projected)) if projected is not None else 0.0
 
         return (
-            0,
-            slider_max,
+            draft_start,
+            draft_end,
             resolved_range,
             marks,
-            _make_draft_preview_figure(volume, resolved_range, cmap),
+            _make_draft_preview_figure(volume, [start_idx, end_idx], cmap),
             (
-                f"Depth range: [{start_idx}, {end_idx}] | "
+                f"Frame range: [{resolved_range[0]}, {resolved_range[1]}] | "
                 f"Projected image shape: {np.asarray(projected).shape if projected is not None else 'N/A'} | "
                 f"Max pressure in projection: {max_pressure:.3f}"
             ),
         )
+
+    @callback(
+        Output("footstep-create-start-frame", "value", allow_duplicate=True),
+        Output("footstep-create-end-frame", "value", allow_duplicate=True),
+        Input("footstep-draft-store", "data"),
+        Input("footstep-draft-range-slider", "value"),
+        prevent_initial_call=True,
+    )
+    def sync_draft_range_to_create_frames(draft_store, depth_range):
+        frame_bounds = _draft_range_to_frame_bounds(draft_store, depth_range)
+        if frame_bounds is None:
+            raise PreventUpdate
+
+        return frame_bounds
 
     @callback(
         Output("footstep-review-store", "data", allow_duplicate=True),
