@@ -178,6 +178,7 @@ def _refresh_visible_results_for_created_footstep(
 
     visible_count = max(1, len(visible_items or []))
     request_limit = visible_count
+    base_target_count = visible_count + 1
     latest_items: list[dict] = []
     latest_total = int(pagination_store.get("total", visible_count))
 
@@ -196,13 +197,20 @@ def _refresh_visible_results_for_created_footstep(
             footstep_id=footstep_id,
         )
         if created_index is not None:
-            latest_items = latest_items[: created_index + 1]
-            break
+            target_count = max(base_target_count, created_index + 1)
+            if len(latest_items) >= target_count:
+                latest_items = latest_items[:target_count]
+                break
+        else:
+            target_count = base_target_count
 
         if request_limit >= latest_total:
             break
 
-        next_limit = min(latest_total, max(request_limit + 1, request_limit * 2))
+        next_limit = min(
+            latest_total,
+            max(target_count, request_limit + 1, request_limit * 2),
+        )
         if next_limit == request_limit:
             break
 

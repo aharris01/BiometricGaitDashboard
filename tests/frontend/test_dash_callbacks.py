@@ -174,25 +174,17 @@ def test_refresh_visible_results_for_created_footstep_expands_search_until_found
     monkeypatch,
 ):
     calls = []
+    all_items = [
+        {"event_id": "evt-1", "footstep_id": 1},
+        {"event_id": "evt-1", "footstep_id": 2},
+        {"event_id": "evt-1", "footstep_id": 3},
+        {"event_id": "evt-1", "footstep_id": 4},
+    ]
 
     def fake_search_footsteps(**kwargs):
         calls.append(kwargs["limit"])
-        if kwargs["limit"] == 2:
-            return {
-                "items": [
-                    {"event_id": "evt-1", "footstep_id": 1},
-                    {"event_id": "evt-1", "footstep_id": 2},
-                ],
-                "total": 5,
-            }
-
         return {
-            "items": [
-                {"event_id": "evt-1", "footstep_id": 1},
-                {"event_id": "evt-1", "footstep_id": 2},
-                {"event_id": "evt-1", "footstep_id": 3},
-                {"event_id": "evt-1", "footstep_id": 4},
-            ],
+            "items": all_items[: kwargs["limit"]],
             "total": 5,
         }
 
@@ -232,16 +224,18 @@ def test_refresh_visible_results_for_created_footstep_expands_search_until_found
 def test_refresh_visible_results_for_created_footstep_trims_extra_rows_after_found(
     monkeypatch,
 ):
+    all_items = [
+        {"event_id": "evt-1", "footstep_id": 1},
+        {"event_id": "evt-1", "footstep_id": 2},
+        {"event_id": "evt-1", "footstep_id": 3},
+        {"event_id": "evt-1", "footstep_id": 4},
+        {"event_id": "evt-1", "footstep_id": 5},
+        {"event_id": "evt-1", "footstep_id": 6},
+    ]
+
     def fake_search_footsteps(**kwargs):
         return {
-            "items": [
-                {"event_id": "evt-1", "footstep_id": 1},
-                {"event_id": "evt-1", "footstep_id": 2},
-                {"event_id": "evt-1", "footstep_id": 3},
-                {"event_id": "evt-1", "footstep_id": 4},
-                {"event_id": "evt-1", "footstep_id": 5},
-                {"event_id": "evt-1", "footstep_id": 6},
-            ],
+            "items": all_items[: kwargs["limit"]],
             "total": 6,
         }
 
@@ -268,6 +262,54 @@ def test_refresh_visible_results_for_created_footstep_trims_extra_rows_after_fou
         ],
         event_id="evt-1",
         footstep_id=4,
+        logger=None,
+    )
+
+    assert pagination_store is not None
+    assert visible_items is not None
+    assert pagination_store["offset"] == 4
+    assert [item["footstep_id"] for item in visible_items] == [1, 2, 3, 4]
+
+
+def test_refresh_visible_results_for_created_footstep_preserves_items_after_insert(
+    monkeypatch,
+):
+    all_items = [
+        {"event_id": "evt-1", "footstep_id": 1},
+        {"event_id": "evt-1", "footstep_id": 2},
+        {"event_id": "evt-1", "footstep_id": 3},
+        {"event_id": "evt-1", "footstep_id": 4},
+    ]
+
+    def fake_search_footsteps(**kwargs):
+        return {
+            "items": all_items[: kwargs["limit"]],
+            "total": 4,
+        }
+
+    monkeypatch.setattr(
+        "frontend.callbacks.footsteps.search_footsteps",
+        fake_search_footsteps,
+    )
+
+    pagination_store, visible_items = _refresh_visible_results_for_created_footstep(
+        {
+            "applied": True,
+            "participants": [],
+            "start_date": None,
+            "end_date": None,
+            "height_range": [10, 150],
+            "width_range": [10, 130],
+            "size_range": [0, 10000],
+            "total": 4,
+        },
+        [
+            {"event_id": "evt-1", "footstep_id": 1},
+            {"event_id": "evt-1", "footstep_id": 3},
+            {"event_id": "evt-1", "footstep_id": 4},
+        ],
+        event_id="evt-1",
+        footstep_id=2,
         logger=None,
     )
 
