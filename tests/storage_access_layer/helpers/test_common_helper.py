@@ -56,6 +56,26 @@ def test_get_p100_ndarray_on_success(common):
 
 
 @pytest.mark.unit
+def test_load_steps_npz_returns_archive_handle(tmp_path, common):
+    trial = tmp_path / "trial.npz"
+    steps = tmp_path / "steps.npz"
+    np.savez_compressed(trial, arr_0=np.zeros((2, 2)))
+    np.savez_compressed(
+        steps, **{"0": np.ones((2, 2, 2)), "1": np.full((1, 2, 2), 3.0)}
+    )
+    event = SimpleNamespace(trial_npz_uri=trial.as_uri())
+
+    loaded, err = common._load_steps_npz(event)
+
+    assert err is None
+    assert loaded is not None
+    assert sorted(loaded.files) == ["0", "1"]
+    np.testing.assert_array_equal(loaded["0"], np.ones((2, 2, 2)))
+    np.testing.assert_array_equal(loaded["1"], np.full((1, 2, 2), 3.0))
+    loaded.close()
+
+
+@pytest.mark.unit
 def test_load_trial_recording_caches_full_trial_array(tmp_path, common):
     trial = tmp_path / "trial.npz"
     array = np.arange(24, dtype=np.uint16).reshape(2, 3, 4)

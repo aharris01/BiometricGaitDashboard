@@ -42,6 +42,7 @@ class CommonHelper:
         return footstep, None
 
     def _load_npz_from_uri(self, uri: str, key: str = "arr_0") -> Result[np.ndarray]:
+        loaded = None
         try:
             file_path = uri_to_path(uri)
             loaded = np.load(file_path)
@@ -60,6 +61,8 @@ class CommonHelper:
                 arr = loaded
         except Exception:
             return None, "missing_file"
+        finally:
+            _close_loaded_archive(loaded)
 
         if not isinstance(arr, np.ndarray):
             return None, "missing_file"
@@ -163,3 +166,12 @@ class CommonHelper:
             return None, None, "invalid_img_dimensions"
 
         return image_width, image_height, None
+
+
+def _close_loaded_archive(loaded: object) -> None:
+    close = getattr(loaded, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            return

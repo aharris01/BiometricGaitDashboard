@@ -400,24 +400,27 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return None, None, steps_err
 
-        archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
-        key = str(archive_key)
-        if key not in steps_npz.files:
-            return None, None, "missing_file"
+        try:
+            archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
+            key = str(archive_key)
+            if key not in _steps_keys(steps_npz):
+                return None, None, "missing_file"
 
-        # vol is the full footstep pressure volume across time.
-        # Shape: (time, height, width)
-        vol = steps_npz[key]  # (T, H, W)
+            # vol is the full footstep pressure volume across time.
+            # Shape: (time, height, width)
+            vol = _steps_value(steps_npz, key)  # (T, H, W)
 
-        # step_p100 is the max pressure image for this footstep.
-        # This is used for footstep heatmap-style rendering.
-        step_p100 = vol.max(axis=0)  # (H, W)
+            # step_p100 is the max pressure image for this footstep.
+            # This is used for footstep heatmap-style rendering.
+            step_p100 = vol.max(axis=0)  # (H, W)
 
-        # step_grf is the per-frame total pressure signal.
-        # This is used like a simple force-over-time curve.
-        step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+            # step_grf is the per-frame total pressure signal.
+            # This is used like a simple force-over-time curve.
+            step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
 
-        return step_p100.tolist(), step_grf.tolist(), None
+            return step_p100.tolist(), step_grf.tolist(), None
+        finally:
+            _close_steps_npz(steps_npz)
 
     def get_footstep_context_data(self, event_id: str, step_id: int):
         event, err = self.common._require_event(event_id)
@@ -428,40 +431,43 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return None, steps_err
 
-        archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
-        key = str(archive_key)
-        if key not in steps_npz.files:
-            return None, "missing_file"
+        try:
+            archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
+            key = str(archive_key)
+            if key not in _steps_keys(steps_npz):
+                return None, "missing_file"
 
-        vol = steps_npz[key]  # (T, H, W)
-        step_p100 = vol.max(axis=0)  # (H, W)
-        step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+            vol = _steps_value(steps_npz, key)  # (T, H, W)
+            step_p100 = vol.max(axis=0)  # (H, W)
+            step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
 
-        y_coords = np.arange(vol.shape[1], dtype=float)[None, :, None]
-        x_coords = np.arange(vol.shape[2], dtype=float)[None, None, :]
+            y_coords = np.arange(vol.shape[1], dtype=float)[None, :, None]
+            x_coords = np.arange(vol.shape[2], dtype=float)[None, None, :]
 
-        cop_x_num = (vol * x_coords).sum(axis=(1, 2))
-        cop_y_num = (vol * y_coords).sum(axis=(1, 2))
+            cop_x_num = (vol * x_coords).sum(axis=(1, 2))
+            cop_y_num = (vol * y_coords).sum(axis=(1, 2))
 
-        cop_x = np.divide(
-            cop_x_num,
-            step_grf,
-            out=np.full(step_grf.shape, np.nan, dtype=float),
-            where=step_grf != 0,
-        )
-        cop_y = np.divide(
-            cop_y_num,
-            step_grf,
-            out=np.full(step_grf.shape, np.nan, dtype=float),
-            where=step_grf != 0,
-        )
+            cop_x = np.divide(
+                cop_x_num,
+                step_grf,
+                out=np.full(step_grf.shape, np.nan, dtype=float),
+                where=step_grf != 0,
+            )
+            cop_y = np.divide(
+                cop_y_num,
+                step_grf,
+                out=np.full(step_grf.shape, np.nan, dtype=float),
+                where=step_grf != 0,
+            )
 
-        return {
-            "p100": step_p100.tolist(),
-            "grf": step_grf.tolist(),
-            "cop_x": cop_x.tolist(),
-            "cop_y": cop_y.tolist(),
-        }, None
+            return {
+                "p100": step_p100.tolist(),
+                "grf": step_grf.tolist(),
+                "cop_x": cop_x.tolist(),
+                "cop_y": cop_y.tolist(),
+            }, None
+        finally:
+            _close_steps_npz(steps_npz)
 
     # Return the max-pressure image for every footstep in one event.
     # This is mainly used by the summary view when many footsteps
@@ -479,9 +485,9 @@ class SalFootsteps:
         archive_lookup = _build_archive_lookup(self.db.get_event_footsteps(event_id))
         items = []
         try:
-            for key in steps_npz.files:
+            for key in _steps_keys(steps_npz):
                 step_id = archive_lookup.get(int(key), int(key))
-                vol = steps_npz[key]  # (T, H, W)
+                vol = _steps_value(steps_npz, key)  # (T, H, W)
                 step_p100 = vol.max(axis=0)  # (H, W)
                 items.append(
                     {
@@ -492,6 +498,8 @@ class SalFootsteps:
                 )
         except Exception:
             return None, "missing_file"
+        finally:
+            _close_steps_npz(steps_npz)
 
         items.sort(key=lambda x: x["archive_key"])
         return [{"id": item["id"], "p100": item["p100"]} for item in items], None
@@ -514,9 +522,9 @@ class SalFootsteps:
         archive_lookup = _build_archive_lookup(self.db.get_event_footsteps(event_id))
         items = []
         try:
-            for key in steps_npz.files:
+            for key in _steps_keys(steps_npz):
                 step_id = archive_lookup.get(int(key), int(key))
-                vol = steps_npz[key]  # (T, H, W)
+                vol = _steps_value(steps_npz, key)  # (T, H, W)
                 step_p100 = vol.max(axis=0)  # (H, W)
                 step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
                 items.append(
@@ -529,6 +537,8 @@ class SalFootsteps:
                 )
         except Exception:
             return None, "missing_file"
+        finally:
+            _close_steps_npz(steps_npz)
 
         items.sort(key=lambda x: x["archive_key"])
         return [
@@ -593,12 +603,15 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return False
 
-        archive_key = _resolve_step_archive_key(self.db, event_id, footstep_id)
-        key = str(archive_key)
-        if key not in steps_npz.files:
-            return False
+        try:
+            archive_key = _resolve_step_archive_key(self.db, event_id, footstep_id)
+            key = str(archive_key)
+            if key not in _steps_keys(steps_npz):
+                return False
 
-        return True
+            return True
+        finally:
+            _close_steps_npz(steps_npz)
 
 
 def _resolve_step_archive_key(db: DB, event_id: str, footstep_id: int) -> int:
@@ -650,6 +663,29 @@ def _normalize_editor_create_result(result) -> _EditorCreateResult:
         "step_archive_key": int(result),
         "archive_key_updates": {},
     }
+
+
+def _steps_keys(steps_npz) -> list[str]:
+    if hasattr(steps_npz, "files"):
+        return [str(key) for key in steps_npz.files]
+
+    if isinstance(steps_npz, dict):
+        return [str(key) for key in steps_npz.keys()]
+
+    return []
+
+
+def _steps_value(steps_npz, key: str) -> np.ndarray:
+    return np.asarray(steps_npz[key])
+
+
+def _close_steps_npz(steps_npz) -> None:
+    close = getattr(steps_npz, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            return
 
 
 def _normalize_search_filters(
