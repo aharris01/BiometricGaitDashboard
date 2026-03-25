@@ -1,5 +1,4 @@
 from io import BytesIO
-import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -44,6 +43,7 @@ class FootstepEditor:
         footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
         if footstep_err or footstep is None:
             return False, footstep_err
+        archive_key = _get_archive_key(footstep, footstep_id)
 
         # open metadata for the event
         trial_folder = uri_to_path(event.trial_npz_uri).parent
@@ -56,7 +56,7 @@ class FootstepEditor:
 
         # make edits to footstep in df
         metadata_df.loc[
-            metadata_df["FootstepID"] == footstep_id,
+            metadata_df["FootstepID"] == archive_key,
             ["XMin", "XMax", "YMin", "YMax", "StartFrame", "EndFrame"],
         ] = [
             new_footstep_data["XMin"],
@@ -66,16 +66,26 @@ class FootstepEditor:
             new_footstep_data["StartFrame"],
             new_footstep_data["EndFrame"],
         ]
+        metadata_df, archive_key_updates = _reassign_footstep_ids_by_start_frame(
+            metadata_df
+        )
+        new_archive_key = archive_key_updates[archive_key]
 
         # validate footstep bounding box data
-        edited_row = metadata_df.loc[metadata_df["FootstepID"] == footstep_id].iloc[0]
+        edited_row = metadata_df.loc[metadata_df["FootstepID"] == new_archive_key].iloc[
+            0
+        ]
         metadata_df["valid"] = metadata_df["valid"].apply(bool)
         if not _is_within_expected_bb_size(
             edited_row
         ) or not _is_within_expect_duration(edited_row):
-            metadata_df.loc[metadata_df["FootstepID"] == footstep_id, "valid"] = False
+            metadata_df.loc[metadata_df["FootstepID"] == new_archive_key, "valid"] = (
+                False
+            )
         else:
-            metadata_df.loc[metadata_df["FootstepID"] == footstep_id, "valid"] = True
+            metadata_df.loc[metadata_df["FootstepID"] == new_archive_key, "valid"] = (
+                True
+            )
 
         # find path order (anchor identification and path order identification)
         # print("Finding path order...")
@@ -105,18 +115,18 @@ class FootstepEditor:
             return False, trial_recording_err
 
         # Update metadata and preprocess only the edited footstep
-        row = metadata_df.loc[metadata_df["FootstepID"] == footstep_id].iloc[0]
+        row = metadata_df.loc[metadata_df["FootstepID"] == new_archive_key].iloc[0]
         footstep_data = trial_recording[
             row["StartFrame"] : row["EndFrame"],
             row["YMin"] : row["YMax"],
             row["XMin"] : row["XMax"],
         ]
 
-        row_mask = metadata_df["FootstepID"] == footstep_id
+        row_mask = metadata_df["FootstepID"] == new_archive_key
 
         single_metadata = metadata_df.loc[row_mask].copy().reset_index(drop=True)
         processed, updated_metadata = preprocess_footsteps(
-            {footstep_id: footstep_data},
+            {new_archive_key: footstep_data},
             single_metadata,
             h=100,
             w=100,
@@ -124,25 +134,36 @@ class FootstepEditor:
         processed_step = processed[0]
 
         for column in updated_metadata.columns:
+            if column == "FootstepID":
+                continue
             metadata_df.loc[row_mask, column] = updated_metadata.at[0, column]
 
-        processed_member = f"{footstep_id}.npy"
-        raw_member = f"{footstep_id}.npy"
-
-        _rewrite_npz_member(
-            trial_folder / "steps.npz", processed_member, processed_step
+        _rewrite_step_archive(
+            trial_folder / "steps.npz",
+            archive_key_updates=archive_key_updates,
+            replacement_arrays={new_archive_key: processed_step},
         )
-        _rewrite_npz_member(trial_folder / "steps.raw.npz", raw_member, footstep_data)
+        _rewrite_step_archive(
+            trial_folder / "steps.raw.npz",
+            archive_key_updates=archive_key_updates,
+            replacement_arrays={new_archive_key: footstep_data},
+        )
 
         # replace metadata.csv for the event to with updated df
         _, update_csv_err = _update_csv(metadata_df, metadata_file_path)
         if update_csv_err:
             return False, update_csv_err
 
-        return True, None
+        return (
+            {
+                "step_archive_key": int(new_archive_key),
+                "archive_key_updates": archive_key_updates,
+            },
+            None,
+        )
 
     def delete_footstep(self, footstep: LocalFootstep, event: SwipeEvent):
-        footstep_id = footstep.footstep_id
+        archive_key = _get_archive_key(footstep, footstep.footstep_id)
 
         # open metadata for the event
         trial_folder = uri_to_path(event.trial_npz_uri).parent
@@ -154,7 +175,10 @@ class FootstepEditor:
             return False, f"Error loading metadata: {e}"
 
         # Remove footstep from dataframe
-        metadata_df = metadata_df.loc[metadata_df["FootstepID"] != footstep_id].copy()
+        metadata_df = metadata_df.loc[metadata_df["FootstepID"] != archive_key].copy()
+        metadata_df, archive_key_updates = _reassign_footstep_ids_by_start_frame(
+            metadata_df
+        )
 
         # Redo anchor identification and path tracing
         p100, p100_err = self.common._load_npz_from_uri(event.trial_p100_npz_uri)
@@ -175,29 +199,26 @@ class FootstepEditor:
             metadata_df["is_anchor"] = metadata_df["path_order"] == 0
             metadata_df["is_on_path"] = metadata_df["path_order"] >= 0
 
-        # Remove footstep from steps.raw.npz and steps.npz by treating archives as zipfiles
-        paths = [
-            (trial_folder / "steps.npz", trial_folder / "temp.npz"),
-            (trial_folder / "steps.raw.npz", trial_folder / "temp.raw.npz"),
-        ]
-        for src_path, tmp_path in paths:
-            with (
-                ZipFile(src_path, "r") as src,
-                ZipFile(tmp_path, "w", compression=ZIP_DEFLATED) as dst,
-            ):
-                for info in src.infolist():
-                    if info.filename == f"{footstep_id}.npy":
-                        continue
-                    data = src.read(info.filename)
-                    dst.writestr(info.filename, data)
-            os.replace(tmp_path, src_path)
+        _rewrite_step_archive(
+            trial_folder / "steps.npz",
+            archive_key_updates=archive_key_updates,
+        )
+        _rewrite_step_archive(
+            trial_folder / "steps.raw.npz",
+            archive_key_updates=archive_key_updates,
+        )
 
         # Replace metadata.csv for the event with the updated df
         _, update_csv_err = _update_csv(metadata_df, metadata_file_path)
         if update_csv_err:
             return False, update_csv_err
 
-        return True, None
+        return (
+            {
+                "archive_key_updates": archive_key_updates,
+            },
+            None,
+        )
 
     def create_draft_footstep(
         self, event_id: str, new_footstep, frame_padding: int = 20
@@ -271,34 +292,28 @@ class FootstepEditor:
 
         start_frame, end_frame = _extract_frame_range(new_footstep)
         x_min, x_max, y_min, y_max = _extract_bbox(new_footstep)
+        existing_archive_keys = set()
+        if "FootstepID" in metadata_df.columns:
+            existing_archive_keys = {
+                int(footstep_id)
+                for footstep_id in metadata_df["FootstepID"].dropna().tolist()
+            }
 
         new_row: dict[str, Any]
         if metadata_df.empty:
-            new_footstep_id = 0
+            temp_archive_key = 0
             new_row = {column: None for column in metadata_df.columns}
         else:
-            start_frames = metadata_df["StartFrame"].to_numpy()
-            end_frames = metadata_df["EndFrame"].to_numpy()
-            insert_before = (start_frames > start_frame) | (
-                (start_frames == start_frame) & (end_frames > end_frame)
-            )
-
-            insert_idx = (
-                int(insert_before.argmax()) if insert_before.any() else len(metadata_df)
-            )
-            new_footstep_id = insert_idx
-
-            template_idx = min(insert_idx, len(metadata_df) - 1)
+            footstep_ids = [
+                int(footstep_id)
+                for footstep_id in metadata_df["FootstepID"].dropna().tolist()
+            ]
+            temp_archive_key = max(footstep_ids, default=-1) + 1
             new_row = {
-                str(key): value
-                for key, value in metadata_df.iloc[template_idx].to_dict().items()
+                str(key): value for key, value in metadata_df.iloc[-1].to_dict().items()
             }
 
-            metadata_df.loc[
-                metadata_df["FootstepID"] >= new_footstep_id, "FootstepID"
-            ] += 1
-
-        new_row["FootstepID"] = new_footstep_id
+        new_row["FootstepID"] = temp_archive_key
         new_row["StartFrame"] = start_frame
         new_row["EndFrame"] = end_frame
         new_row["XMin"] = x_min
@@ -320,23 +335,24 @@ class FootstepEditor:
             new_row["is_on_path"] = False
 
         metadata_df.loc[len(metadata_df)] = new_row
-        metadata_df = metadata_df.sort_values("FootstepID", kind="stable").reset_index(
-            drop=True
+        metadata_df, archive_key_updates = _reassign_footstep_ids_by_start_frame(
+            metadata_df
         )
+        new_archive_key = archive_key_updates[temp_archive_key]
 
         # validate footstep bounding box data
-        edited_row = metadata_df.loc[metadata_df["FootstepID"] == new_footstep_id].iloc[
+        edited_row = metadata_df.loc[metadata_df["FootstepID"] == new_archive_key].iloc[
             0
         ]
         metadata_df["valid"] = metadata_df["valid"].apply(bool)
         if not _is_within_expected_bb_size(
             edited_row
         ) or not _is_within_expect_duration(edited_row):
-            metadata_df.loc[metadata_df["FootstepID"] == new_footstep_id, "valid"] = (
+            metadata_df.loc[metadata_df["FootstepID"] == new_archive_key, "valid"] = (
                 False
             )
         else:
-            metadata_df.loc[metadata_df["FootstepID"] == new_footstep_id, "valid"] = (
+            metadata_df.loc[metadata_df["FootstepID"] == new_archive_key, "valid"] = (
                 True
             )
 
@@ -366,50 +382,64 @@ class FootstepEditor:
                 f"Error loading trial recording: {trial_recording_err}"
             )
             return False, trial_recording_err
-        # print("Opened trial recording")
-        # print("Updating footstep data files...")
 
-        footsteps: dict[Any, np.ndarray] = {}
-        raw_footsteps: dict[str, np.ndarray] = {}
-        for i, row in metadata_df.iterrows():
-            footstep_data = trial_recording[
-                row["StartFrame"] : row["EndFrame"],
-                row["YMin"] : row["YMax"],
-                row["XMin"] : row["XMax"],
-            ]
-            footsteps[i] = footstep_data
-            raw_footsteps[str(i)] = footstep_data
+        row = metadata_df.loc[metadata_df["FootstepID"] == new_archive_key].iloc[0]
+        footstep_data = trial_recording[
+            row["StartFrame"] : row["EndFrame"],
+            row["YMin"] : row["YMax"],
+            row["XMin"] : row["XMax"],
+        ]
 
-        # print("Normalizing and updating steps.npz...")
-        preprocessed_footsteps, _ = preprocess_footsteps(
-            footsteps, metadata_df, h=100, w=100
+        row_mask = metadata_df["FootstepID"] == new_archive_key
+        single_metadata = metadata_df.loc[row_mask].copy().reset_index(drop=True)
+        processed, updated_metadata = preprocess_footsteps(
+            {new_archive_key: footstep_data},
+            single_metadata,
+            h=100,
+            w=100,
         )
-        preprocessed_footsteps_dict = {
-            str(i): f for i, f in enumerate(preprocessed_footsteps)
-        }
-        try:
-            np.savez_compressed(
-                trial_folder / "steps.npz", **preprocessed_footsteps_dict
-            )
-            # print(f"Updated steps.npz: {trial_folder / 'steps.npz'}")
-        except Exception as e:
-            current_app.logger.error(f"Error saving steps.npz: {e}")
-            return False, f"Error saving steps.npz: {e}"
+        processed_step = processed[0]
 
-        # print("Updating steps.raw.npz...")
-        try:
-            np.savez(trial_folder / "steps.raw.npz", allow_pickle=True, **raw_footsteps)
-            # print(f"Updated steps.raw.npz: {trial_folder / 'steps.raw.npz'}")
-        except Exception as e:
-            current_app.logger.error(f"Error saving steps.raw.npz: {e}")
-            return False, f"Error saving steps.raw.npz: {e}"
+        for column in updated_metadata.columns:
+            if column == "FootstepID":
+                continue
+            metadata_df.loc[row_mask, column] = updated_metadata.at[0, column]
+
+        _rewrite_step_archive(
+            trial_folder / "steps.npz",
+            archive_key_updates={
+                old_key: new_key
+                for old_key, new_key in archive_key_updates.items()
+                if old_key in existing_archive_keys
+            },
+            replacement_arrays={new_archive_key: processed_step},
+        )
+        _rewrite_step_archive(
+            trial_folder / "steps.raw.npz",
+            archive_key_updates={
+                old_key: new_key
+                for old_key, new_key in archive_key_updates.items()
+                if old_key in existing_archive_keys
+            },
+            replacement_arrays={new_archive_key: footstep_data},
+        )
 
         # replace metadata.csv for the event to with updated df
         _, update_csv_err = _update_csv(metadata_df, metadata_file_path)
         if update_csv_err:
             return False, update_csv_err
 
-        return new_footstep_id, None
+        return (
+            {
+                "step_archive_key": int(new_archive_key),
+                "archive_key_updates": {
+                    old_key: new_key
+                    for old_key, new_key in archive_key_updates.items()
+                    if old_key in existing_archive_keys
+                },
+            },
+            None,
+        )
 
 
 def _extract_bbox(new_footstep) -> tuple[int, int, int, int]:
@@ -460,12 +490,51 @@ def _array_to_npy_bytes(array: np.ndarray) -> bytes:
     return buffer.getvalue()
 
 
-def _rewrite_npz_member(
+def _get_archive_key(footstep: LocalFootstep, fallback_key: int) -> int:
+    return int(getattr(footstep, "step_archive_key", fallback_key))
+
+
+def _reassign_footstep_ids_by_start_frame(
+    metadata_df: Any,
+) -> tuple[Any, dict[int, int]]:
+    if metadata_df.empty:
+        return metadata_df.reset_index(drop=True), {}
+
+    reordered = metadata_df.sort_values("StartFrame", kind="stable").reset_index(
+        drop=True
+    )
+    old_ids = [int(footstep_id) for footstep_id in reordered["FootstepID"].tolist()]
+    archive_key_updates = {old_key: new_key for new_key, old_key in enumerate(old_ids)}
+    reordered["FootstepID"] = list(range(len(reordered)))
+    return reordered, archive_key_updates
+
+
+def _member_name_from_key(step_key: int) -> str:
+    return f"{int(step_key)}.npy"
+
+
+def _parse_member_key(member_name: str) -> int | None:
+    if not member_name.endswith(".npy"):
+        return None
+
+    stem = Path(member_name).stem
+    if not stem.isdigit():
+        return None
+
+    return int(stem)
+
+
+def _rewrite_step_archive(
     archive_path: Path,
-    member_name: str,
-    new_array: np.ndarray,
+    *,
+    archive_key_updates: dict[int, int],
+    replacement_arrays: dict[int, np.ndarray] | None = None,
 ) -> None:
-    new_bytes = _array_to_npy_bytes(new_array)
+    replacement_arrays = replacement_arrays or {}
+    replacement_bytes = {
+        int(step_key): _array_to_npy_bytes(array)
+        for step_key, array in replacement_arrays.items()
+    }
 
     with NamedTemporaryFile(
         delete=False, suffix=".npz", dir=archive_path.parent
@@ -473,22 +542,34 @@ def _rewrite_npz_member(
         tmp_path = Path(tmp.name)
 
     try:
-        with (
-            ZipFile(archive_path, "r") as src,
-            ZipFile(tmp_path, "w", compression=ZIP_DEFLATED) as dst,
-        ):
-            replaced = False
+        with ZipFile(tmp_path, "w", compression=ZIP_DEFLATED) as dst:
+            written_member_names: set[str] = set()
 
-            for info in src.infolist():
-                if info.filename == member_name:
-                    dst.writestr(member_name, new_bytes)
-                    replaced = True
+            if archive_path.exists():
+                with ZipFile(archive_path, "r") as src:
+                    for info in src.infolist():
+                        member_key = _parse_member_key(info.filename)
+                        if member_key is None:
+                            dst.writestr(info.filename, src.read(info.filename))
+                            written_member_names.add(info.filename)
+                            continue
+
+                        if member_key not in archive_key_updates:
+                            continue
+
+                        next_member_key = int(archive_key_updates[member_key])
+                        next_member_name = _member_name_from_key(next_member_key)
+                        next_bytes = replacement_bytes.get(
+                            next_member_key, src.read(info.filename)
+                        )
+                        dst.writestr(next_member_name, next_bytes)
+                        written_member_names.add(next_member_name)
+
+            for member_key, member_bytes in replacement_bytes.items():
+                member_name = _member_name_from_key(member_key)
+                if member_name in written_member_names:
                     continue
-
-                dst.writestr(info.filename, src.read(info.filename))
-
-            if not replaced:
-                dst.writestr(member_name, new_bytes)
+                dst.writestr(member_name, member_bytes)
 
         tmp_path.replace(archive_path)
     except Exception:

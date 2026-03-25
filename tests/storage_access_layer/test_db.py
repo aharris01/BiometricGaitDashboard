@@ -234,3 +234,58 @@ def test_delete_local_footstep_returns_none_when_row_missing(empty_db):
     deleted = empty_db.delete_local_footstep("EV_MISSING", 4)
 
     assert deleted is None
+
+
+def test_create_local_footstep_defaults_step_archive_key_to_local_id(empty_db):
+    row = empty_db.create_local_footstep(
+        "EV_TEST",
+        start_frame=10,
+        end_frame=20,
+        x_min=1,
+        x_max=11,
+        y_min=2,
+        y_max=12,
+        label=None,
+    )
+
+    assert row is not None
+    assert row.footstep_id == 0
+    assert row.step_archive_key == 0
+
+
+def test_update_step_archive_keys_updates_existing_rows(empty_db):
+    empty_db.create_local_footstep(
+        "EV_TEST",
+        start_frame=10,
+        end_frame=20,
+        x_min=1,
+        x_max=11,
+        y_min=2,
+        y_max=12,
+        label=None,
+        step_archive_key=6,
+    )
+    empty_db.create_local_footstep(
+        "EV_TEST",
+        start_frame=30,
+        end_frame=40,
+        x_min=3,
+        x_max=13,
+        y_min=4,
+        y_max=14,
+        label=None,
+        step_archive_key=7,
+    )
+
+    updated = empty_db.update_step_archive_keys("EV_TEST", {6: 0, 7: 1})
+
+    assert updated == 2
+
+    with empty_db._get_session() as session:
+        first = session.get(LocalFootstep, ("EV_TEST", 0))
+        second = session.get(LocalFootstep, ("EV_TEST", 1))
+
+        assert first is not None
+        assert second is not None
+        assert first.step_archive_key == 0
+        assert second.step_archive_key == 1

@@ -502,6 +502,13 @@ def api_create_footstep(event_id: str):
                 "start_frame and end_frame must be inside the trial and end_frame must be greater than start_frame",
             )
 
+        if err == "footstep_id_conflict":
+            return make_error(
+                409,
+                "conflict",
+                "creating a footstep would overwrite an existing footstep id",
+            )
+
         if result is None:
             return make_error(
                 500,

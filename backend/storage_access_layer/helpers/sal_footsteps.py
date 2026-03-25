@@ -1,4 +1,5 @@
 from datetime import date
+from typing import TypedDict
 
 import numpy as np
 
@@ -20,6 +21,14 @@ from ..utils.types import (
     ReviewItemPayload,
 )
 from .common import CommonHelper
+
+
+class _EditorUpdateResult(TypedDict):
+    archive_key_updates: dict[int, int]
+
+
+class _EditorCreateResult(_EditorUpdateResult):
+    step_archive_key: int
 
 
 class SalFootsteps:
@@ -70,13 +79,13 @@ class SalFootsteps:
         for row in rows:
             steps.append(
                 {
-                    "id": int(row.footstep_id),
-                    "start_frame": int(row.start_frame),
-                    "end_frame": int(row.end_frame),
-                    "x_min": int(row.x_min),
-                    "x_max": int(row.x_max),
-                    "y_min": int(row.y_min),
-                    "y_max": int(row.y_max),
+                    "id": int(row["footstep_id"]),
+                    "start_frame": int(row["start_frame"]),
+                    "end_frame": int(row["end_frame"]),
+                    "x_min": int(row["x_min"]),
+                    "x_max": int(row["x_max"]),
+                    "y_min": int(row["y_min"]),
+                    "y_max": int(row["y_max"]),
                 }
             )
         if len(steps) == 0:
@@ -174,7 +183,7 @@ class SalFootsteps:
             label = str(edits["label"]).strip() or None
             edits["label"] = label
 
-        edit_ok, edit_err = self.editor.edit_footstep(
+        edit_result, edit_err = self.editor.edit_footstep(
             footstep_id,
             event_id,
             {
@@ -188,8 +197,14 @@ class SalFootsteps:
             p100=p100,
         )
 
-        if edit_err or not edit_ok:
+        if edit_err or not edit_result:
             return None, edit_err or "edit_failed"
+
+        normalized_edit_result = _normalize_editor_update_result(edit_result)
+        self.db.update_step_archive_keys(
+            event_id,
+            normalized_edit_result["archive_key_updates"],
+        )
 
         try:
             footstep = self.db.update_local_footstep(event_id, footstep_id, edits)
@@ -244,7 +259,7 @@ class SalFootsteps:
         if new_footstep["label"] is not None:
             label = str(new_footstep["label"]).strip() or None
 
-        new_footstep_id, create_err = self.editor.create_footstep(
+        create_result, create_err = self.editor.create_footstep(
             event_id,
             {
                 "start_frame": start_frame,
@@ -255,36 +270,26 @@ class SalFootsteps:
                 "y_max": y_max,
             },
         )
-        if create_err or new_footstep_id is False:
+        if create_err or not create_result:
             return None, create_err or "missing_file"
 
-        existing_footstep = self.db.get_single_footstep(event_id, int(new_footstep_id))
-        if existing_footstep is not None:
-            footstep = self.db.update_local_footstep(
-                event_id,
-                int(new_footstep_id),
-                {
-                    "start_frame": start_frame,
-                    "end_frame": end_frame,
-                    "x_min": x_min,
-                    "x_max": x_max,
-                    "y_min": y_min,
-                    "y_max": y_max,
-                    "label": label,
-                },
-            )
-        else:
-            footstep = self.db.create_local_footstep(
-                event_id,
-                footstep_id=int(new_footstep_id),
-                start_frame=start_frame,
-                end_frame=end_frame,
-                x_min=x_min,
-                x_max=x_max,
-                y_min=y_min,
-                y_max=y_max,
-                label=label,
-            )
+        normalized_create_result = _normalize_editor_create_result(create_result)
+        self.db.update_step_archive_keys(
+            event_id,
+            normalized_create_result["archive_key_updates"],
+        )
+
+        footstep = self.db.create_local_footstep(
+            event_id,
+            step_archive_key=normalized_create_result["step_archive_key"],
+            start_frame=start_frame,
+            end_frame=end_frame,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+            label=label,
+        )
 
         if footstep is None:
             return None, "missing_file"
@@ -355,13 +360,19 @@ class SalFootsteps:
         if footstep_err or footstep is None:
             return None, "no_footstep"
 
-        delete_ok, delete_err = self.editor.delete_footstep(footstep, event)
-        if delete_err or not delete_ok:
+        delete_result, delete_err = self.editor.delete_footstep(footstep, event)
+        if delete_err or not delete_result:
             return None, delete_err or "delete_failed"
 
         deleted = self.db.delete_local_footstep(event_id, footstep_id)
         if deleted is None:
             return None, "missing_file"
+
+        normalized_delete_result = _normalize_editor_update_result(delete_result)
+        self.db.update_step_archive_keys(
+            event_id,
+            normalized_delete_result["archive_key_updates"],
+        )
 
         event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
         new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
@@ -389,7 +400,8 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return None, None, steps_err
 
-        key = str(step_id)
+        archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
+        key = str(archive_key)
         if key not in steps_npz.files:
             return None, None, "missing_file"
 
@@ -416,7 +428,8 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return None, steps_err
 
-        key = str(step_id)
+        archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
+        key = str(archive_key)
         if key not in steps_npz.files:
             return None, "missing_file"
 
@@ -463,17 +476,25 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return None, steps_err
 
+        archive_lookup = _build_archive_lookup(self.db.get_event_footsteps(event_id))
         items = []
         try:
             for key in steps_npz.files:
+                step_id = archive_lookup.get(int(key), int(key))
                 vol = steps_npz[key]  # (T, H, W)
                 step_p100 = vol.max(axis=0)  # (H, W)
-                items.append({"id": int(key), "p100": step_p100.tolist()})
+                items.append(
+                    {
+                        "id": int(step_id),
+                        "archive_key": int(key),
+                        "p100": step_p100.tolist(),
+                    }
+                )
         except Exception:
             return None, "missing_file"
 
-        items.sort(key=lambda x: x["id"])
-        return items, None
+        items.sort(key=lambda x: x["archive_key"])
+        return [{"id": item["id"], "p100": item["p100"]} for item in items], None
 
     # Return both the max-pressure image and force-over-time data
     # for every footstep in one event.
@@ -490,15 +511,18 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return None, steps_err
 
+        archive_lookup = _build_archive_lookup(self.db.get_event_footsteps(event_id))
         items = []
         try:
             for key in steps_npz.files:
+                step_id = archive_lookup.get(int(key), int(key))
                 vol = steps_npz[key]  # (T, H, W)
                 step_p100 = vol.max(axis=0)  # (H, W)
                 step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
                 items.append(
                     {
-                        "id": int(key),
+                        "id": int(step_id),
+                        "archive_key": int(key),
                         "p100": step_p100.tolist(),
                         "grf": step_grf.tolist(),
                     }
@@ -506,8 +530,11 @@ class SalFootsteps:
         except Exception:
             return None, "missing_file"
 
-        items.sort(key=lambda x: x["id"])
-        return items, None
+        items.sort(key=lambda x: x["archive_key"])
+        return [
+            {"id": item["id"], "p100": item["p100"], "grf": item["grf"]}
+            for item in items
+        ], None
 
     def _create_review_payload(self, event_id, p100: np.ndarray, footstep):
         changes: list[ReviewChangePayload] = []
@@ -566,11 +593,63 @@ class SalFootsteps:
         if steps_err or steps_npz is None:
             return False
 
-        key = str(footstep_id)
+        archive_key = _resolve_step_archive_key(self.db, event_id, footstep_id)
+        key = str(archive_key)
         if key not in steps_npz.files:
             return False
 
         return True
+
+
+def _resolve_step_archive_key(db: DB, event_id: str, footstep_id: int) -> int:
+    row = db.get_single_footstep(event_id, footstep_id)
+    if row is None:
+        return int(footstep_id)
+
+    return int(getattr(row, "step_archive_key", footstep_id))
+
+
+def _build_archive_lookup(rows) -> dict[int, int]:
+    lookup: dict[int, int] = {}
+    for row in rows or []:
+        if isinstance(row, dict):
+            archive_key = row.get("step_archive_key")
+            footstep_id = row.get("footstep_id")
+        else:
+            archive_key = getattr(row, "step_archive_key", None)
+            footstep_id = getattr(row, "footstep_id", None)
+        if archive_key is None or footstep_id is None:
+            continue
+        lookup[int(archive_key)] = int(footstep_id)
+    return lookup
+
+
+def _normalize_editor_update_result(result) -> _EditorUpdateResult:
+    if isinstance(result, dict):
+        return {
+            "archive_key_updates": {
+                int(old_key): int(new_key)
+                for old_key, new_key in result.get("archive_key_updates", {}).items()
+            }
+        }
+
+    return {"archive_key_updates": {}}
+
+
+def _normalize_editor_create_result(result) -> _EditorCreateResult:
+    if isinstance(result, dict):
+        return {
+            "step_archive_key": int(result["step_archive_key"]),
+            "archive_key_updates": {
+                int(old_key): int(new_key)
+                for old_key, new_key in result.get("archive_key_updates", {}).items()
+            },
+        }
+
+    return {
+        "step_archive_key": int(result),
+        "archive_key_updates": {},
+    }
 
 
 def _normalize_search_filters(

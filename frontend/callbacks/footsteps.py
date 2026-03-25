@@ -87,6 +87,22 @@ def _find_step_number(
     return None
 
 
+def _find_footstep_index(
+    items: list[dict] | None,
+    *,
+    event_id: str,
+    footstep_id: int,
+) -> int | None:
+    for index, item in enumerate(items or []):
+        if (
+            str(item.get("event_id")) == event_id
+            and int(item.get("footstep_id", -1)) == footstep_id
+        ):
+            return index
+
+    return None
+
+
 def _refresh_thumbnail_revisions_for_event(
     thumbnail_revisions: dict[str, int] | None,
     *,
@@ -115,6 +131,91 @@ def _to_int(value, fallback: int) -> int:
         return int(round(float(value)))
     except (TypeError, ValueError):
         return fallback
+
+
+def _search_footsteps_for_pagination(
+    pagination_store: dict | None,
+    *,
+    limit: int,
+    logger,
+) -> tuple[list[dict], int] | tuple[None, None]:
+    if not pagination_store or not pagination_store.get("applied"):
+        return None, None
+
+    size_range = pagination_store.get("size_range", [0, 10000])
+    height_range = pagination_store.get("height_range", [10, 150])
+    width_range = pagination_store.get("width_range", [10, 130])
+
+    result = search_footsteps(
+        event_ids=None,
+        participants=pagination_store.get("participants") or None,
+        date_from=pagination_store.get("start_date"),
+        date_to=pagination_store.get("end_date"),
+        width_min=int(width_range[0]),
+        width_max=int(width_range[1]),
+        height_min=int(height_range[0]),
+        height_max=int(height_range[1]),
+        size_min=int(size_range[0]),
+        size_max=int(size_range[1]),
+        offset=0,
+        limit=max(1, int(limit)),
+        logger=logger,
+    ) or {"items": [], "total": 0}
+
+    return result.get("items", []), int(result.get("total", 0))
+
+
+def _refresh_visible_results_for_created_footstep(
+    pagination_store: dict | None,
+    visible_items: list[dict] | None,
+    *,
+    event_id: str,
+    footstep_id: int,
+    logger,
+) -> tuple[dict, list[dict]] | tuple[None, None]:
+    if not pagination_store or not pagination_store.get("applied"):
+        return None, None
+
+    visible_count = max(1, len(visible_items or []))
+    request_limit = visible_count
+    latest_items: list[dict] = []
+    latest_total = int(pagination_store.get("total", visible_count))
+
+    while True:
+        search_items, search_total = _search_footsteps_for_pagination(
+            pagination_store,
+            limit=request_limit,
+            logger=logger,
+        )
+        latest_items = search_items or []
+        latest_total = int(search_total or 0)
+
+        created_index = _find_footstep_index(
+            latest_items,
+            event_id=event_id,
+            footstep_id=footstep_id,
+        )
+        if created_index is not None:
+            latest_items = latest_items[: created_index + 1]
+            break
+
+        if request_limit >= latest_total:
+            break
+
+        next_limit = min(latest_total, max(request_limit + 1, request_limit * 2))
+        if next_limit == request_limit:
+            break
+
+        request_limit = next_limit
+
+    return (
+        {
+            **pagination_store,
+            "offset": len(latest_items),
+            "total": latest_total,
+        },
+        latest_items,
+    )
 
 
 def _review_label_value(value) -> str:
@@ -1489,7 +1590,8 @@ def register(app, *, cmap):
         Output("footstep-thumbnail-revision-store", "data", allow_duplicate=True),
         Output("footstep-review-store", "data", allow_duplicate=True),
         Output("footstep-context-store", "data", allow_duplicate=True),
-        Output("btn-apply-footstep-filters", "n_clicks", allow_duplicate=True),
+        Output("footstep-pagination-store", "data", allow_duplicate=True),
+        Output("footstep-results-store", "data", allow_duplicate=True),
         Input("btn-save-footstep-review", "n_clicks"),
         State("footstep-review-store", "data"),
         State("footstep-review-x-min", "value"),
@@ -1501,7 +1603,8 @@ def register(app, *, cmap):
         State("footstep-review-label", "value"),
         State("footstep-thumbnail-revision-store", "data"),
         State("footstep-context-store", "data"),
-        State("btn-apply-footstep-filters", "n_clicks"),
+        State("footstep-pagination-store", "data"),
+        State("footstep-results-store", "data"),
         prevent_initial_call=True,
     )
     def save_current_footstep_review(
@@ -1516,7 +1619,8 @@ def register(app, *, cmap):
         label,
         thumbnail_revisions,
         context_store,
-        ok_clicks,
+        pagination_store,
+        visible_items,
     ):
         if (
             not review_store
@@ -1560,6 +1664,19 @@ def register(app, *, cmap):
                 new_footstep_id,
                 logger=app.logger,
             )
+            refreshed_pagination_store, refreshed_items = (
+                _refresh_visible_results_for_created_footstep(
+                    pagination_store,
+                    visible_items,
+                    event_id=event_id,
+                    footstep_id=new_footstep_id,
+                    logger=app.logger,
+                )
+            )
+            revision_key = _thumbnail_revision_key(event_id, new_footstep_id)
+            new_thumbnail_revisions[revision_key] = (
+                int(new_thumbnail_revisions.get(revision_key, 0)) + 1
+            )
 
             return (
                 new_thumbnail_revisions,
@@ -1576,7 +1693,8 @@ def register(app, *, cmap):
                     "footstep_id": new_footstep_id,
                     "details": refreshed_details,
                 },
-                (ok_clicks or 0) + 1,
+                refreshed_pagination_store if refreshed_pagination_store else no_update,
+                refreshed_items if refreshed_items is not None else no_update,
             )
 
         footstep_id = int(review_store["footstep_id"])
@@ -1617,5 +1735,6 @@ def register(app, *, cmap):
                 "footstep_id": footstep_id,
                 "details": refreshed_details,
             },
+            no_update,
             no_update,
         )

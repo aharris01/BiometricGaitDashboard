@@ -295,10 +295,10 @@ class TestFootstepEditorSuccessPaths:
                 p100=np.ones((120, 120), dtype=float),
             )
 
-        assert ok is True
+        assert ok == {"step_archive_key": 0, "archive_key_updates": {7: 0}}
         assert err is None
         edited_metadata = update_csv_mock.call_args.args[0]
-        edited_row = edited_metadata.loc[edited_metadata["FootstepID"] == 7].iloc[0]
+        edited_row = edited_metadata.loc[edited_metadata["FootstepID"] == 0].iloc[0]
         for key, value in new_footstep_data.items():
             assert edited_row[key] == value
         assert bool(edited_row["valid"]) is True
@@ -307,13 +307,13 @@ class TestFootstepEditorSuccessPaths:
         assert edited_row["heading_angle"] == 1.25
 
         preprocess_footsteps_arg = preprocess_mock.call_args.args[0]
-        assert preprocess_footsteps_arg[7].shape == (160, 64, 32)
+        assert preprocess_footsteps_arg[0].shape == (160, 64, 32)
         with ZipFile(trial_dir / "steps.npz") as archive:
-            assert sorted(archive.namelist()) == ["7.npy"]
-            processed_member = np.load(BytesIO(archive.read("7.npy")))
+            assert sorted(archive.namelist()) == ["0.npy"]
+            processed_member = np.load(BytesIO(archive.read("0.npy")))
             assert processed_member.shape == (101, 100, 100)
         with ZipFile(trial_dir / "steps.raw.npz") as archive:
-            assert sorted(archive.namelist()) == ["7.npy"]
+            assert sorted(archive.namelist()) == ["0.npy"]
 
     def test_edit_footstep_saves_single_processed_step_without_batch_dimension(
         self, flask_app, editor, common, event, monkeypatch
@@ -360,10 +360,10 @@ class TestFootstepEditorSuccessPaths:
                 p100=np.ones((120, 120), dtype=float),
             )
 
-        assert ok is True
+        assert ok == {"step_archive_key": 0, "archive_key_updates": {7: 0}}
         assert err is None
         with ZipFile(trial_dir / "steps.npz") as archive:
-            processed_member = np.load(BytesIO(archive.read("7.npy")))
+            processed_member = np.load(BytesIO(archive.read("0.npy")))
         assert processed_member.shape == (101, 100, 100)
         np.testing.assert_array_equal(processed_member, processed_batch[0])
 
@@ -421,10 +421,10 @@ class TestFootstepEditorSuccessPaths:
                 p100=np.zeros((720, 480)),
             )
 
-        assert ok is True
+        assert ok == {"step_archive_key": 0, "archive_key_updates": {7: 0}}
         assert err is None
         edited_metadata = update_csv_mock.call_args.args[0]
-        edited_row = edited_metadata.loc[edited_metadata["FootstepID"] == 7].iloc[0]
+        edited_row = edited_metadata.loc[edited_metadata["FootstepID"] == 0].iloc[0]
         assert bool(edited_row["valid"]) is False
 
     def test_edit_footstep_returns_error_when_saving_steps_file_fails(
@@ -467,7 +467,7 @@ class TestFootstepEditorSuccessPaths:
         )
         monkeypatch.setattr(
             footstep_edits,
-            "_rewrite_npz_member",
+            "_rewrite_step_archive",
             MagicMock(side_effect=OSError("disk full")),
         )
 
@@ -504,18 +504,18 @@ class TestFootstepEditorSuccessPaths:
         with flask_app.app_context():
             ok, err = editor.delete_footstep(footstep, event)
 
-        assert ok is True
+        assert ok == {"archive_key_updates": {6: 0}}
         assert err is None
 
         updated_metadata = update_csv_mock.call_args.args[0]
-        assert list(updated_metadata["FootstepID"]) == [6]
+        assert list(updated_metadata["FootstepID"]) == [0]
         assert bool(updated_metadata.iloc[0]["is_anchor"]) is True
         assert bool(updated_metadata.iloc[0]["is_on_path"]) is True
         assert updated_metadata.iloc[0]["heading_angle"] == 2.5
         with ZipFile(trial_dir / "steps.npz") as archive:
-            assert sorted(archive.namelist()) == ["6.npy"]
+            assert sorted(archive.namelist()) == ["0.npy"]
         with ZipFile(trial_dir / "steps.raw.npz") as archive:
-            assert sorted(archive.namelist()) == ["6.npy"]
+            assert sorted(archive.namelist()) == ["0.npy"]
 
     def test_create_draft_footstep_returns_active_time_window_and_bbox(
         self, flask_app, editor, common, event
@@ -600,14 +600,40 @@ class TestFootstepEditorSuccessPaths:
         assert draft["YMin"] == 6
         assert draft["YMax"] == 12
 
-    def test_create_footstep_inserts_by_start_frame_and_renumbers_following_ids(
+    def test_create_footstep_appends_new_id_without_renumbering_existing_steps(
         self, flask_app, editor, common, event, monkeypatch
     ):
         metadata = _make_create_metadata()
         update_csv_mock = MagicMock(return_value=(True, None))
         preprocess_mock = MagicMock(
-            return_value=(np.zeros((4, 101, 100, 100), dtype=float), metadata)
+            return_value=(
+                np.zeros((1, 101, 100, 100), dtype=np.uint16),
+                pd.DataFrame(
+                    [
+                        {
+                            **metadata.iloc[-1].to_dict(),
+                            "FootstepID": 3,
+                            "StartFrame": 15,
+                            "EndFrame": 95,
+                            "XMin": 12,
+                            "XMax": 32,
+                            "YMin": 14,
+                            "YMax": 44,
+                            "t": 55,
+                            "x": 22,
+                            "y": 29,
+                            "valid": True,
+                            "heading_angle": 0.0,
+                            "path_order": -1,
+                            "is_anchor": False,
+                            "is_on_path": False,
+                        }
+                    ]
+                ),
+            )
         )
+        trial_dir = footstep_edits.uri_to_path(event.trial_npz_uri).parent
+        _write_step_archives(trial_dir, (0, 1, 2))
 
         common._require_event.return_value = (event, None)
         common._load_npz_from_uri.side_effect = [
@@ -636,8 +662,6 @@ class TestFootstepEditorSuccessPaths:
         )
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
         monkeypatch.setattr(footstep_edits, "preprocess_footsteps", preprocess_mock)
-        monkeypatch.setattr(footstep_edits.np, "savez_compressed", MagicMock())
-        monkeypatch.setattr(footstep_edits.np, "savez", MagicMock())
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
@@ -653,11 +677,16 @@ class TestFootstepEditorSuccessPaths:
                 },
             )
 
-        assert new_id == 1
+        assert new_id == {
+            "step_archive_key": 1,
+            "archive_key_updates": {0: 0, 1: 2, 2: 3},
+        }
         assert err is None
 
         updated_metadata = update_csv_mock.call_args.args[0]
         assert list(updated_metadata["FootstepID"]) == [0, 1, 2, 3]
+        assert list(updated_metadata["StartFrame"]) == [10, 15, 20, 30]
+        assert list(updated_metadata["EndFrame"]) == [90, 95, 140, 160]
 
         inserted_row = updated_metadata.loc[updated_metadata["FootstepID"] == 1].iloc[0]
         assert inserted_row["StartFrame"] == 15
@@ -671,11 +700,44 @@ class TestFootstepEditorSuccessPaths:
         assert inserted_row["y"] == 29
         assert bool(inserted_row["valid"]) is True
 
-    def test_create_footstep_uses_end_frame_to_break_same_start_frame_ties(
+        preprocess_footsteps_arg = preprocess_mock.call_args.args[0]
+        assert list(preprocess_footsteps_arg.keys()) == [1]
+
+        with ZipFile(trial_dir / "steps.npz") as archive:
+            assert sorted(archive.namelist()) == ["0.npy", "1.npy", "2.npy", "3.npy"]
+        with ZipFile(trial_dir / "steps.raw.npz") as archive:
+            assert sorted(archive.namelist()) == ["0.npy", "1.npy", "2.npy", "3.npy"]
+
+    def test_create_footstep_keeps_existing_ids_when_new_step_orders_between_them(
         self, flask_app, editor, common, event, monkeypatch
     ):
         metadata = _make_create_metadata()
         update_csv_mock = MagicMock(return_value=(True, None))
+        preprocess_mock = MagicMock(
+            return_value=(
+                np.zeros((1, 101, 100, 100), dtype=np.uint16),
+                pd.DataFrame(
+                    [
+                        {
+                            **metadata.iloc[-1].to_dict(),
+                            "FootstepID": 3,
+                            "StartFrame": 20,
+                            "EndFrame": 150,
+                            "XMin": 30,
+                            "XMax": 50,
+                            "YMin": 40,
+                            "YMax": 70,
+                            "heading_angle": 0.0,
+                            "path_order": -1,
+                            "is_anchor": False,
+                            "is_on_path": False,
+                        }
+                    ]
+                ),
+            )
+        )
+        trial_dir = footstep_edits.uri_to_path(event.trial_npz_uri).parent
+        _write_step_archives(trial_dir, (0, 1, 2))
 
         common._require_event.return_value = (event, None)
         common._load_npz_from_uri.side_effect = [
@@ -701,13 +763,7 @@ class TestFootstepEditorSuccessPaths:
         monkeypatch.setattr(footstep_edits, "get_heading", lambda row, p100: 0.0)
         monkeypatch.setattr(footstep_edits, "reset_path_order", lambda row: -1)
         monkeypatch.setattr(footstep_edits, "trace_path", lambda metadata: None)
-        monkeypatch.setattr(
-            footstep_edits,
-            "preprocess_footsteps",
-            MagicMock(return_value=(np.zeros((4, 101, 100, 100), dtype=float), None)),
-        )
-        monkeypatch.setattr(footstep_edits.np, "savez_compressed", MagicMock())
-        monkeypatch.setattr(footstep_edits.np, "savez", MagicMock())
+        monkeypatch.setattr(footstep_edits, "preprocess_footsteps", preprocess_mock)
         monkeypatch.setattr(footstep_edits, "_update_csv", update_csv_mock)
 
         with flask_app.app_context():
@@ -723,15 +779,26 @@ class TestFootstepEditorSuccessPaths:
                 },
             )
 
-        assert new_id == 2
+        assert new_id == {
+            "step_archive_key": 2,
+            "archive_key_updates": {0: 0, 1: 1, 2: 3},
+        }
         assert err is None
 
         updated_metadata = update_csv_mock.call_args.args[0]
         assert list(updated_metadata["FootstepID"]) == [0, 1, 2, 3]
+        assert list(updated_metadata["StartFrame"]) == [10, 20, 20, 30]
+        assert list(updated_metadata["EndFrame"]) == [90, 140, 150, 160]
 
         inserted_row = updated_metadata.loc[updated_metadata["FootstepID"] == 2].iloc[0]
         assert inserted_row["StartFrame"] == 20
         assert inserted_row["EndFrame"] == 150
+
+        unchanged_row = updated_metadata.loc[updated_metadata["FootstepID"] == 1].iloc[
+            0
+        ]
+        assert unchanged_row["StartFrame"] == 20
+        assert unchanged_row["EndFrame"] == 140
 
         shifted_row = updated_metadata.loc[updated_metadata["FootstepID"] == 3].iloc[0]
         assert shifted_row["StartFrame"] == 30

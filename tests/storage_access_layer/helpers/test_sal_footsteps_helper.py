@@ -31,6 +31,7 @@ def fake_db():
     db.get_single_footstep.return_value = None
     db.get_local_footstep_changes = MagicMock(return_value=[])
     db.update_local_footstep = MagicMock()
+    db.update_step_archive_keys = MagicMock()
     db.update_event_metrics = MagicMock()
     db.create_local_footstep = MagicMock()
     db.delete_local_footstep = MagicMock()
@@ -97,6 +98,32 @@ class TestGetFootstep:
         assert err == "missing_event"
 
     @pytest.mark.unit
+    def test_get_footstep_data_uses_step_archive_key(
+        self, tmp_path, helper, common, fake_db
+    ):
+        trial = tmp_path / "trial.npz"
+        np.savez(trial, arr_0=np.zeros((2, 2)))
+        steps_path = trial.with_name("steps.npz")
+        step_vol = np.array(
+            [
+                [[1.0, 2.0], [3.0, 4.0]],
+                [[0.0, 1.0], [0.0, 0.0]],
+            ]
+        )
+        _write_npz_with_numeric_keys(steps_path, {"9": step_vol})
+
+        event = SimpleNamespace(trial_npz_uri=trial.as_uri())
+        common._require_event.return_value = (event, None)
+        common._load_steps_npz.return_value = (np.load(steps_path), None)
+        fake_db.get_single_footstep.return_value = SimpleNamespace(step_archive_key=9)
+
+        p100, grf, err = helper.get_footstep_data("evt-1", 4)
+
+        assert err is None
+        assert p100 == [[1.0, 2.0], [3.0, 4.0]]
+        assert grf == [10.0, 1.0]
+
+    @pytest.mark.unit
     def test_get_footstep_data_missing_key(self, tmp_path, helper, common):
         trial = tmp_path / "trial.npz"
         np.savez(trial, arr_0=np.zeros((2, 2)))
@@ -135,6 +162,37 @@ class TestGetFootstep:
         assert details["grf"] == [1.0, 2.0]
         assert details["cop_x"] == [0.0, 1.0]
         assert details["cop_y"] == [0.0, 1.0]
+
+    @pytest.mark.unit
+    def test_get_all_footstep_p100_maps_archive_keys_back_to_db_ids(
+        self, tmp_path, helper, common, fake_db
+    ):
+        trial = tmp_path / "trial.npz"
+        np.savez(trial, arr_0=np.zeros((2, 2)))
+        steps_path = trial.with_name("steps.npz")
+        _write_npz_with_numeric_keys(
+            steps_path,
+            {
+                "3": np.ones((2, 2, 2)),
+                "7": np.full((2, 2, 2), 2.0),
+            },
+        )
+
+        event = SimpleNamespace(trial_npz_uri=trial.as_uri())
+        common._require_event.return_value = (event, None)
+        common._load_steps_npz.return_value = (np.load(steps_path), None)
+        fake_db.get_event_footsteps.return_value = [
+            {"footstep_id": 20, "step_archive_key": 7},
+            {"footstep_id": 10, "step_archive_key": 3},
+        ]
+
+        items, err = helper.get_all_footstep_p100("evt-1")
+
+        assert err is None
+        assert items == [
+            {"id": 10, "p100": [[1.0, 1.0], [1.0, 1.0]]},
+            {"id": 20, "p100": [[2.0, 2.0], [2.0, 2.0]]},
+        ]
 
 
 class TestCreateDraftFootstep:
@@ -525,7 +583,7 @@ class TestCreateFootstep:
         }
         fake_db.create_local_footstep.assert_called_once_with(
             "evt-1",
-            footstep_id=9,
+            step_archive_key=9,
             start_frame=1,
             end_frame=5,
             x_min=0,
@@ -574,16 +632,23 @@ class TestCreateFootstep:
         fake_db.create_local_footstep.assert_not_called()
 
     @pytest.mark.unit
-    def test_create_footstep_updates_existing_local_row_on_retry(
+    def test_create_footstep_updates_existing_archive_keys_before_insert(
         self, helper, common, fake_db
     ):
         event = SimpleNamespace()
         common._require_event.return_value = (event, None)
         common._get_p100.return_value = (np.array([[1.0, 2.0], [3.0, 4.0]]), None)
         common._get_trial_frame_count.return_value = (20, None)
-        helper.editor.create_footstep = MagicMock(return_value=(9, None))
-        fake_db.get_single_footstep.return_value = SimpleNamespace(footstep_id=9)
-        fake_db.update_local_footstep.return_value = SimpleNamespace(
+        helper.editor.create_footstep = MagicMock(
+            return_value=(
+                {
+                    "step_archive_key": 2,
+                    "archive_key_updates": {0: 0, 1: 3},
+                },
+                None,
+            )
+        )
+        fake_db.create_local_footstep.return_value = SimpleNamespace(
             footstep_id=9,
             start_frame=1,
             end_frame=5,
@@ -609,17 +674,15 @@ class TestCreateFootstep:
 
         assert err is None
         assert out is not None
-        fake_db.create_local_footstep.assert_not_called()
-        fake_db.update_local_footstep.assert_called_once_with(
+        fake_db.update_step_archive_keys.assert_called_once_with("evt-1", {0: 0, 1: 3})
+        fake_db.create_local_footstep.assert_called_once_with(
             "evt-1",
-            9,
-            {
-                "start_frame": 1,
-                "end_frame": 5,
-                "x_min": 0,
-                "x_max": 2,
-                "y_min": 0,
-                "y_max": 2,
-                "label": None,
-            },
+            step_archive_key=2,
+            start_frame=1,
+            end_frame=5,
+            x_min=0,
+            x_max=2,
+            y_min=0,
+            y_max=2,
+            label=None,
         )

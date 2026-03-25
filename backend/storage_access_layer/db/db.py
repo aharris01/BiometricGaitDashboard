@@ -270,6 +270,7 @@ class DB:
         query = (
             select(
                 LocalFootstep.footstep_id,
+                LocalFootstep.step_archive_key,
                 LocalFootstep.start_frame,
                 LocalFootstep.end_frame,
                 LocalFootstep.x_min,
@@ -278,7 +279,11 @@ class DB:
                 LocalFootstep.y_max,
             )
             .where(LocalFootstep.event_id == event_id)
-            .order_by(LocalFootstep.footstep_id)
+            .order_by(
+                LocalFootstep.start_frame,
+                LocalFootstep.step_archive_key,
+                LocalFootstep.footstep_id,
+            )
         )
 
         with self._get_session() as session:
@@ -331,6 +336,7 @@ class DB:
         event_id: str,
         *,
         footstep_id: int | None = None,
+        step_archive_key: int | None = None,
         start_frame: int,
         end_frame: int,
         x_min: int,
@@ -356,6 +362,11 @@ class DB:
                 x_max=int(x_max),
                 y_min=int(y_min),
                 y_max=int(y_max),
+                step_archive_key=(
+                    int(step_archive_key)
+                    if step_archive_key is not None
+                    else next_footstep_id
+                ),
                 label=label,
             )
 
@@ -382,6 +393,30 @@ class DB:
             session.flush()
             session.refresh(row)
             return row
+
+    def update_step_archive_keys(
+        self, event_id: str, archive_key_updates: dict[int, int]
+    ) -> int:
+        if not archive_key_updates:
+            return 0
+
+        query = select(LocalFootstep).where(LocalFootstep.event_id == event_id)
+
+        with self._get_session() as session:
+            rows = session.scalars(query).all()
+            updated_count = 0
+
+            for row in rows:
+                current_key = int(row.step_archive_key)
+                next_key = archive_key_updates.get(current_key)
+                if next_key is None or current_key == int(next_key):
+                    continue
+
+                row.step_archive_key = int(next_key)
+                updated_count += 1
+
+            session.flush()
+            return updated_count
 
     def delete_local_footstep(self, event_id: str, footstep_id: int):
         # Delete one local footstep row and log the delete action.
@@ -553,7 +588,7 @@ class DB:
         bbox_area = bbox_width * bbox_height
         step_number = func.row_number().over(
             partition_by=LocalFootstep.event_id,
-            order_by=(LocalFootstep.start_frame, LocalFootstep.footstep_id),
+            order_by=(LocalFootstep.start_frame, LocalFootstep.step_archive_key),
         )
 
         # Limit search results to events that are currently present locally.
@@ -671,7 +706,7 @@ class DB:
             items_query.order_by(
                 ranked_footsteps.c.event_id,
                 ranked_footsteps.c.start_frame,
-                ranked_footsteps.c.footstep_id,
+                ranked_footsteps.c.step_number,
             )
             .offset(offset)
             .limit(limit)
