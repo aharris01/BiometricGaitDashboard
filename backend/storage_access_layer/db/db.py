@@ -850,6 +850,7 @@ def copy_footsteps_from_manifest_to_local(db: DB) -> int:
             ManifestFootstep.x_max,
             ManifestFootstep.y_min,
             ManifestFootstep.y_max,
+            ManifestFootstep.footstep_id,
         ).where(ManifestFootstep.event_id.in_(local_event_ids))
 
         # INSERT ... SELECT ... with ON CONFLICT(event_id, footstep_id) DO UPDATE
@@ -863,6 +864,7 @@ def copy_footsteps_from_manifest_to_local(db: DB) -> int:
                 "x_max",
                 "y_min",
                 "y_max",
+                "step_archive_key",
             ],
             src,
         )
