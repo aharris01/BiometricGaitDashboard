@@ -4,9 +4,14 @@
 import collections
 from typing import Any
 import numpy as np
+import numpy.typing as npt
 import cv2
 from sklearn.decomposition import PCA
 from scipy.interpolate import interp1d
+
+
+def _active_indices_1d(values: np.ndarray, thresh: float) -> np.ndarray:
+    return np.where(values > thresh)[0]
 
 
 # spatially crop to non-zero area
@@ -16,10 +21,15 @@ def _spatial_crop(footstep, thresh=10):
     arr_w = np.sum(img_peak, axis=0)
     arr_h = np.sum(img_peak, axis=1)
 
-    h_start = np.where(arr_h > thresh)[0][0]
-    h_end = np.where(arr_h > thresh)[0][-1]
-    w_start = np.where(arr_w > thresh)[0][0]
-    w_end = np.where(arr_w > thresh)[0][-1]
+    active_h = _active_indices_1d(arr_h, thresh)
+    active_w = _active_indices_1d(arr_w, thresh)
+    if active_h.size == 0 or active_w.size == 0:
+        return footstep
+
+    h_start = active_h[0]
+    h_end = active_h[-1]
+    w_start = active_w[0]
+    w_end = active_w[-1]
 
     return footstep[:, h_start : h_end + 1, w_start : w_end + 1]
 
@@ -28,8 +38,12 @@ def _spatial_crop(footstep, thresh=10):
 def _temporal_crop(footstep, thresh=10):
     max_activation = footstep.max((1, 2))
 
-    t_start = np.where(max_activation > thresh)[0][0]
-    t_end = np.where(max_activation > thresh)[0][-1]
+    active_t = _active_indices_1d(max_activation, thresh)
+    if active_t.size == 0:
+        return footstep
+
+    t_start = active_t[0]
+    t_end = active_t[-1]
 
     return footstep[t_start : t_end + 1, :, :]
 
@@ -38,10 +52,15 @@ def crop_image(img):
     arr_w = np.sum(img, axis=0)
     arr_h = np.sum(img, axis=1)
 
-    h_start = np.where(arr_h > 0)[0][0]
-    h_end = np.where(arr_h > 0)[0][-1]
-    w_start = np.where(arr_w > 0)[0][0]
-    w_end = np.where(arr_w > 0)[0][-1]
+    active_h = _active_indices_1d(arr_h, 0)
+    active_w = _active_indices_1d(arr_w, 0)
+    if active_h.size == 0 or active_w.size == 0:
+        return img
+
+    h_start = active_h[0]
+    h_end = active_h[-1]
+    w_start = active_w[0]
+    w_end = active_w[-1]
 
     return img[h_start : h_end + 1, w_start : w_end + 1]
 
@@ -58,7 +77,15 @@ def spatial_flip(footstep: np.ndarray):
         where=frame_sums[:, np.newaxis] != 0,
     ).sum(1)
 
-    if np.nanmean(COP[0 : COP.shape[0] // 2]) < np.nanmean(COP[COP.shape[0] // 2 :]):
+    half_idx = COP.shape[0] // 2
+    first_half = COP[0:half_idx]
+    second_half = COP[half_idx:]
+
+    if (
+        np.isfinite(first_half).any()
+        and np.isfinite(second_half).any()
+        and np.nanmean(first_half) < np.nanmean(second_half)
+    ):
         footstep_upright = np.flip(footstep, axis=(1, 2))
         orientation = True
     else:
@@ -75,6 +102,9 @@ def spatial_rotation(footstep: np.ndarray):
 
     # get angle of first principal component axis
     c, r = np.where(img_peak > 0)
+    if c.size < 2 or r.size < 2:
+        return footstep, 0.0
+
     X = np.array([c, r]).T  # noqa: F841
     pca = PCA(n_components=2)
     projected = pca.fit_transform(X)  # noqa: F841
@@ -113,6 +143,10 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
     img_peak = footstep.max(0)
     w = img_peak.shape[1]
     l = img_peak.shape[0]  # noqa: E741
+    active_mask = img_peak > thresh
+
+    if not np.any(active_mask):
+        return footstep.astype(np.float32, copy=True)
 
     if alignment_method == "mass":
         # get center of mass
@@ -133,8 +167,8 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
             / (img_peak > thresh).sum((0, 1))
         ).sum(0)
     else:  # 'bbox': center bounding box in frame
-        y_idx = np.where((img_peak > thresh))[0]
-        x_idx = np.where((img_peak > thresh))[1]
+        y_idx = np.where(active_mask)[0]
+        x_idx = np.where(active_mask)[1]
         y_center = np.mean((y_idx.min(), y_idx.max()))
         x_center = np.mean((x_idx.min(), x_idx.max()))
 
@@ -144,12 +178,10 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
     # avoid translating out of the frame
     arr_w = np.sum(img_peak, axis=0)
     arr_l = np.sum(img_peak, axis=1)
-    max_y_shift = min(
-        np.where(arr_l > thresh)[0][0], l - np.where(arr_l > thresh)[0][-1]
-    )
-    max_x_shift = min(
-        np.where(arr_w > thresh)[0][0], w - np.where(arr_w > thresh)[0][-1]
-    )
+    active_l = _active_indices_1d(arr_l, thresh)
+    active_w = _active_indices_1d(arr_w, thresh)
+    max_y_shift = min(active_l[0], l - active_l[-1])
+    max_x_shift = min(active_w[0], w - active_w[-1])
 
     x_shift = w // 2 - x_center
     y_shift = l // 2 - y_center
@@ -161,7 +193,7 @@ def spatial_translation(footstep: np.ndarray, alignment_method="mass", thresh=10
     M = np.array(
         [[1.0, 0.0, float(x_shift)], [0.0, 1.0, float(y_shift)]], dtype=np.float32
     )
-    footstep_centered = np.zeros(footstep.shape)
+    footstep_centered = np.zeros(footstep.shape, dtype=np.float32)
 
     for i, frame in enumerate(footstep):
         # Modified from the original to satisfy pylance, which was complaining about the type of frame_centered. The original code was:
@@ -204,6 +236,8 @@ def classify_side(footstep: np.ndarray):
     P100 = footstep.max(0)
     P100 = crop_image(P100)
     P100_bin = (P100 > 0).astype(int)
+    if np.count_nonzero(P100_bin) == 0:
+        return False
 
     w = P100_bin.shape[1]
     h = P100_bin.shape[0]
@@ -226,15 +260,23 @@ def classify_side(footstep: np.ndarray):
 # interpolate to specified number of frames (t) using a specified method (interp_method).
 # Accepted values for interp_method: ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
 # ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’
-def temporal_interpolation(footstep: np.ndarray, t=101, interp_method="nearest"):
+def temporal_interpolation(
+    footstep: npt.NDArray[np.float32], t=101, interp_method="nearest"
+) -> npt.NDArray[np.float32]:
     # crop-out inactivity at beginning and end of recording
     footstep = _temporal_crop(footstep)
+    if footstep.shape[0] == 0:
+        return np.zeros((t, footstep.shape[1], footstep.shape[2]), dtype=np.float32)
+
+    if footstep.shape[0] == 1:
+        return np.repeat(footstep.astype(np.float32), t, axis=0)
 
     # interpolate to t frames
     f = interp1d(
         np.linspace(0, 1, footstep.shape[0]), footstep, axis=0, kind=interp_method
     )
-    footstep_interp = f(np.linspace(0, 1, t))
+    raw = f(np.linspace(0, 1, t))
+    footstep_interp = np.asarray(raw, dtype=np.float32)
 
     return footstep_interp
 
@@ -270,6 +312,9 @@ def preprocess_footsteps(footsteps: dict[Any, np.ndarray], metadata, h=75, w=40)
         preprocessed_footsteps.append(footstep_norm)
 
     preprocessed_footsteps = np.stack(preprocessed_footsteps, axis=0)
+    preprocessed_footsteps = np.clip(np.rint(preprocessed_footsteps), 0, 65535).astype(
+        np.uint16
+    )
 
     new_metadata_df = metadata.copy()
     for k, v in new_metadata_dict.items():

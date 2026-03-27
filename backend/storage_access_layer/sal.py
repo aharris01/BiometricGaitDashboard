@@ -99,11 +99,17 @@ class SAL:
     ):
         return self.footsteps.create_footstep(event_id, new_footstep)
 
+    def create_draft_footstep(self, event_id: str, draft_footstep):
+        return self.footsteps.create_draft_footstep(event_id, draft_footstep)
+
     def delete_footstep(self, event_id: str, footstep_id: int):
         return self.footsteps.delete_footstep(event_id, footstep_id)
 
     def get_footstep_data(self, event_id: str, step_id: int):
         return self.footsteps.get_footstep_data(event_id, step_id)
+
+    def get_footstep_context_data(self, event_id: str, step_id: int):
+        return self.footsteps.get_footstep_context_data(event_id, step_id)
 
     def get_all_footstep_p100(self, event_id: str):
         return self.footsteps.get_all_footstep_p100(event_id)

@@ -14,3 +14,4 @@ class SwipeEvent:
     trial_npz_uri: str
     trial_p100_npz_uri: str
     trial_grf_npz_uri: str
+    trial_folder: str

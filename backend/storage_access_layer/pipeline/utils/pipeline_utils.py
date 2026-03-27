@@ -172,7 +172,12 @@ def _find_next_footstep(metadata: pd.DataFrame, current_footstep_id: int):
         if len(a) == 1:
             return np.array([0.1])
 
-        return (a - np.min(a)) / (np.max(a) - np.min(a))
+        a = np.asarray(a, dtype=float)
+        spread = np.max(a) - np.min(a)
+        if not np.isfinite(spread) or spread <= 0:
+            return np.zeros_like(a, dtype=float)
+
+        return (a - np.min(a)) / spread
 
     dys = np.abs(remaining_candidates.y.to_numpy() - current_footstep.y)
     dxs = np.abs(remaining_candidates.x.to_numpy() - current_footstep.x)

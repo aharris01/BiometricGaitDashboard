@@ -225,6 +225,7 @@ class DB:
                 "trial_npz_uri": f"{root_path}/trial.npz",
                 "trial_p100_npz_uri": f"{root_path}/trial.p100.npz",
                 "trial_grf_npz_uri": f"{root_path}/trial.grf.npz",
+                "trial_folder": root_path,
             }
 
             return SwipeEvent(**event_dict)
@@ -269,6 +270,7 @@ class DB:
         query = (
             select(
                 LocalFootstep.footstep_id,
+                LocalFootstep.step_archive_key,
                 LocalFootstep.start_frame,
                 LocalFootstep.end_frame,
                 LocalFootstep.x_min,
@@ -277,7 +279,11 @@ class DB:
                 LocalFootstep.y_max,
             )
             .where(LocalFootstep.event_id == event_id)
-            .order_by(LocalFootstep.footstep_id)
+            .order_by(
+                LocalFootstep.start_frame,
+                LocalFootstep.step_archive_key,
+                LocalFootstep.footstep_id,
+            )
         )
 
         with self._get_session() as session:
@@ -329,6 +335,8 @@ class DB:
         self,
         event_id: str,
         *,
+        footstep_id: int | None = None,
+        step_archive_key: int | None = None,
         start_frame: int,
         end_frame: int,
         x_min: int,
@@ -339,7 +347,11 @@ class DB:
     ):
         # Create one new local footstep row and log the create action.
         with self._get_session() as session:
-            next_footstep_id = self.get_next_local_footstep_id(event_id)
+            next_footstep_id = (
+                int(footstep_id)
+                if footstep_id is not None
+                else self.get_next_local_footstep_id(event_id)
+            )
 
             row = LocalFootstep(
                 event_id=event_id,
@@ -350,6 +362,11 @@ class DB:
                 x_max=int(x_max),
                 y_min=int(y_min),
                 y_max=int(y_max),
+                step_archive_key=(
+                    int(step_archive_key)
+                    if step_archive_key is not None
+                    else next_footstep_id
+                ),
                 label=label,
             )
 
@@ -376,6 +393,30 @@ class DB:
             session.flush()
             session.refresh(row)
             return row
+
+    def update_step_archive_keys(
+        self, event_id: str, archive_key_updates: dict[int, int]
+    ) -> int:
+        if not archive_key_updates:
+            return 0
+
+        query = select(LocalFootstep).where(LocalFootstep.event_id == event_id)
+
+        with self._get_session() as session:
+            rows = session.scalars(query).all()
+            updated_count = 0
+
+            for row in rows:
+                current_key = int(row.step_archive_key)
+                next_key = archive_key_updates.get(current_key)
+                if next_key is None or current_key == int(next_key):
+                    continue
+
+                row.step_archive_key = int(next_key)
+                updated_count += 1
+
+            session.flush()
+            return updated_count
 
     def delete_local_footstep(self, event_id: str, footstep_id: int):
         # Delete one local footstep row and log the delete action.
@@ -413,48 +454,6 @@ class DB:
 
             session.delete(row)
             session.flush()
-
-            max_remaining_footstep_id = session.execute(
-                select(func.max(LocalFootstep.footstep_id)).where(
-                    LocalFootstep.event_id == event_id
-                )
-            ).scalar_one_or_none()
-
-            if max_remaining_footstep_id is not None:
-                temp_offset = int(max_remaining_footstep_id) + 1
-
-                session.execute(
-                    text(
-                        """
-                        UPDATE local_footsteps
-                        SET footstep_id = footstep_id + :temp_offset
-                        WHERE event_id = :event_id AND footstep_id > :footstep_id
-                        """
-                    ),
-                    {
-                        "temp_offset": temp_offset,
-                        "event_id": event_id,
-                        "footstep_id": footstep_id,
-                    },
-                )
-
-                session.execute(
-                    text(
-                        """
-                        UPDATE local_footsteps
-                        SET footstep_id = footstep_id - :shift_amount
-                        WHERE event_id = :event_id
-                          AND footstep_id > :footstep_id + :temp_offset
-                        """
-                    ),
-                    {
-                        "shift_amount": temp_offset + 1,
-                        "event_id": event_id,
-                        "footstep_id": footstep_id,
-                        "temp_offset": temp_offset,
-                    },
-                )
-
             return True
 
     def update_local_footstep(self, event_id: str, footstep_id: int, edits: dict):
@@ -587,17 +586,22 @@ class DB:
         bbox_width = LocalFootstep.x_max - LocalFootstep.x_min
         bbox_height = LocalFootstep.y_max - LocalFootstep.y_min
         bbox_area = bbox_width * bbox_height
+        step_number = func.row_number().over(
+            partition_by=LocalFootstep.event_id,
+            order_by=(LocalFootstep.start_frame, LocalFootstep.step_archive_key),
+        )
 
         # Limit search results to events that are currently present locally.
         local_event_ids = select(LocalSwipeEvent.event_id).where(
             LocalSwipeEvent.present.is_(True)
         )
 
-        # Main query used to fetch the visible result rows.
-        items_query = (
+        # Compute the event-wide sequence number before applying any search filters.
+        ranked_footsteps = (
             select(
                 LocalFootstep.event_id,
                 LocalFootstep.footstep_id,
+                step_number.label("step_number"),
                 ManifestSwipeEvent.participant,
                 ManifestSwipeEvent.date,
                 LocalFootstep.start_frame,
@@ -609,7 +613,6 @@ class DB:
                 bbox_width.label("bbox_width"),
                 bbox_height.label("bbox_height"),
                 bbox_area.label("bbox_area"),
-                (ManifestFootstep.footstep_id.is_not(None)).label("has_thumbnail"),
             )
             .select_from(LocalFootstep)
             .join(
@@ -624,7 +627,11 @@ class DB:
                 ),
             )
             .where(LocalFootstep.event_id.in_(local_event_ids))
+            .subquery()
         )
+
+        # Main query used to fetch the visible result rows.
+        items_query = select(ranked_footsteps)
 
         # Separate count query used for pagination.
         count_query = (
@@ -639,54 +646,67 @@ class DB:
 
         # Apply filters only when the caller provides them.
         if event_ids:
-            items_query = items_query.where(LocalFootstep.event_id.in_(event_ids))
+            items_query = items_query.where(ranked_footsteps.c.event_id.in_(event_ids))
             count_query = count_query.where(LocalFootstep.event_id.in_(event_ids))
 
         if participants:
             items_query = items_query.where(
-                ManifestSwipeEvent.participant.in_(participants)
+                ranked_footsteps.c.participant.in_(participants)
             )
             count_query = count_query.where(
                 ManifestSwipeEvent.participant.in_(participants)
             )
 
         if date_from is not None:
-            items_query = items_query.where(ManifestSwipeEvent.date >= date_from)
+            items_query = items_query.where(ranked_footsteps.c.date >= date_from)
             count_query = count_query.where(ManifestSwipeEvent.date >= date_from)
 
         if date_to is not None:
-            items_query = items_query.where(ManifestSwipeEvent.date <= date_to)
+            items_query = items_query.where(ranked_footsteps.c.date <= date_to)
             count_query = count_query.where(ManifestSwipeEvent.date <= date_to)
 
         if width_min is not None:
-            items_query = items_query.where(bbox_width >= int(width_min))
+            items_query = items_query.where(
+                ranked_footsteps.c.bbox_width >= int(width_min)
+            )
             count_query = count_query.where(bbox_width >= int(width_min))
 
         if width_max is not None:
-            items_query = items_query.where(bbox_width <= int(width_max))
+            items_query = items_query.where(
+                ranked_footsteps.c.bbox_width <= int(width_max)
+            )
             count_query = count_query.where(bbox_width <= int(width_max))
 
         if height_min is not None:
-            items_query = items_query.where(bbox_height >= int(height_min))
+            items_query = items_query.where(
+                ranked_footsteps.c.bbox_height >= int(height_min)
+            )
             count_query = count_query.where(bbox_height >= int(height_min))
 
         if height_max is not None:
-            items_query = items_query.where(bbox_height <= int(height_max))
+            items_query = items_query.where(
+                ranked_footsteps.c.bbox_height <= int(height_max)
+            )
             count_query = count_query.where(bbox_height <= int(height_max))
 
         if size_min is not None:
-            items_query = items_query.where(bbox_area >= int(size_min))
+            items_query = items_query.where(
+                ranked_footsteps.c.bbox_area >= int(size_min)
+            )
             count_query = count_query.where(bbox_area >= int(size_min))
 
         if size_max is not None:
-            items_query = items_query.where(bbox_area <= int(size_max))
+            items_query = items_query.where(
+                ranked_footsteps.c.bbox_area <= int(size_max)
+            )
             count_query = count_query.where(bbox_area <= int(size_max))
 
         # Apply stable ordering before pagination.
         items_query = (
             items_query.order_by(
-                LocalFootstep.event_id,
-                LocalFootstep.footstep_id,
+                ranked_footsteps.c.event_id,
+                ranked_footsteps.c.start_frame,
+                ranked_footsteps.c.step_number,
             )
             .offset(offset)
             .limit(limit)
@@ -865,6 +885,7 @@ def copy_footsteps_from_manifest_to_local(db: DB) -> int:
             ManifestFootstep.x_max,
             ManifestFootstep.y_min,
             ManifestFootstep.y_max,
+            ManifestFootstep.footstep_id,
         ).where(ManifestFootstep.event_id.in_(local_event_ids))
 
         # INSERT ... SELECT ... with ON CONFLICT(event_id, footstep_id) DO UPDATE
@@ -878,6 +899,7 @@ def copy_footsteps_from_manifest_to_local(db: DB) -> int:
                 "x_max",
                 "y_min",
                 "y_max",
+                "step_archive_key",
             ],
             src,
         )

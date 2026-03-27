@@ -5,6 +5,14 @@ import requests
 from dash.exceptions import PreventUpdate
 
 import frontend.api as api
+from frontend.callbacks.footsteps import (
+    _draft_range_to_frame_bounds,
+    _make_draft_grf_figure,
+    _refresh_visible_results_for_created_footstep,
+    _resolve_draft_frame_range,
+    _resolve_draft_depth_range,
+    _review_label_value,
+)
 from frontend.utils import require_values
 
 pytestmark = pytest.mark.unit
@@ -89,6 +97,226 @@ def test_require_values_all_present_ok():
         direction="in",
         event=1,
     )
+
+
+def test_resolve_draft_depth_range_resets_to_full_span_for_new_draft():
+    out = _resolve_draft_depth_range(
+        slider_max=101,
+        depth_range=[0, 0],
+        reset_range=True,
+    )
+
+    assert out == [0, 101]
+
+
+def test_resolve_draft_depth_range_preserves_manual_slider_selection():
+    out = _resolve_draft_depth_range(
+        slider_max=101,
+        depth_range=[12, 48],
+        reset_range=False,
+    )
+
+    assert out == [12, 48]
+
+
+def test_resolve_draft_frame_range_resets_to_absolute_draft_bounds():
+    out = _resolve_draft_frame_range(
+        draft_start=20,
+        draft_end=60,
+        frame_range=[0, 0],
+        reset_range=True,
+    )
+
+    assert out == [20, 60]
+
+
+def test_resolve_draft_frame_range_preserves_absolute_selection():
+    out = _resolve_draft_frame_range(
+        draft_start=20,
+        draft_end=60,
+        frame_range=[24, 38],
+        reset_range=False,
+    )
+
+    assert out == [24, 38]
+
+
+def test_draft_range_to_frame_bounds_returns_absolute_trial_frames():
+    out = _draft_range_to_frame_bounds(
+        {
+            "start_frame": 20,
+            "volume": [[[1]], [[2]], [[3]], [[4]]],
+        },
+        [21, 23],
+    )
+
+    assert out == (21, 23)
+
+
+def test_make_draft_grf_figure_uses_absolute_frame_axis():
+    fig = _make_draft_grf_figure(
+        [
+            [[1, 1], [1, 1]],
+            [[2, 2], [2, 2]],
+            [[3, 3], [3, 3]],
+        ],
+        [11, 12],
+        draft_start_frame=10,
+    )
+
+    trace = fig.data[0]
+
+    assert list(trace["x"]) == [10, 11, 12]
+    assert list(trace["y"]) == [4, 8, 12]
+
+
+def test_refresh_visible_results_for_created_footstep_expands_search_until_found(
+    monkeypatch,
+):
+    calls = []
+    all_items = [
+        {"event_id": "evt-1", "footstep_id": 1},
+        {"event_id": "evt-1", "footstep_id": 2},
+        {"event_id": "evt-1", "footstep_id": 3},
+        {"event_id": "evt-1", "footstep_id": 4},
+    ]
+
+    def fake_search_footsteps(**kwargs):
+        calls.append(kwargs["limit"])
+        return {
+            "items": all_items[: kwargs["limit"]],
+            "total": 5,
+        }
+
+    monkeypatch.setattr(
+        "frontend.callbacks.footsteps.search_footsteps",
+        fake_search_footsteps,
+    )
+
+    pagination_store, visible_items = _refresh_visible_results_for_created_footstep(
+        {
+            "applied": True,
+            "participants": [],
+            "start_date": None,
+            "end_date": None,
+            "height_range": [10, 150],
+            "width_range": [10, 130],
+            "size_range": [0, 10000],
+            "total": 4,
+        },
+        [
+            {"event_id": "evt-1", "footstep_id": 1},
+            {"event_id": "evt-1", "footstep_id": 2},
+        ],
+        event_id="evt-1",
+        footstep_id=4,
+        logger=None,
+    )
+
+    assert calls == [2, 4]
+    assert pagination_store is not None
+    assert visible_items is not None
+    assert pagination_store["offset"] == 4
+    assert pagination_store["total"] == 5
+    assert [item["footstep_id"] for item in visible_items] == [1, 2, 3, 4]
+
+
+def test_refresh_visible_results_for_created_footstep_trims_extra_rows_after_found(
+    monkeypatch,
+):
+    all_items = [
+        {"event_id": "evt-1", "footstep_id": 1},
+        {"event_id": "evt-1", "footstep_id": 2},
+        {"event_id": "evt-1", "footstep_id": 3},
+        {"event_id": "evt-1", "footstep_id": 4},
+        {"event_id": "evt-1", "footstep_id": 5},
+        {"event_id": "evt-1", "footstep_id": 6},
+    ]
+
+    def fake_search_footsteps(**kwargs):
+        return {
+            "items": all_items[: kwargs["limit"]],
+            "total": 6,
+        }
+
+    monkeypatch.setattr(
+        "frontend.callbacks.footsteps.search_footsteps",
+        fake_search_footsteps,
+    )
+
+    pagination_store, visible_items = _refresh_visible_results_for_created_footstep(
+        {
+            "applied": True,
+            "participants": [],
+            "start_date": None,
+            "end_date": None,
+            "height_range": [10, 150],
+            "width_range": [10, 130],
+            "size_range": [0, 10000],
+            "total": 6,
+        },
+        [
+            {"event_id": "evt-1", "footstep_id": 1},
+            {"event_id": "evt-1", "footstep_id": 2},
+            {"event_id": "evt-1", "footstep_id": 3},
+        ],
+        event_id="evt-1",
+        footstep_id=4,
+        logger=None,
+    )
+
+    assert pagination_store is not None
+    assert visible_items is not None
+    assert pagination_store["offset"] == 4
+    assert [item["footstep_id"] for item in visible_items] == [1, 2, 3, 4]
+
+
+def test_refresh_visible_results_for_created_footstep_preserves_items_after_insert(
+    monkeypatch,
+):
+    all_items = [
+        {"event_id": "evt-1", "footstep_id": 1},
+        {"event_id": "evt-1", "footstep_id": 2},
+        {"event_id": "evt-1", "footstep_id": 3},
+        {"event_id": "evt-1", "footstep_id": 4},
+    ]
+
+    def fake_search_footsteps(**kwargs):
+        return {
+            "items": all_items[: kwargs["limit"]],
+            "total": 4,
+        }
+
+    monkeypatch.setattr(
+        "frontend.callbacks.footsteps.search_footsteps",
+        fake_search_footsteps,
+    )
+
+    pagination_store, visible_items = _refresh_visible_results_for_created_footstep(
+        {
+            "applied": True,
+            "participants": [],
+            "start_date": None,
+            "end_date": None,
+            "height_range": [10, 150],
+            "width_range": [10, 130],
+            "size_range": [0, 10000],
+            "total": 4,
+        },
+        [
+            {"event_id": "evt-1", "footstep_id": 1},
+            {"event_id": "evt-1", "footstep_id": 3},
+            {"event_id": "evt-1", "footstep_id": 4},
+        ],
+        event_id="evt-1",
+        footstep_id=2,
+        logger=None,
+    )
+
+    assert pagination_store is not None
+    assert visible_items is not None
+    assert pagination_store["offset"] == 4
+    assert [item["footstep_id"] for item in visible_items] == [1, 2, 3, 4]
 
 
 # ------------------------------------------------------------
@@ -201,6 +429,35 @@ def test_get_event_footstep_p100s(monkeypatch):
     assert out == {"items": []}
 
 
+def test_create_draft_footstep_posts_bbox(monkeypatch):
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None):
+        captured["url"] = url
+        captured["json"] = json
+        captured["timeout"] = timeout
+        return StubResponse({"depth": 3, "volume": [[[1]], [[2]], [[3]]]})
+
+    monkeypatch.setattr(api.requests, "post", fake_post)
+
+    out = api.create_draft_footstep(
+        "evt-1",
+        x_min=1,
+        x_max=5,
+        y_min=2,
+        y_max=6,
+    )
+
+    assert captured["url"].endswith("/api/footsteps/evt-1/draft")
+    assert captured["json"] == {
+        "x_min": 1,
+        "x_max": 5,
+        "y_min": 2,
+        "y_max": 6,
+    }
+    assert out["depth"] == 3
+
+
 def test_fetch_json_logs_on_error(monkeypatch):
     # Ensure fetch_json logs error details when a request fails
     logger = FakeLogger()
@@ -259,6 +516,12 @@ def test_get_date_part_with_filters(monkeypatch):
     assert captured["params"]["year"] == 2024
     assert captured["params"]["month"] == 5
     assert out == {"items": [2024]}
+
+
+def test_review_label_value_normalizes_none_to_empty_string():
+    assert _review_label_value(None) == ""
+    assert _review_label_value("") == ""
+    assert _review_label_value("Left") == "Left"
 
 
 def test_fetch_json_error_with_json_body(monkeypatch):

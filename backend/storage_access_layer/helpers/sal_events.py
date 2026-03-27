@@ -62,9 +62,14 @@ class SalEvents:
             return None
 
         p100, err = self.common._get_p100(event)
-        if err:
+        if err or p100 is None:
             return None
-        return p100
+
+        try:
+            return p100.tolist()
+        except Exception as e:
+            return f"unexpected error: {e}"
+        return
 
     def get_grf(self, event_id: str):
         event, err = self.common._require_event(event_id)

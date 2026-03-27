@@ -116,6 +116,18 @@ class TestSpatialFlip:
         assert orientation is False
         assert np.array_equal(flipped, footstep)
 
+    def test_spatial_flip_handles_empty_half_without_runtime_warning(self):
+        footstep = np.zeros((4, 5, 4), dtype=float)
+        footstep[2:4, 1:4, 1:3] = 20
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            flipped, orientation = spatial_flip(footstep)
+
+        assert caught == []
+        assert orientation is False
+        assert np.array_equal(flipped, footstep)
+
 
 class TestSpatialRotation:
     def test_spatial_rotation_uses_pca_angle_and_preserves_nonzero_data(

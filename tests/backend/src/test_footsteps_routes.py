@@ -779,9 +779,30 @@ class ReviewErrorSAL:
         return None, "missing_file"
 
 
+class ReviewConflictSAL:
+    def get_footstep_review_context(self, event_id, footstep_id):
+        return None, "missing_event"
+
+    def save_footstep_review(self, event_id, footstep_id, edits):
+        return None, "invalid_bbox"
+
+    def create_footstep(self, event_id, new_footstep):
+        return None, "footstep_id_conflict"
+
+    def delete_footstep(self, event_id, footstep_id):
+        return None, "missing_file"
+
+
 @pytest.fixture
 def review_error_client(app_factory):
     app = app_factory(ReviewErrorSAL())
+    with app.test_client() as c:
+        yield c
+
+
+@pytest.fixture
+def review_conflict_client(app_factory):
+    app = app_factory(ReviewConflictSAL())
     with app.test_client() as c:
         yield c
 
@@ -836,6 +857,27 @@ def test_create_footstep_invalid_frame_returns_400(review_error_client):
     data = resp.get_json()
     assert data["code"] == "bad_request"
     assert "start_frame and end_frame must be inside the trial" in data["message"]
+
+
+@pytest.mark.unit
+def test_create_footstep_conflict_returns_409(review_conflict_client):
+    resp = review_conflict_client.post(
+        "/api/footsteps/evt-1/create",
+        json={
+            "start_frame": 1,
+            "end_frame": 2,
+            "x_min": 10,
+            "x_max": 20,
+            "y_min": 30,
+            "y_max": 40,
+            "label": "new step",
+        },
+    )
+
+    assert resp.status_code == 409
+    data = resp.get_json()
+    assert data["code"] == "conflict"
+    assert "overwrite an existing footstep id" in data["message"]
 
 
 @pytest.mark.unit

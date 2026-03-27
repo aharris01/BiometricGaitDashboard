@@ -335,6 +335,15 @@ def search_footsteps(
     )
 
 
+def get_footstep_details(event_id: str, footstep_id: int, *, logger=None):
+    # Fetch the per-footstep p100 and GRF payload for the context panel.
+    return fetch_json(
+        f"{API_BASE_URL}/api/events/{event_id}/footsteps/{footstep_id}",
+        context="get_footstep_details",
+        logger=logger,
+    )
+
+
 def get_footstep_review(event_id: str, footstep_id: int, *, logger=None):
     # Fetch the full-event review payload for one footstep.
     return fetch_json(
@@ -402,6 +411,29 @@ def create_footstep(
         },
         context="create_footstep",
         logger=logger,
+    )
+
+
+def create_draft_footstep(
+    event_id: str,
+    *,
+    x_min: int,
+    x_max: int,
+    y_min: int,
+    y_max: int,
+    logger=None,
+):
+    return post_json(
+        f"{API_BASE_URL}/api/footsteps/{event_id}/draft",
+        payload={
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_min,
+            "y_max": y_max,
+        },
+        context="create_draft_footstep",
+        logger=logger,
+        timeout=None,
     )
 
 

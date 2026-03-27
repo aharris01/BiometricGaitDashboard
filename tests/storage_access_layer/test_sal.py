@@ -758,11 +758,11 @@ class TestSummaryPlot:
 class TestGetTrialFrameCount:
     @pytest.mark.unit
     def test_get_trial_frame_count_ok(self, tmp_path, sal, fake_db):
-        trial = tmp_path / "trial.npz"
-        np.savez(trial, arr_0=np.zeros((7, 3, 2)))
+        trial = tmp_path / "trial.grf.npz"
+        np.savez_compressed(trial, allow_pickle=False, **{"[:,:]": np.zeros((7, 1))})
 
         fake_db.get_swipe_event.return_value = SimpleNamespace(
-            trial_npz_uri=trial.resolve().as_uri()
+            trial_grf_npz_uri=trial.resolve().as_uri()
         )
 
         frame_count, err = sal._get_trial_frame_count("evt-1")

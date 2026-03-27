@@ -47,6 +47,7 @@ def render_footstep_cards(
     for item in items:
         event_id = str(item["event_id"])
         footstep_id = int(item["footstep_id"])
+        step_number = item.get("step_number")
         bbox_area = item.get("bbox_area")
         has_thumbnail = bool(item.get("has_thumbnail", True))
 
@@ -55,7 +56,11 @@ def render_footstep_cards(
                 className="footstep-card",
                 children=[
                     html.Div(
-                        f"{event_id} · Step {footstep_id}",
+                        (
+                            f"{event_id} · Step {step_number}"
+                            if step_number is not None
+                            else f"{event_id} · Footstep"
+                        ),
                         className="footstep-card-title",
                     ),
                     html.Button(
@@ -108,10 +113,9 @@ def render_footstep_cards(
 
 
 def FootstepView():
-    # This page is split into three main parts:
-    # - a filter sidebar on the left
-    # - a results panel in the middle
-    # - a review/editor panel on the right
+    # This page is split into two full-height rows:
+    # - top row: filters and footstep thumbnails
+    # - bottom row: full-width review/editor panel
     #
     # The changelog opens in a modal so it does not steal width from the
     # review graph or the thumbnail grid.
@@ -120,148 +124,199 @@ def FootstepView():
         className="hidden",
         children=[
             html.Div(
-                className="footstep-row",
+                className="footstep-layout",
                 children=[
-                    # -------------------------------------------------
-                    # Left sidebar: footstep filters
-                    # -------------------------------------------------
                     html.Div(
-                        className="footstep-sidebar",
+                        className="footstep-row footstep-top-row",
                         children=[
+                            # -------------------------------------------------
+                            # Left sidebar: footstep filters
+                            # -------------------------------------------------
                             html.Div(
-                                className="panel-header",
+                                className="footstep-sidebar",
                                 children=[
-                                    html.H3("Filters", className="panel-title"),
                                     html.Div(
-                                        className="footstep-filter-actions",
+                                        className="panel-header",
                                         children=[
-                                            html.Button(
-                                                "Clear",
-                                                id="btn-clear-footstep-filters",
-                                                className="mode-btn",
+                                            html.H3("Filters", className="panel-title"),
+                                            html.Div(
+                                                className="footstep-filter-actions",
+                                                children=[
+                                                    html.Button(
+                                                        "Clear",
+                                                        id="btn-clear-footstep-filters",
+                                                        className="mode-btn",
+                                                    ),
+                                                    html.Button(
+                                                        "OK",
+                                                        id="btn-apply-footstep-filters",
+                                                        className="ok-btn",
+                                                    ),
+                                                ],
                                             ),
-                                            html.Button(
-                                                "OK",
-                                                id="btn-apply-footstep-filters",
-                                                className="ok-btn",
+                                        ],
+                                    ),
+                                    html.Details(
+                                        open=False,
+                                        children=[
+                                            html.Summary(
+                                                "by participant",
+                                                className="filter_summary",
+                                            ),
+                                            html.Div(
+                                                className="filter_box",
+                                                children=[
+                                                    dcc.Checklist(
+                                                        id="footstep-participant-filter",
+                                                        options=[],
+                                                        value=[],
+                                                        labelStyle={
+                                                            "display": "block",
+                                                            "marginBottom": "6px",
+                                                        },
+                                                    )
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    html.Details(
+                                        open=False,
+                                        children=[
+                                            html.Summary(
+                                                "by date range",
+                                                className="filter_summary",
+                                            ),
+                                            html.Div(
+                                                className="filter_box_no_scroll",
+                                                children=[
+                                                    dcc.DatePickerRange(
+                                                        id="footstep-date-range-filter",
+                                                        start_date=None,
+                                                        end_date=None,
+                                                        minimum_nights=0,
+                                                        display_format="YYYY-MM-DD",
+                                                    )
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    html.Details(
+                                        open=False,
+                                        children=[
+                                            html.Summary(
+                                                "by footstep size",
+                                                className="filter_summary",
+                                            ),
+                                            html.Div(
+                                                className="filter_box_no_scroll",
+                                                children=[
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("Height"),
+                                                            dcc.RangeSlider(
+                                                                id="footstep-height-slider",
+                                                                min=10,
+                                                                max=150,
+                                                                step=1,
+                                                                value=[10, 150],
+                                                                allowCross=False,
+                                                                marks={
+                                                                    10: "10",
+                                                                    50: "50",
+                                                                    100: "100",
+                                                                    150: "150",
+                                                                },
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("Width"),
+                                                            dcc.RangeSlider(
+                                                                id="footstep-width-slider",
+                                                                min=10,
+                                                                max=130,
+                                                                step=1,
+                                                                value=[10, 130],
+                                                                allowCross=False,
+                                                                marks={
+                                                                    10: "10",
+                                                                    40: "40",
+                                                                    80: "80",
+                                                                    130: "130",
+                                                                },
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label(
+                                                                "Total Footstep Size"
+                                                            ),
+                                                            dcc.RangeSlider(
+                                                                id="footstep-size-slider",
+                                                                min=0,
+                                                                max=10000,
+                                                                step=50,
+                                                                value=[0, 10000],
+                                                                allowCross=False,
+                                                                marks={
+                                                                    0: "0",
+                                                                    2500: "2.5k",
+                                                                    5000: "5k",
+                                                                    7500: "7.5k",
+                                                                    10000: "10k",
+                                                                },
+                                                            ),
+                                                        ],
+                                                    ),
+                                                ],
                                             ),
                                         ],
                                     ),
                                 ],
                             ),
-                            html.Details(
-                                open=False,
+                            html.Div(
+                                className="footstep-top-main",
                                 children=[
-                                    html.Summary(
-                                        "by participant",
-                                        className="filter_summary",
-                                    ),
                                     html.Div(
-                                        className="filter_box",
+                                        className="footstep-results-panel",
                                         children=[
-                                            dcc.Checklist(
-                                                id="footstep-participant-filter",
-                                                options=[],
-                                                value=[],
-                                                labelStyle={
-                                                    "display": "block",
-                                                    "marginBottom": "6px",
+                                            html.Div(
+                                                className="panel-header",
+                                                children=[
+                                                    html.H3(
+                                                        "Footsteps",
+                                                        className="panel-title",
+                                                    ),
+                                                    html.Div(
+                                                        "Choose filters, then press OK.",
+                                                        id="footstep-results-status",
+                                                    ),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                id="footstep-results-grid",
+                                                className="footstep-card-grid",
+                                                children=render_footstep_empty(
+                                                    "No footsteps loaded yet. Choose filters and press OK."
+                                                ),
+                                            ),
+                                            html.Div(
+                                                id="footstep-load-more-wrap",
+                                                style={
+                                                    "display": "none",
+                                                    "marginTop": "12px",
                                                 },
-                                            )
-                                        ],
-                                    ),
-                                ],
-                            ),
-                            html.Details(
-                                open=False,
-                                children=[
-                                    html.Summary(
-                                        "by date range",
-                                        className="filter_summary",
-                                    ),
-                                    html.Div(
-                                        className="filter_box_no_scroll",
-                                        children=[
-                                            dcc.DatePickerRange(
-                                                id="footstep-date-range-filter",
-                                                start_date=None,
-                                                end_date=None,
-                                                minimum_nights=0,
-                                                display_format="YYYY-MM-DD",
-                                            )
-                                        ],
-                                    ),
-                                ],
-                            ),
-                            html.Details(
-                                open=False,
-                                children=[
-                                    html.Summary(
-                                        "by footstep size",
-                                        className="filter_summary",
-                                    ),
-                                    html.Div(
-                                        className="filter_box_no_scroll",
-                                        children=[
-                                            html.Div(
-                                                className="metrics-field",
                                                 children=[
-                                                    html.Label("Height"),
-                                                    dcc.RangeSlider(
-                                                        id="footstep-height-slider",
-                                                        min=10,
-                                                        max=150,
-                                                        step=1,
-                                                        value=[10, 150],
-                                                        allowCross=False,
-                                                        marks={
-                                                            10: "10",
-                                                            50: "50",
-                                                            100: "100",
-                                                            150: "150",
-                                                        },
-                                                    ),
-                                                ],
-                                            ),
-                                            html.Div(
-                                                className="metrics-field",
-                                                children=[
-                                                    html.Label("Width"),
-                                                    dcc.RangeSlider(
-                                                        id="footstep-width-slider",
-                                                        min=10,
-                                                        max=130,
-                                                        step=1,
-                                                        value=[10, 130],
-                                                        allowCross=False,
-                                                        marks={
-                                                            10: "10",
-                                                            40: "40",
-                                                            80: "80",
-                                                            130: "130",
-                                                        },
-                                                    ),
-                                                ],
-                                            ),
-                                            html.Div(
-                                                className="metrics-field",
-                                                children=[
-                                                    html.Label("Total Footstep Size"),
-                                                    dcc.RangeSlider(
-                                                        id="footstep-size-slider",
-                                                        min=0,
-                                                        max=10000,
-                                                        step=50,
-                                                        value=[0, 10000],
-                                                        allowCross=False,
-                                                        marks={
-                                                            0: "0",
-                                                            2500: "2.5k",
-                                                            5000: "5k",
-                                                            7500: "7.5k",
-                                                            10000: "10k",
-                                                        },
-                                                    ),
+                                                    html.Button(
+                                                        "Load More",
+                                                        id="btn-load-more-footsteps",
+                                                        className="mode-btn",
+                                                    )
                                                 ],
                                             ),
                                         ],
@@ -270,190 +325,207 @@ def FootstepView():
                             ),
                         ],
                     ),
-                    # -------------------------------------------------
-                    # Middle panel: footstep search results
-                    # -------------------------------------------------
                     html.Div(
-                        className="footstep-results-panel",
+                        className="footstep-row footstep-bottom-row",
                         children=[
                             html.Div(
-                                className="panel-header",
+                                id="footstep-context-panel",
+                                className="footstep-context-panel",
                                 children=[
-                                    html.H3("Footsteps", className="panel-title"),
                                     html.Div(
-                                        "Choose filters, then press OK.",
-                                        id="footstep-results-status",
+                                        className="panel-header",
+                                        children=[
+                                            html.H3(
+                                                "Footstep Context",
+                                                id="footstep-context-title",
+                                                className="panel-title",
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        id="footstep-context-step",
+                                        className="footstep-context-step",
+                                        children="",
+                                    ),
+                                    html.Div(
+                                        id="footstep-context-meta",
+                                        className="footstep-context-meta",
+                                        children="Click a thumbnail to inspect that footstep.",
+                                    ),
+                                    dcc.Graph(
+                                        id="footstep-context-p100-graph",
+                                        className="footstep-context-p100-graph",
+                                        style={"height": "360px"},
+                                        config={"displaylogo": False},
+                                    ),
+                                    dcc.Graph(
+                                        id="footstep-context-grf-graph",
+                                        className="footstep-context-grf-graph",
+                                        style={"height": "220px"},
+                                        config={"displaylogo": False},
                                     ),
                                 ],
                             ),
                             html.Div(
-                                id="footstep-results-grid",
-                                className="footstep-card-grid",
-                                children=render_footstep_empty(
-                                    "No footsteps loaded yet. Choose filters and press OK."
-                                ),
-                            ),
-                            html.Div(
-                                id="footstep-load-more-wrap",
-                                style={"display": "none", "marginTop": "12px"},
-                                children=[
-                                    html.Button(
-                                        "Load More",
-                                        id="btn-load-more-footsteps",
-                                        className="mode-btn",
-                                    )
-                                ],
-                            ),
-                        ],
-                    ),
-                    # -------------------------------------------------
-                    # Right panel: full-event review/editor
-                    # -------------------------------------------------
-                    html.Div(
-                        id="footstep-review-panel",
-                        className="footstep-review-panel",
-                        style={"display": "none"},
-                        children=[
-                            html.Div(
-                                className="panel-header",
-                                children=[
-                                    html.H3(
-                                        "Review",
-                                        id="footstep-review-title",
-                                        className="panel-title",
-                                    ),
-                                    html.Div(
-                                        className="footstep-review-actions",
-                                        children=[
-                                            html.Button(
-                                                "Create New",
-                                                id="btn-create-footstep",
-                                                className="mode-btn",
-                                            ),
-                                            html.Button(
-                                                "Cancel Create",
-                                                id="btn-cancel-create-footstep",
-                                                className="mode-btn",
-                                                style={"display": "none"},
-                                            ),
-                                            html.Button(
-                                                "Delete Footstep",
-                                                id="btn-delete-footstep",
-                                                className="mode-btn",
-                                            ),
-                                            html.Button(
-                                                "Show Changelog",
-                                                id="btn-show-footstep-history",
-                                                className="mode-btn",
-                                            ),
-                                            html.Button(
-                                                "Close",
-                                                id="btn-close-footstep-review",
-                                                className="mode-btn",
-                                            ),
-                                            html.Button(
-                                                "Save",
-                                                id="btn-save-footstep-review",
-                                                className="ok-btn",
-                                            ),
-                                        ],
-                                    ),
-                                ],
-                            ),
-                            html.Div(
-                                id="footstep-review-status",
-                                className="footstep-review-status",
-                                children="Click a footstep thumbnail to edit its bbox on the full event image.",
-                            ),
-                            dcc.Graph(
-                                id="footstep-review-graph",
-                                style={"height": "780px"},
-                                config={
-                                    "displaylogo": False,
-                                    "modeBarButtonsToAdd": [
-                                        "drawrect",
-                                        "eraseshape",
-                                    ],
-                                    "edits": {"shapePosition": True},
-                                },
-                            ),
-                            html.Div(
-                                className="footstep-review-fields",
+                                id="footstep-review-panel",
+                                className="footstep-review-panel",
+                                style={"display": "flex", "flexDirection": "column"},
                                 children=[
                                     html.Div(
-                                        className="metrics-field",
+                                        className="panel-header",
                                         children=[
-                                            html.Label("start_frame"),
-                                            dcc.Input(
-                                                id="footstep-create-start-frame",
-                                                type="number",
-                                                debounce=True,
+                                            html.H3(
+                                                "Review",
+                                                id="footstep-review-title",
+                                                className="panel-title",
+                                            ),
+                                            html.Div(
+                                                className="footstep-review-actions",
+                                                children=[
+                                                    html.Button(
+                                                        "Create New",
+                                                        id="btn-create-footstep",
+                                                        className="mode-btn",
+                                                    ),
+                                                    html.Button(
+                                                        "Cancel Create",
+                                                        id="btn-cancel-create-footstep",
+                                                        className="mode-btn",
+                                                        style={"display": "none"},
+                                                    ),
+                                                    html.Button(
+                                                        "Delete Footstep",
+                                                        id="btn-delete-footstep",
+                                                        className="mode-btn",
+                                                    ),
+                                                    html.Button(
+                                                        "Show Changelog",
+                                                        id="btn-show-footstep-history",
+                                                        className="mode-btn",
+                                                    ),
+                                                    html.Button(
+                                                        "Close",
+                                                        id="btn-close-footstep-review",
+                                                        className="mode-btn",
+                                                    ),
+                                                    html.Button(
+                                                        "Save",
+                                                        id="btn-save-footstep-review",
+                                                        className="ok-btn",
+                                                    ),
+                                                ],
                                             ),
                                         ],
                                     ),
                                     html.Div(
-                                        className="metrics-field",
-                                        children=[
-                                            html.Label("end_frame"),
-                                            dcc.Input(
-                                                id="footstep-create-end-frame",
-                                                type="number",
-                                                debounce=True,
-                                            ),
-                                        ],
+                                        id="footstep-review-status",
+                                        className="footstep-review-status",
+                                        children="Click a footstep thumbnail to edit its bbox on the full event image.",
                                     ),
                                     html.Div(
-                                        className="metrics-field",
+                                        className="footstep-review-content",
                                         children=[
-                                            html.Label("x_min"),
-                                            dcc.Input(
-                                                id="footstep-review-x-min",
-                                                type="number",
-                                                debounce=True,
+                                            html.Div(
+                                                className="footstep-review-graph-wrap",
+                                                children=[
+                                                    dcc.Graph(
+                                                        id="footstep-review-graph",
+                                                        className="footstep-review-graph",
+                                                        style={"height": "100%"},
+                                                        config={
+                                                            "displaylogo": False,
+                                                            "modeBarButtonsToAdd": [
+                                                                "drawrect",
+                                                                "eraseshape",
+                                                            ],
+                                                            "edits": {
+                                                                "shapePosition": True
+                                                            },
+                                                        },
+                                                    )
+                                                ],
                                             ),
-                                        ],
-                                    ),
-                                    html.Div(
-                                        className="metrics-field",
-                                        children=[
-                                            html.Label("x_max"),
-                                            dcc.Input(
-                                                id="footstep-review-x-max",
-                                                type="number",
-                                                debounce=True,
-                                            ),
-                                        ],
-                                    ),
-                                    html.Div(
-                                        className="metrics-field",
-                                        children=[
-                                            html.Label("y_min"),
-                                            dcc.Input(
-                                                id="footstep-review-y-min",
-                                                type="number",
-                                                debounce=True,
-                                            ),
-                                        ],
-                                    ),
-                                    html.Div(
-                                        className="metrics-field",
-                                        children=[
-                                            html.Label("y_max"),
-                                            dcc.Input(
-                                                id="footstep-review-y-max",
-                                                type="number",
-                                                debounce=True,
-                                            ),
-                                        ],
-                                    ),
-                                    html.Div(
-                                        className="metrics-field",
-                                        children=[
-                                            html.Label("Label"),
-                                            dcc.Input(
-                                                id="footstep-review-label",
-                                                type="text",
-                                                debounce=True,
+                                            html.Div(
+                                                className="footstep-review-fields",
+                                                children=[
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("start_frame"),
+                                                            dcc.Input(
+                                                                id="footstep-create-start-frame",
+                                                                type="number",
+                                                                debounce=True,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("end_frame"),
+                                                            dcc.Input(
+                                                                id="footstep-create-end-frame",
+                                                                type="number",
+                                                                debounce=True,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("x_min"),
+                                                            dcc.Input(
+                                                                id="footstep-review-x-min",
+                                                                type="number",
+                                                                debounce=True,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("x_max"),
+                                                            dcc.Input(
+                                                                id="footstep-review-x-max",
+                                                                type="number",
+                                                                debounce=True,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("y_min"),
+                                                            dcc.Input(
+                                                                id="footstep-review-y-min",
+                                                                type="number",
+                                                                debounce=True,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("y_max"),
+                                                            dcc.Input(
+                                                                id="footstep-review-y-max",
+                                                                type="number",
+                                                                debounce=True,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                    html.Div(
+                                                        className="metrics-field",
+                                                        children=[
+                                                            html.Label("Label"),
+                                                            dcc.Input(
+                                                                id="footstep-review-label",
+                                                                type="text",
+                                                                debounce=True,
+                                                            ),
+                                                        ],
+                                                    ),
+                                                ],
                                             ),
                                         ],
                                     ),
@@ -523,6 +595,74 @@ def FootstepView():
                                         className="ok-btn",
                                     ),
                                 ],
+                            ),
+                        ],
+                    )
+                ],
+            ),
+            html.Div(
+                id="footstep-draft-modal",
+                className="footstep-history-modal",
+                style={"display": "none"},
+                children=[
+                    html.Div(
+                        className="footstep-history-modal-card footstep-draft-modal-card",
+                        children=[
+                            html.Div(
+                                className="panel-header",
+                                children=[
+                                    html.H3("Draft Preview", className="panel-title"),
+                                    html.Button(
+                                        "Close",
+                                        id="btn-close-footstep-draft",
+                                        className="mode-btn",
+                                    ),
+                                ],
+                            ),
+                            dcc.Loading(
+                                id="footstep-draft-loading",
+                                type="default",
+                                children=[
+                                    html.Div(
+                                        style={
+                                            "display": "grid",
+                                            "gridTemplateColumns": "minmax(0, 1fr) minmax(320px, 420px)",
+                                            "gap": "16px",
+                                            "alignItems": "start",
+                                        },
+                                        children=[
+                                            dcc.Graph(
+                                                id="footstep-draft-graph",
+                                                style={"height": "420px"},
+                                                config={"displaylogo": False},
+                                            ),
+                                            dcc.Graph(
+                                                id="footstep-draft-grf-graph",
+                                                style={"height": "420px"},
+                                                config={"displaylogo": False},
+                                            ),
+                                        ],
+                                    )
+                                ],
+                            ),
+                            html.Div(
+                                "Select frame range:",
+                                style={"marginTop": "12px", "marginBottom": "8px"},
+                            ),
+                            dcc.RangeSlider(
+                                id="footstep-draft-range-slider",
+                                min=0,
+                                max=0,
+                                step=1,
+                                value=[0, 0],
+                                allowCross=False,
+                                marks={0: "0"},
+                                tooltip={"placement": "bottom", "always_visible": True},
+                            ),
+                            html.Div(
+                                id="footstep-draft-info",
+                                style={"marginTop": "12px"},
+                                children="Draft preview will appear here.",
                             ),
                         ],
                     )

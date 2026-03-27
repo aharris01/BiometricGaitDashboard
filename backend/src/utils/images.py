@@ -74,10 +74,7 @@ def create_image_bytes(
       - Jet colormap with black at 0
     """
 
-    if p100 is None:
-        raise ValueError("p100 cannot be None")
-
-    arr = np.asarray(p100, dtype=np.float32)
+    arr = np.asarray(p100, dtype=np.uint16)
     if arr.ndim != 2:
         raise ValueError(f"p100 must be 2D, got shape={arr.shape}")
 

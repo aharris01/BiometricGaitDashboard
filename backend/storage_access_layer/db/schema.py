@@ -135,6 +135,8 @@ class LocalFootstep(LocalBase):
     y_min: Mapped[int] = mapped_column(Integer, nullable=False)
     y_max: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    step_archive_key: Mapped[int] = mapped_column(Integer, nullable=False)
+
     # Local-only optional label. This supports future manual review/editing
     # without changing the immutable manifest database.
     label: Mapped[str | None] = mapped_column(String, nullable=True)

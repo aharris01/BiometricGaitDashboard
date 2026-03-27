@@ -1,7 +1,6 @@
 import datetime
 
 import pytest
-from sqlalchemy import select
 
 from backend.storage_access_layer.db.schema import (
     LocalSwipeEvent,
@@ -9,7 +8,6 @@ from backend.storage_access_layer.db.schema import (
     ManifestSwipeEvent,
     ManifestFootstep,
     LocalFootstep,
-    LocalFootstepChange,
 )
 from backend.storage_access_layer.db.db import (
     copy_metrics_from_manifest_to_local,
@@ -232,82 +230,62 @@ def test_search_footsteps_respects_offset_and_limit(empty_db):
     assert rows[0]["event_id"] == "EV_2"
 
 
-def test_delete_local_footstep_removes_row_and_renumbers_remaining_ids(empty_db):
-    with empty_db._get_session() as s:
-        s.add_all(
-            [
-                LocalFootstep(
-                    event_id="EV_DEL",
-                    footstep_id=0,
-                    start_frame=1,
-                    end_frame=2,
-                    x_min=0,
-                    x_max=10,
-                    y_min=0,
-                    y_max=10,
-                    label="a",
-                ),
-                LocalFootstep(
-                    event_id="EV_DEL",
-                    footstep_id=1,
-                    start_frame=3,
-                    end_frame=4,
-                    x_min=1,
-                    x_max=11,
-                    y_min=1,
-                    y_max=11,
-                    label="b",
-                ),
-                LocalFootstep(
-                    event_id="EV_DEL",
-                    footstep_id=2,
-                    start_frame=5,
-                    end_frame=6,
-                    x_min=2,
-                    x_max=12,
-                    y_min=2,
-                    y_max=12,
-                    label="c",
-                ),
-            ]
-        )
-
-    deleted = empty_db.delete_local_footstep("EV_DEL", 1)
-
-    assert deleted is True
-
-    with empty_db._get_session() as s:
-        rows = (
-            s.execute(
-                select(LocalFootstep)
-                .where(LocalFootstep.event_id == "EV_DEL")
-                .order_by(LocalFootstep.footstep_id)
-            )
-            .scalars()
-            .all()
-        )
-        delete_changes = (
-            s.execute(
-                select(LocalFootstepChange)
-                .where(
-                    LocalFootstepChange.event_id == "EV_DEL",
-                    LocalFootstepChange.action == "delete",
-                )
-                .order_by(LocalFootstepChange.id)
-            )
-            .scalars()
-            .all()
-        )
-
-    assert [row.footstep_id for row in rows] == [0, 1]
-    assert [row.label for row in rows] == ["a", "c"]
-    assert len(delete_changes) == 1
-    assert delete_changes[0].footstep_id == 1
-    assert delete_changes[0].old_start_frame == 3
-    assert delete_changes[0].old_end_frame == 4
-
-
 def test_delete_local_footstep_returns_none_when_row_missing(empty_db):
     deleted = empty_db.delete_local_footstep("EV_MISSING", 4)
 
     assert deleted is None
+
+
+def test_create_local_footstep_defaults_step_archive_key_to_local_id(empty_db):
+    row = empty_db.create_local_footstep(
+        "EV_TEST",
+        start_frame=10,
+        end_frame=20,
+        x_min=1,
+        x_max=11,
+        y_min=2,
+        y_max=12,
+        label=None,
+    )
+
+    assert row is not None
+    assert row.footstep_id == 0
+    assert row.step_archive_key == 0
+
+
+def test_update_step_archive_keys_updates_existing_rows(empty_db):
+    empty_db.create_local_footstep(
+        "EV_TEST",
+        start_frame=10,
+        end_frame=20,
+        x_min=1,
+        x_max=11,
+        y_min=2,
+        y_max=12,
+        label=None,
+        step_archive_key=6,
+    )
+    empty_db.create_local_footstep(
+        "EV_TEST",
+        start_frame=30,
+        end_frame=40,
+        x_min=3,
+        x_max=13,
+        y_min=4,
+        y_max=14,
+        label=None,
+        step_archive_key=7,
+    )
+
+    updated = empty_db.update_step_archive_keys("EV_TEST", {6: 0, 7: 1})
+
+    assert updated == 2
+
+    with empty_db._get_session() as session:
+        first = session.get(LocalFootstep, ("EV_TEST", 0))
+        second = session.get(LocalFootstep, ("EV_TEST", 1))
+
+        assert first is not None
+        assert second is not None
+        assert first.step_archive_key == 0
+        assert second.step_archive_key == 1

@@ -86,12 +86,12 @@ def api_event_footstep_p100s(event_id: str):
 @events_bp.get("/api/events/<event_id>/footsteps/<int:step_id>")
 def api_event_footstep_detail(event_id: str, step_id: int):
     try:
-        p100, grf, err = get_sal().get_footstep_data(event_id, step_id)
+        result, err = get_sal().get_footstep_context_data(event_id, step_id)
         if err == "missing_event":
             return make_error(404, "not_found", "event not found")
         if err == "missing_file":
             return make_error(404, "not_found", "footstep data not found")
-        return jsonify({"p100": p100 or [], "grf": grf or []})
+        return jsonify(result or {"p100": [], "grf": [], "cop_x": [], "cop_y": []})
     except Exception as e:
         return make_error(500, "internal_error", "unexpected error", str(e))
 
@@ -112,7 +112,10 @@ def get_footstep_image(event_id: str, step_id: int):
     if err or p100 is None:
         return Response("Footstep not found", status=404, mimetype="text/plain")
 
-    img = create_image_bytes(p100)
+    try:
+        img = create_image_bytes(p100)
+    except ValueError as e:
+        return make_error(400, "p100_error", str(e))
 
     return Response(
         img.data,

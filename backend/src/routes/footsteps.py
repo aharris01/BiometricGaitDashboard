@@ -45,6 +45,13 @@ class CreateFootstepRequestPayload(TypedDict):
     label: str | None
 
 
+class DraftFootstepRequestPayload(TypedDict):
+    x_min: int
+    x_max: int
+    y_min: int
+    y_max: int
+
+
 class _ReviewPayloadError(ValueError):
     pass
 
@@ -319,6 +326,37 @@ def _parse_create_footstep_payload():
     return parsed, None
 
 
+def _parse_draft_footstep_payload():
+    raw_body = request.get_json(silent=True)
+
+    body: dict[str, object]
+    if isinstance(raw_body, dict):
+        body = cast(dict[str, object], raw_body)
+    else:
+        body = {}
+
+    try:
+        x_min = _coerce_review_int(body.get("x_min"), "x_min")
+        x_max = _coerce_review_int(body.get("x_max"), "x_max")
+        y_min = _coerce_review_int(body.get("y_min"), "y_min")
+        y_max = _coerce_review_int(body.get("y_max"), "y_max")
+    except _ReviewPayloadError as exc:
+        return None, make_error(
+            400,
+            "bad_request",
+            str(exc),
+        )
+
+    parsed: DraftFootstepRequestPayload = {
+        "x_min": x_min,
+        "x_max": x_max,
+        "y_min": y_min,
+        "y_max": y_max,
+    }
+
+    return parsed, None
+
+
 # -------------------------------------------------
 # Footstep search endpoint
 # -------------------------------------------------
@@ -464,11 +502,67 @@ def api_create_footstep(event_id: str):
                 "start_frame and end_frame must be inside the trial and end_frame must be greater than start_frame",
             )
 
+        if err == "footstep_id_conflict":
+            return make_error(
+                409,
+                "conflict",
+                "creating a footstep would overwrite an existing footstep id",
+            )
+
         if result is None:
             return make_error(
                 500,
                 "internal_error",
                 "create footstep returned no payload",
+            )
+
+        return jsonify(result)
+
+    except Exception as e:
+        return make_error(500, "internal_error", "unexpected error", str(e))
+
+
+@footsteps_bp.post("/api/footsteps/<event_id>/draft")
+def api_create_draft_footstep(event_id: str):
+    try:
+        parsed, err = _parse_draft_footstep_payload()
+        if err:
+            return err
+
+        if parsed is None:
+            return make_error(
+                500,
+                "internal_error",
+                "draft payload parser returned no data",
+            )
+
+        result, err = get_sal().create_draft_footstep(event_id, parsed)
+
+        if err == "missing_event":
+            return make_error(404, "not_found", "event not found")
+
+        if err == "missing_file":
+            return make_error(404, "not_found", "footstep source data not found")
+
+        if err == "invalid_bbox":
+            return make_error(
+                400,
+                "bad_request",
+                "bbox must stay inside the full event image and have positive size",
+            )
+
+        if err == "no_pressure_data":
+            return make_error(
+                404,
+                "not_found",
+                "no pressure data found inside the requested bbox",
+            )
+
+        if result is None:
+            return make_error(
+                500,
+                "internal_error",
+                "create draft footstep returned no payload",
             )
 
         return jsonify(result)

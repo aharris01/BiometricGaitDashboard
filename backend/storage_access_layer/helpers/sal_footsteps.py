@@ -1,6 +1,12 @@
 from datetime import date
+from typing import TypedDict
 
-from backend.src.routes.footsteps import CreateFootstepRequestPayload
+import numpy as np
+
+from backend.src.routes.footsteps import (
+    CreateFootstepRequestPayload,
+    DraftFootstepRequestPayload,
+)
 from backend.storage_access_layer.pipeline.footstep_edits import FootstepEditor
 from backend.scripts.calc_metrics import calculate_all_metrics
 from backend.storage_access_layer.utils import uri_to_path
@@ -15,6 +21,14 @@ from ..utils.types import (
     ReviewItemPayload,
 )
 from .common import CommonHelper
+
+
+class _EditorUpdateResult(TypedDict):
+    archive_key_updates: dict[int, int]
+
+
+class _EditorCreateResult(_EditorUpdateResult):
+    step_archive_key: int
 
 
 class SalFootsteps:
@@ -41,7 +55,16 @@ class SalFootsteps:
             limit=filters.limit,
         )
 
-        items = [_map_search_row(row) for row in rows]
+        thumbnail_rows = []
+
+        for row in rows:
+            row_dict = dict(row)
+            row_dict["has_thumbnail"] = self._check_footstep_data(
+                row["event_id"], row["footstep_id"]
+            )
+            thumbnail_rows.append(row_dict)
+
+        items = [_map_search_row(row) for row in thumbnail_rows]
 
         return {"items": items, "total": total}
 
@@ -56,13 +79,13 @@ class SalFootsteps:
         for row in rows:
             steps.append(
                 {
-                    "id": int(row.footstep_id),
-                    "start_frame": int(row.start_frame),
-                    "end_frame": int(row.end_frame),
-                    "x_min": int(row.x_min),
-                    "x_max": int(row.x_max),
-                    "y_min": int(row.y_min),
-                    "y_max": int(row.y_max),
+                    "id": int(row["footstep_id"]),
+                    "start_frame": int(row["start_frame"]),
+                    "end_frame": int(row["end_frame"]),
+                    "x_min": int(row["x_min"]),
+                    "x_max": int(row["x_max"]),
+                    "y_min": int(row["y_min"]),
+                    "y_max": int(row["y_max"]),
                 }
             )
         if len(steps) == 0:
@@ -123,8 +146,411 @@ class SalFootsteps:
         if p100_err or p100 is None:
             return None, p100_err
 
+        return self._create_review_payload(event_id, p100, footstep), None
+
+    def save_footstep_review(self, event_id: str, footstep_id: int, edits: dict):
+        # Validate and save one local footstep edit.
+        #
+        # Validation is done here because the SAL knows the real event image
+        # bounds and keeps write behavior behind the DB layer. This updates the
+        # current local footstep row and lets the DB layer write the matching
+        # changelog entry for the edit.
+
+        # Validate the event exists
+        event, event_err = self.common._require_event(event_id)
+        if event_err or event is None:
+            return None, event_err
+
+        p100, p100_err = self.common._get_p100(event)
+        if p100_err or p100 is None:
+            return None, p100_err
+
+        bbox_valid, valid_err = _validate_bounding_box(
+            edits["x_min"],
+            edits["x_max"],
+            edits["y_min"],
+            edits["y_max"],
+            edits["start_frame"],
+            edits["end_frame"],
+            p100,
+            self.common,
+        )
+
+        if valid_err or not bbox_valid:
+            return None, valid_err
+
+        if edits["label"] is not None:
+            label = str(edits["label"]).strip() or None
+            edits["label"] = label
+
+        edit_result, edit_err = self.editor.edit_footstep(
+            footstep_id,
+            event_id,
+            {
+                "XMin": edits["x_min"],
+                "XMax": edits["x_max"],
+                "YMin": edits["y_min"],
+                "YMax": edits["y_max"],
+                "StartFrame": edits["start_frame"],
+                "EndFrame": edits["end_frame"],
+            },
+            p100=p100,
+        )
+
+        if edit_err or not edit_result:
+            return None, edit_err or "edit_failed"
+
+        normalized_edit_result = _normalize_editor_update_result(edit_result)
+        self.db.update_step_archive_keys(
+            event_id,
+            normalized_edit_result["archive_key_updates"],
+        )
+
+        try:
+            footstep = self.db.update_local_footstep(event_id, footstep_id, edits)
+        except ValueError:
+            return None, "invalid_change"
+
+        if footstep is None:
+            return None, "no_footstep"
+
+        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
+        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
+
+        if metrics_err or new_metrics is None:
+            return None, "calculation_error"
+
+        result = self.db.update_event_metrics(event_id, new_metrics)
+
+        if result is None:
+            return None, "unexpected_error"
+
+        return self._create_review_payload(event_id, p100, footstep), None
+
+    def create_footstep(
+        self, event_id: str, new_footstep: CreateFootstepRequestPayload
+    ):
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
+            return None, err
+
+        p100, p100_err = self.common._get_p100(event)
+        if p100_err or p100 is None:
+            return None, p100_err
+
+        frame_count, err = self.common._get_trial_frame_count(event)
+        if err or frame_count is None:
+            return None, err
+
+        start_frame = int(new_footstep["start_frame"])
+        end_frame = int(new_footstep["end_frame"])
+        x_min = int(new_footstep["x_min"])
+        x_max = int(new_footstep["x_max"])
+        y_min = int(new_footstep["y_min"])
+        y_max = int(new_footstep["y_max"])
+
+        bbox_valid, valid_err = _validate_bounding_box(
+            x_min, x_max, y_min, y_max, start_frame, end_frame, p100, self.common
+        )
+        if valid_err or not bbox_valid:
+            return None, valid_err
+
+        label = None
+        if new_footstep["label"] is not None:
+            label = str(new_footstep["label"]).strip() or None
+
+        create_result, create_err = self.editor.create_footstep(
+            event_id,
+            {
+                "start_frame": start_frame,
+                "end_frame": end_frame,
+                "x_min": x_min,
+                "x_max": x_max,
+                "y_min": y_min,
+                "y_max": y_max,
+            },
+        )
+        if create_err or not create_result:
+            return None, create_err or "missing_file"
+
+        normalized_create_result = _normalize_editor_create_result(create_result)
+        self.db.update_step_archive_keys(
+            event_id,
+            normalized_create_result["archive_key_updates"],
+        )
+
+        footstep = self.db.create_local_footstep(
+            event_id,
+            step_archive_key=normalized_create_result["step_archive_key"],
+            start_frame=start_frame,
+            end_frame=end_frame,
+            x_min=x_min,
+            x_max=x_max,
+            y_min=y_min,
+            y_max=y_max,
+            label=label,
+        )
+
+        if footstep is None:
+            return None, "missing_file"
+
+        return self._create_review_payload(event_id, p100, footstep), None
+
+    def create_draft_footstep(
+        self, event_id: str, draft_footstep: DraftFootstepRequestPayload
+    ):
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
+            return None, err
+
+        p100, p100_err = self.common._get_p100(event)
+        if p100_err or p100 is None:
+            return None, p100_err
+
+        x_min = int(draft_footstep["x_min"])
+        x_max = int(draft_footstep["x_max"])
+        y_min = int(draft_footstep["y_min"])
+        y_max = int(draft_footstep["y_max"])
+
+        bbox_valid, valid_err = _validate_bounding_box(
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            0,
+            1,
+            p100,
+            self.common,
+        )
+        if valid_err or not bbox_valid:
+            return None, valid_err
+
+        draft, draft_err = self.editor.create_draft_footstep(
+            event_id,
+            {
+                "XMin": x_min,
+                "XMax": x_max,
+                "YMin": y_min,
+                "YMax": y_max,
+            },
+        )
+        if draft_err or draft is None:
+            return None, draft_err or "missing_file"
+
+        time_recording = np.asarray(draft["time_recording"])
+
+        return {
+            "event_id": event_id,
+            "start_frame": int(draft["StartFrame"]),
+            "end_frame": int(draft["EndFrame"]),
+            "x_min": int(draft["XMin"]),
+            "x_max": int(draft["XMax"]),
+            "y_min": int(draft["YMin"]),
+            "y_max": int(draft["YMax"]),
+            "depth": int(time_recording.shape[0]),
+            "volume": time_recording.tolist(),
+        }, None
+
+    def delete_footstep(self, event_id: str, footstep_id: int):
+        event, err = self.common._require_event(event_id)
+        if err or event is None:
+            return None, err
+
+        footstep, footstep_err = self.common._require_footstep(event_id, footstep_id)
+        if footstep_err or footstep is None:
+            return None, "no_footstep"
+
+        delete_result, delete_err = self.editor.delete_footstep(footstep, event)
+        if delete_err or not delete_result:
+            return None, delete_err or "delete_failed"
+
+        deleted = self.db.delete_local_footstep(event_id, footstep_id)
+        if deleted is None:
+            return None, "missing_file"
+
+        normalized_delete_result = _normalize_editor_update_result(delete_result)
+        self.db.update_step_archive_keys(
+            event_id,
+            normalized_delete_result["archive_key_updates"],
+        )
+
+        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
+        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
+
+        if metrics_err or new_metrics is None:
+            return None, "calculation_error"
+
+        result = self.db.update_event_metrics(event_id, new_metrics)
+
+        if result is None:
+            return None, "unexpected_error"
+
+        return {
+            "ok": True,
+            "event_id": event_id,
+            "footstep_id": footstep_id,
+        }, None
+
+    def get_footstep_data(self, event_id: str, step_id: int):
+        event, err = self.common._require_event(event_id)
+        if err:
+            return None, None, err
+
+        steps_npz, steps_err = self.common._load_steps_npz(event)
+        if steps_err or steps_npz is None:
+            return None, None, steps_err
+
+        try:
+            archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
+            key = str(archive_key)
+            if key not in _steps_keys(steps_npz):
+                return None, None, "missing_file"
+
+            # vol is the full footstep pressure volume across time.
+            # Shape: (time, height, width)
+            vol = _steps_value(steps_npz, key)  # (T, H, W)
+
+            # step_p100 is the max pressure image for this footstep.
+            # This is used for footstep heatmap-style rendering.
+            step_p100 = vol.max(axis=0)  # (H, W)
+
+            # step_grf is the per-frame total pressure signal.
+            # This is used like a simple force-over-time curve.
+            step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+
+            return step_p100.tolist(), step_grf.tolist(), None
+        finally:
+            _close_steps_npz(steps_npz)
+
+    def get_footstep_context_data(self, event_id: str, step_id: int):
+        event, err = self.common._require_event(event_id)
+        if err:
+            return None, err
+
+        steps_npz, steps_err = self.common._load_steps_npz(event)
+        if steps_err or steps_npz is None:
+            return None, steps_err
+
+        try:
+            archive_key = _resolve_step_archive_key(self.db, event_id, step_id)
+            key = str(archive_key)
+            if key not in _steps_keys(steps_npz):
+                return None, "missing_file"
+
+            vol = _steps_value(steps_npz, key)  # (T, H, W)
+            step_p100 = vol.max(axis=0)  # (H, W)
+            step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+
+            y_coords = np.arange(vol.shape[1], dtype=float)[None, :, None]
+            x_coords = np.arange(vol.shape[2], dtype=float)[None, None, :]
+
+            cop_x_num = (vol * x_coords).sum(axis=(1, 2))
+            cop_y_num = (vol * y_coords).sum(axis=(1, 2))
+
+            cop_x = np.divide(
+                cop_x_num,
+                step_grf,
+                out=np.full(step_grf.shape, np.nan, dtype=float),
+                where=step_grf != 0,
+            )
+            cop_y = np.divide(
+                cop_y_num,
+                step_grf,
+                out=np.full(step_grf.shape, np.nan, dtype=float),
+                where=step_grf != 0,
+            )
+
+            return {
+                "p100": step_p100.tolist(),
+                "grf": step_grf.tolist(),
+                "cop_x": cop_x.tolist(),
+                "cop_y": cop_y.tolist(),
+            }, None
+        finally:
+            _close_steps_npz(steps_npz)
+
+    # Return the max-pressure image for every footstep in one event.
+    # This is mainly used by the summary view when many footsteps
+    # need to be shown without loading each one separately.
+
+    def get_all_footstep_p100(self, event_id: str):
+        event, err = self.common._require_event(event_id)
+        if err:
+            return None, err
+
+        steps_npz, steps_err = self.common._load_steps_npz(event)
+        if steps_err or steps_npz is None:
+            return None, steps_err
+
+        archive_lookup = _build_archive_lookup(self.db.get_event_footsteps(event_id))
+        items = []
+        try:
+            for key in _steps_keys(steps_npz):
+                step_id = archive_lookup.get(int(key), int(key))
+                vol = _steps_value(steps_npz, key)  # (T, H, W)
+                step_p100 = vol.max(axis=0)  # (H, W)
+                items.append(
+                    {
+                        "id": int(step_id),
+                        "archive_key": int(key),
+                        "p100": step_p100.tolist(),
+                    }
+                )
+        except Exception:
+            return None, "missing_file"
+        finally:
+            _close_steps_npz(steps_npz)
+
+        items.sort(key=lambda x: x["archive_key"])
+        return [{"id": item["id"], "p100": item["p100"]} for item in items], None
+
+    # Return both the max-pressure image and force-over-time data
+    # for every footstep in one event.
+    #
+    # This is a heavier helper than get_all_footstep_p100() and is
+    # meant for views that need both visual and time-series data.
+
+    def get_all_footstep_details(self, event_id: str):
+        event, err = self.common._require_event(event_id)
+        if err:
+            return None, err
+
+        steps_npz, steps_err = self.common._load_steps_npz(event)
+        if steps_err or steps_npz is None:
+            return None, steps_err
+
+        archive_lookup = _build_archive_lookup(self.db.get_event_footsteps(event_id))
+        items = []
+        try:
+            for key in _steps_keys(steps_npz):
+                step_id = archive_lookup.get(int(key), int(key))
+                vol = _steps_value(steps_npz, key)  # (T, H, W)
+                step_p100 = vol.max(axis=0)  # (H, W)
+                step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+                items.append(
+                    {
+                        "id": int(step_id),
+                        "archive_key": int(key),
+                        "p100": step_p100.tolist(),
+                        "grf": step_grf.tolist(),
+                    }
+                )
+        except Exception:
+            return None, "missing_file"
+        finally:
+            _close_steps_npz(steps_npz)
+
+        items.sort(key=lambda x: x["archive_key"])
+        return [
+            {"id": item["id"], "p100": item["p100"], "grf": item["grf"]}
+            for item in items
+        ], None
+
+    def _create_review_payload(self, event_id, p100: np.ndarray, footstep):
         changes: list[ReviewChangePayload] = []
-        for change in self.db.get_local_footstep_changes(event_id, footstep_id):
+        for change in self.db.get_local_footstep_changes(
+            event_id, footstep.footstep_id
+        ):
             changes.append(
                 {
                     "action": change.action,
@@ -162,253 +588,104 @@ class SalFootsteps:
                 y_min=int(footstep.y_min),
                 y_max=int(footstep.y_max),
             ),
-            event_p100=p100,
+            event_p100=p100.tolist(),
             changes=changes,
         )
 
-        return payload, None
+        return payload
 
-    def save_footstep_review(self, event_id: str, footstep_id: int, edits: dict):
-        # Validate and save one local footstep edit.
-        #
-        # Validation is done here because the SAL knows the real event image
-        # bounds and keeps write behavior behind the DB layer. This updates the
-        # current local footstep row and lets the DB layer write the matching
-        # changelog entry for the edit.
-
-        # Validate the event exists
-        event, event_err = self.common._require_event(event_id)
-        if event_err or event is None:
-            return None, event_err
-
-        review, err = self.get_footstep_review_context(event_id, footstep_id)
+    def _check_footstep_data(self, event_id, footstep_id):
+        event, err = self.common._require_event(event_id)
         if err:
-            return None, err
+            return False
 
-        if review is None:
-            return None, "missing_file"
-
-        bbox_valid, valid_err = _validate_bounding_box(
-            edits["x_min"],
-            edits["x_max"],
-            edits["y_min"],
-            edits["y_max"],
-            edits["start_frame"],
-            edits["end_frame"],
-            review["event_p100"],
-            self.common,
-        )
-
-        if valid_err or not bbox_valid:
-            return None, valid_err
-
-        if edits["label"] is not None:
-            label = str(edits["label"]).strip() or None
-            edits["label"] = label
-
-        edit_ok, edit_err = self.editor.edit_footstep(
-            footstep_id,
-            event_id,
-            {
-                "XMin": edits["x_min"],
-                "XMax": edits["x_max"],
-                "YMin": edits["y_min"],
-                "YMax": edits["y_max"],
-                "StartFrame": edits["start_frame"],
-                "EndFrame": edits["end_frame"],
-            },
-        )
-
-        if edit_err or not edit_ok:
-            return None, edit_err or "edit_failed"
+        steps_npz, steps_err = self.common._load_steps_npz(event)
+        if steps_err or steps_npz is None:
+            return False
 
         try:
-            updated = self.db.update_local_footstep(event_id, footstep_id, edits)
-        except ValueError:
-            return None, "invalid_change"
+            archive_key = _resolve_step_archive_key(self.db, event_id, footstep_id)
+            key = str(archive_key)
+            if key not in _steps_keys(steps_npz):
+                return False
 
-        if updated is None:
-            return None, "no_footstep"
+            return True
+        finally:
+            _close_steps_npz(steps_npz)
 
-        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
-        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
 
-        if metrics_err or new_metrics is None:
-            return None, "calculation_error"
+def _resolve_step_archive_key(db: DB, event_id: str, footstep_id: int) -> int:
+    row = db.get_single_footstep(event_id, footstep_id)
+    if row is None:
+        return int(footstep_id)
 
-        result = self.db.update_event_metrics(event_id, new_metrics)
+    return int(getattr(row, "step_archive_key", footstep_id))
 
-        if result is None:
-            return None, "unexpected_error"
 
-        return self.get_footstep_review_context(event_id, footstep_id)
+def _build_archive_lookup(rows) -> dict[int, int]:
+    lookup: dict[int, int] = {}
+    for row in rows or []:
+        if isinstance(row, dict):
+            archive_key = row.get("step_archive_key")
+            footstep_id = row.get("footstep_id")
+        else:
+            archive_key = getattr(row, "step_archive_key", None)
+            footstep_id = getattr(row, "footstep_id", None)
+        if archive_key is None or footstep_id is None:
+            continue
+        lookup[int(archive_key)] = int(footstep_id)
+    return lookup
 
-    def create_footstep(
-        self, event_id: str, new_footstep: CreateFootstepRequestPayload
-    ):
-        event, err = self.common._require_event(event_id)
-        if err or event is None:
-            return None, err
 
-        p100, p100_err = self.common._get_p100(event)
-        if p100_err:
-            return None, p100_err
-
-        frame_count, err = self.common._get_trial_frame_count(event)
-        if err or frame_count is None:
-            return None, err
-
-        start_frame = int(new_footstep["start_frame"])
-        end_frame = int(new_footstep["end_frame"])
-        x_min = int(new_footstep["x_min"])
-        x_max = int(new_footstep["x_max"])
-        y_min = int(new_footstep["y_min"])
-        y_max = int(new_footstep["y_max"])
-
-        bbox_valid, valid_err = _validate_bounding_box(
-            x_min, x_max, y_min, y_max, start_frame, end_frame, p100, self.common
-        )
-        if valid_err or not bbox_valid:
-            return None, valid_err
-
-        label = None
-        if new_footstep["label"] is not None:
-            label = str(new_footstep["label"]).strip() or None
-
-        created = self.db.create_local_footstep(
-            event_id,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            x_min=x_min,
-            x_max=x_max,
-            y_min=y_min,
-            y_max=y_max,
-            label=label,
-        )
-        if created is None:
-            return None, "missing_file"
-
-        return self.get_footstep_review_context(event_id, int(created.footstep_id))
-
-    def delete_footstep(self, event_id: str, footstep_id: int):
-        event, err = self.common._require_event(event_id)
-        if err or event is None:
-            return None, err
-
-        row = self.db.get_single_footstep(event_id, footstep_id)
-        if row is None:
-            return None, "missing_file"
-
-        delete_ok, delete_err = self.editor.delete_footstep(footstep_id, event_id)
-        if delete_err or not delete_ok:
-            return None, delete_err or "delete_failed"
-
-        deleted = self.db.delete_local_footstep(event_id, footstep_id)
-        if deleted is None:
-            return None, "missing_file"
-
-        event_metadata_path = uri_to_path(event.trial_npz_uri).parent / "metadata.csv"
-        new_metrics, metrics_err = calculate_all_metrics(event_id, event_metadata_path)
-
-        if metrics_err or new_metrics is None:
-            return None, "calculation_error"
-
-        result = self.db.update_event_metrics(event_id, new_metrics)
-
-        if result is None:
-            return None, "unexpected_error"
-
+def _normalize_editor_update_result(result) -> _EditorUpdateResult:
+    if isinstance(result, dict):
         return {
-            "ok": True,
-            "event_id": event_id,
-            "footstep_id": footstep_id,
-        }, None
+            "archive_key_updates": {
+                int(old_key): int(new_key)
+                for old_key, new_key in result.get("archive_key_updates", {}).items()
+            }
+        }
 
-    def get_footstep_data(self, event_id: str, step_id: int):
-        event, err = self.common._require_event(event_id)
-        if err:
-            return None, None, err
+    return {"archive_key_updates": {}}
 
-        steps_npz, steps_err = self.common._load_steps_npz(event)
-        if steps_err or steps_npz is None:
-            return None, None, steps_err
 
-        key = str(step_id)
-        if key not in steps_npz.files:
-            return None, None, "missing_file"
+def _normalize_editor_create_result(result) -> _EditorCreateResult:
+    if isinstance(result, dict):
+        return {
+            "step_archive_key": int(result["step_archive_key"]),
+            "archive_key_updates": {
+                int(old_key): int(new_key)
+                for old_key, new_key in result.get("archive_key_updates", {}).items()
+            },
+        }
 
-        # vol is the full footstep pressure volume across time.
-        # Shape: (time, height, width)
-        vol = steps_npz[key]  # (T, H, W)
+    return {
+        "step_archive_key": int(result),
+        "archive_key_updates": {},
+    }
 
-        # step_p100 is the max pressure image for this footstep.
-        # This is used for footstep heatmap-style rendering.
-        step_p100 = vol.max(axis=0)  # (H, W)
 
-        # step_grf is the per-frame total pressure signal.
-        # This is used like a simple force-over-time curve.
-        step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
+def _steps_keys(steps_npz) -> list[str]:
+    if hasattr(steps_npz, "files"):
+        return [str(key) for key in steps_npz.files]
 
-        return step_p100, step_grf.tolist(), None
+    if isinstance(steps_npz, dict):
+        return [str(key) for key in steps_npz.keys()]
 
-    # Return the max-pressure image for every footstep in one event.
-    # This is mainly used by the summary view when many footsteps
-    # need to be shown without loading each one separately.
+    return []
 
-    def get_all_footstep_p100(self, event_id: str):
-        event, err = self.common._require_event(event_id)
-        if err:
-            return None, err
 
-        steps_npz, steps_err = self.common._load_steps_npz(event)
-        if steps_err or steps_npz is None:
-            return None, steps_err
+def _steps_value(steps_npz, key: str) -> np.ndarray:
+    return np.asarray(steps_npz[key])
 
-        items = []
+
+def _close_steps_npz(steps_npz) -> None:
+    close = getattr(steps_npz, "close", None)
+    if callable(close):
         try:
-            for key in steps_npz.files:
-                vol = steps_npz[key]  # (T, H, W)
-                step_p100 = vol.max(axis=0)  # (H, W)
-                items.append({"id": int(key), "p100": step_p100.tolist()})
+            close()
         except Exception:
-            return None, "missing_file"
-
-        items.sort(key=lambda x: x["id"])
-        return items, None
-
-    # Return both the max-pressure image and force-over-time data
-    # for every footstep in one event.
-    #
-    # This is a heavier helper than get_all_footstep_p100() and is
-    # meant for views that need both visual and time-series data.
-
-    def get_all_footstep_details(self, event_id: str):
-        event, err = self.common._require_event(event_id)
-        if err:
-            return None, err
-
-        steps_npz, steps_err = self.common._load_steps_npz(event)
-        if steps_err or steps_npz is None:
-            return None, steps_err
-
-        items = []
-        try:
-            for key in steps_npz.files:
-                vol = steps_npz[key]  # (T, H, W)
-                step_p100 = vol.max(axis=0)  # (H, W)
-                step_grf = vol.reshape(vol.shape[0], -1).sum(axis=1)  # (T,)
-                items.append(
-                    {
-                        "id": int(key),
-                        "p100": step_p100.tolist(),
-                        "grf": step_grf.tolist(),
-                    }
-                )
-        except Exception:
-            return None, "missing_file"
-
-        items.sort(key=lambda x: x["id"])
-        return items, None
+            return
 
 
 def _normalize_search_filters(
@@ -460,6 +737,7 @@ def _map_search_row(row) -> FootstepSearchItem:
     return {
         "event_id": row["event_id"],
         "footstep_id": int(row["footstep_id"]),
+        "step_number": int(row["step_number"]),
         "participant": row["participant"],
         "date": row["date"].isoformat() if row["date"] is not None else None,
         "start_frame": int(row["start_frame"]),
@@ -471,7 +749,7 @@ def _map_search_row(row) -> FootstepSearchItem:
         "bbox_width": int(row["bbox_width"]),
         "bbox_height": int(row["bbox_height"]),
         "bbox_area": int(row["bbox_area"]),
-        "has_thumbnail": bool(row["has_thumbnail"]),
+        "has_thumbnail": row["has_thumbnail"],
     }
 
 

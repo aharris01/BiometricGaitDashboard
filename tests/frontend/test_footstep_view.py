@@ -41,12 +41,14 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
         {
             "event_id": "evt-1",
             "footstep_id": 3,
+            "step_number": 3,
             "bbox_area": 123,
             "has_thumbnail": True,
         },
         {
             "event_id": "evt-2",
             "footstep_id": 4,
+            "step_number": 9,
             "bbox_area": None,
             "has_thumbnail": False,
         },
@@ -79,7 +81,7 @@ def test_render_footstep_cards_builds_titles_images_and_area_labels():
     assert props(first_children[2])["className"] == "footstep-card-meta"
 
     assert isinstance(second_children[0], html.Div)
-    assert props(second_children[0])["children"] == "evt-2 · Step 4"
+    assert props(second_children[0])["children"] == "evt-2 · Step 9"
 
     assert isinstance(second_children[1], html.Button)
     second_button_children = children_list(second_children[1])
@@ -100,14 +102,15 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert props(root)["className"] == "hidden"
 
     root_children = children_list(root)
-    assert len(root_children) == 3
+    assert len(root_children) == 4
 
-    row = root_children[0]
+    layout = root_children[0]
     history_modal = root_children[1]
     delete_modal = root_children[2]
+    draft_modal = root_children[3]
 
-    assert isinstance(row, html.Div)
-    assert props(row)["className"] == "footstep-row"
+    assert isinstance(layout, html.Div)
+    assert props(layout)["className"] == "footstep-layout"
 
     assert isinstance(history_modal, html.Div)
     assert props(history_modal)["id"] == "footstep-history-modal"
@@ -115,18 +118,50 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(delete_modal, html.Div)
     assert props(delete_modal)["id"] == "footstep-delete-modal"
 
-    row_children = children_list(row)
-    assert len(row_children) == 3
+    assert isinstance(draft_modal, html.Div)
+    assert props(draft_modal)["id"] == "footstep-draft-modal"
 
-    sidebar = row_children[0]
-    results_panel = row_children[1]
-    review_panel = row_children[2]
+    layout_children = children_list(layout)
+    assert len(layout_children) == 2
+
+    top_row = layout_children[0]
+    bottom_row = layout_children[1]
+
+    assert isinstance(top_row, html.Div)
+    assert props(top_row)["className"] == "footstep-row footstep-top-row"
+
+    assert isinstance(bottom_row, html.Div)
+    assert props(bottom_row)["className"] == "footstep-row footstep-bottom-row"
+
+    top_row_children = children_list(top_row)
+    assert len(top_row_children) == 2
+
+    sidebar = top_row_children[0]
+    top_main = top_row_children[1]
 
     assert isinstance(sidebar, html.Div)
     assert props(sidebar)["className"] == "footstep-sidebar"
 
+    assert isinstance(top_main, html.Div)
+    assert props(top_main)["className"] == "footstep-top-main"
+
+    top_main_children = children_list(top_main)
+    assert len(top_main_children) == 1
+
+    results_panel = top_main_children[0]
+
     assert isinstance(results_panel, html.Div)
     assert props(results_panel)["className"] == "footstep-results-panel"
+
+    bottom_row_children = children_list(bottom_row)
+    assert len(bottom_row_children) == 2
+
+    context_panel = bottom_row_children[0]
+    review_panel = bottom_row_children[1]
+
+    assert isinstance(context_panel, html.Div)
+    assert props(context_panel)["id"] == "footstep-context-panel"
+    assert props(context_panel)["className"] == "footstep-context-panel"
 
     assert isinstance(review_panel, html.Div)
     assert props(review_panel)["id"] == "footstep-review-panel"
@@ -279,3 +314,44 @@ def test_footstep_view_renders_sidebar_filters_and_results_panel():
     assert isinstance(load_more_children[0], html.Button)
     assert props(load_more_children[0])["id"] == "btn-load-more-footsteps"
     assert props(load_more_children[0])["children"] == "Load More"
+
+    # --------------------------------------------
+    # Context panel
+    # --------------------------------------------
+    context_children = children_list(context_panel)
+    assert len(context_children) == 5
+
+    context_header = context_children[0]
+    context_step = context_children[1]
+    context_meta = context_children[2]
+    context_p100 = context_children[3]
+    context_grf = context_children[4]
+
+    assert isinstance(context_header, html.Div)
+    context_header_children = children_list(context_header)
+    assert isinstance(context_header_children[0], html.H3)
+    assert props(context_header_children[0])["id"] == "footstep-context-title"
+    assert props(context_header_children[0])["children"] == "Footstep Context"
+
+    assert isinstance(context_step, html.Div)
+    assert props(context_step)["id"] == "footstep-context-step"
+    assert props(context_step)["children"] == ""
+
+    assert isinstance(context_meta, html.Div)
+    assert props(context_meta)["id"] == "footstep-context-meta"
+    assert (
+        props(context_meta)["children"] == "Click a thumbnail to inspect that footstep."
+    )
+
+    assert isinstance(context_p100, dcc.Graph)
+    assert props(context_p100)["id"] == "footstep-context-p100-graph"
+
+    assert isinstance(context_grf, dcc.Graph)
+    assert props(context_grf)["id"] == "footstep-context-grf-graph"
+
+    # --------------------------------------------
+    # Draft modal
+    # --------------------------------------------
+    draft_children = children_list(draft_modal)
+    assert len(draft_children) == 1
+    assert isinstance(draft_children[0], html.Div)
