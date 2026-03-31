@@ -102,6 +102,8 @@ Follow these instructions to get this dashboard up and running on your machine.
 - Install Python 3.11 on your machine
 - On Windows, make sure **Add Python to PATH** is checked during installation
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ### 1. Verify Python is installed
 - Open a terminal
 - Run:
@@ -200,6 +202,8 @@ DATAROOT=data
 - It must not point to:
   - the parent folder above `data`
   - an individual participant folder inside `data`
+ 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### 9. Delete `local.db` before the first run
 - In the repository folder, delete:
@@ -239,6 +243,8 @@ cd C:\UAT\gait-dashboard
 python main.py
 ```
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ### Troubleshooting
 - If Python is not recognized:
   - Reinstall Python and ensure **Add Python to PATH** is enabled
@@ -264,6 +270,8 @@ python -m pip install --prefer-binary -r requirements.txt
   - Confirm that `.env` is present
   - Confirm that `local.db` was deleted before the first run
   - Confirm that you are running the command from the repository root
+ 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Quick summary
 - Put the repo on your machine
