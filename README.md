@@ -118,13 +118,13 @@ python --version
 - Put the repository in a convenient folder, for example:
 
 ```text
-C:\UAT\gait-dashboard
+C:\Projects\gait-dashboard
 ```
 
 - Put the provided `data` folder somewhere on your machine, for example:
 
 ```text
-C:\UAT\data
+C:\data
 ```
 
 ### 3. Confirm the data folder structure
@@ -137,7 +137,7 @@ C:\UAT\data
 - Example:
 
 ```text
-C:\UAT\data\100\2023-09-15\in\7\
+C:\data\100\2023-09-15\in\7\
 ```
 
 - The event folder should contain files such as:
@@ -151,7 +151,7 @@ C:\UAT\data\100\2023-09-15\in\7\
 - Example:
 
 ```bash
-cd C:\UAT\gait-dashboard
+cd C:\Projects\gait-dashboard
 ```
 
 ### 5. Create a virtual environment
@@ -188,7 +188,7 @@ pip install -r requirements.txt
 - Example if `data` is outside the repo:
 
 ```env
-DATAROOT=C:\UAT\data
+DATAROOT=C:\data
 ```
 
 - Example if `data` is inside the repo folder:
@@ -238,7 +238,7 @@ http://127.0.0.1:8050
 - After the one-time setup is complete, starting the app should be as simple as:
 
 ```bash
-cd C:\UAT\gait-dashboard
+cd C:\Projects\gait-dashboard
 .venv\Scripts\activate
 python main.py
 ```
