@@ -202,7 +202,7 @@ DATAROOT=data
 - It must not point to:
   - the parent folder above `data`
   - an individual participant folder inside `data`
- 
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### 9. Delete `local.db` before the first run
@@ -270,7 +270,7 @@ python -m pip install --prefer-binary -r requirements.txt
   - Confirm that `.env` is present
   - Confirm that `local.db` was deleted before the first run
   - Confirm that you are running the command from the repository root
- 
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Quick summary
@@ -292,7 +292,21 @@ python main.py
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-TODO: give examples of functionality with screenshots
+* Select swipe event recordings on an interactive plot
+
+![Select swipe event recordings on an interactive plot][plot-img]
+
+* Inspect individual swipe events
+
+![Inspect individual swipe events][swipeevent-img]
+
+* View and filter individual footsteps
+
+![View and filter individual footsteps][footstepsview-img]
+
+* Singular footstep editing
+
+![Singular footstep editing][editfootstep-img]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -310,9 +324,9 @@ Project Link: [https://github.com/aharris01/BiometricGaitDashboard](https://gith
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* Dr. Aaron Tabor[]()
+* Dr. Aaron Tabor, []()
 * Dr. Erik Scheme, UNB Health Technologies Lab[]()
-* Dr. Shivam Saxena[]()
+* Dr. Shivam Saxena, Senior Design instructor[]()
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -321,6 +335,11 @@ Project Link: [https://github.com/aharris01/BiometricGaitDashboard](https://gith
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [product-screenshot]: images/screenshot.png
+[plot-img]: readme-images/plot.png
+[swipeevent-img]: readme-images/swipeevent.png
+[footstepsview-img]: readme-images/footstepsview.png
+[editfootstep-img]: readme-images/editfootstep.png
+
 <!-- Shields.io badges. You can a comprehensive list with many more badges at: https://github.com/inttter/md-badges -->
 [Dash.com]: https://img.shields.io/badge/Dash-7A76FF?style=for-the-badge&logo=plotly&logoColor=white
 [Dash-url]: https://dash.plotly.com
