@@ -54,6 +54,7 @@
         <li><a href="#important-note-about-dataroot">Important note about DATAROOT</a></li>
         <li><a href="#normal-startup-after-initial-setup">Normal startup after initial setup</a></li>
         <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#on-localdb">On local.db</a></li>
         <li><a href="#quick-summary">Quick summary</a></li>
       </ul>
     </li>
@@ -273,6 +274,9 @@ python -m pip install --prefer-binary -r requirements.txt
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+### On local.db
+Dataset modifications made through the dashboard are tracked by local.db. 
+
 ### Quick summary
 - Put the repo on your machine
 - Put the provided `data` folder on your machine
@@ -324,7 +328,7 @@ Project Link: [https://github.com/aharris01/BiometricGaitDashboard](https://gith
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* Dr. Aaron Tabor, []()
+* Dr. Aaron Tabor, project mentor[]()
 * Dr. Erik Scheme, UNB Health Technologies Lab[]()
 * Dr. Shivam Saxena, Senior Design instructor[]()
 
